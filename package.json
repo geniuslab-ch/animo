@@ -1,0 +1,24 @@
+{
+  "name": "animo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "worker.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/geniuslab-ch/animo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/geniuslab-ch/animo/issues"
+  },
+  "homepage": "https://github.com/geniuslab-ch/animo#readme",
+  "devDependencies": {
+    "wrangler": "^4.70.0"
+  }
+}

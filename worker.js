@@ -129,8 +129,14 @@ async function scrapeAnibis(url) {
     for (const pattern of galleryPatterns) {
         const matches = [...html.matchAll(pattern)];
         for (const m of matches) {
-            const imgUrl = m[1] || m[0];
-            if (imgUrl && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('avatar') && !imgUrl.includes('placeholder')) {
+            let imgUrl = m[1] || m[0];
+
+            // Forcer le HTTPS si l'URL commence par //
+            if (imgUrl && imgUrl.startsWith('//')) {
+                imgUrl = 'https:' + imgUrl;
+            }
+
+            if (imgUrl && imgUrl.startsWith('https://') && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('avatar') && !imgUrl.includes('placeholder')) {
                 images.push(imgUrl);
             }
         }

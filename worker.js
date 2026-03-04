@@ -49,9 +49,12 @@ export default {
             // ── Construction des messages multimodaux ──────────────────────────────
             const content = [];
 
+            // Filtrer strictement les HTTPS (Anibis a des vieux liens http://)
+            const secureImages = images.filter(img => img.startsWith("https://"));
+
             // Ajout des images en base64 (max 5)
             // L'API Anthropic requiert que les images soient envoyées en base64
-            for (const imgUrl of images.slice(0, 5)) {
+            for (const imgUrl of secureImages.slice(0, 5)) {
                 try {
                     const imgResp = await fetch(imgUrl);
                     if (imgResp.ok) {

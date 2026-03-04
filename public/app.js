@@ -1,6 +1,6 @@
 // ── Config ──────────────────────────────────────────────────────────────────
 // La clé API est protégée côté Worker Cloudflare — ne jamais l'écrire ici.
-const WORKER_URL = "https://animo.ai-ikigai.workers.dev";
+const WORKER_URL = "/api/analyze";
 const SECRET_TOKEN = "animo*2026";
 
 // ── Analyse principale ───────────────────────────────────────────────────────

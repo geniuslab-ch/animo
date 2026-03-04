@@ -26,7 +26,13 @@ export default {
         // ── Vérification du token ──────────────────────────────────────────────────
         const token = request.headers.get("x-secret-token");
         if (!token || token !== env.SECRET_TOKEN) {
-            return new Response("Unauthorized", { status: 401, headers: corsHeaders });
+            const debugObj = {
+                error: "Unauthorized",
+                hasExpectedToken: !!env.SECRET_TOKEN,
+                expectedLength: env.SECRET_TOKEN ? env.SECRET_TOKEN.length : 0,
+                receivedLength: token ? token.length : 0,
+            };
+            return new Response(JSON.stringify(debugObj), { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
         }
 
         try {

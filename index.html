@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analyste Anibis — Marché Suisse</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-flag"></div>
+  <div class="header-inner">
+    <div>
+      <div class="header-title">Analyste d'Annonces Anibis</div>
+      <div class="header-sub">Marché vaudois · Diagnostic professionnel</div>
+    </div>
+    <div class="header-badge">CH · VD</div>
+  </div>
+</header>
+
+<main>
+  <div class="section-label">Texte de l'annonce</div>
+  <textarea id="annonce" placeholder="Collez ici le texte complet de l'annonce Anibis à analyser…"></textarea>
+
+  <button class="btn-analyser" id="btnAnalyse" onclick="analyser()">
+    <div class="spinner"></div>
+    <span class="btn-text">Analyser l'annonce</span>
+  </button>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="divider" id="divider">
+    <div class="divider-line"></div>
+    <div class="divider-text">Résultats de l'analyse</div>
+    <div class="divider-line"></div>
+  </div>
+
+  <div class="loading-state" id="loadingState">
+    <div class="loading-bars">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="loading-text">Analyse en cours · Marché vaudois</div>
+  </div>
+
+  <div id="results">
+    <div class="section-label" style="margin-bottom:16px">Diagnostic · 3 points critiques</div>
+    <div class="diagnostic-grid" id="diagGrid"></div>
+
+    <div class="section-label" style="margin-bottom:16px">Message à envoyer au vendeur</div>
+    <div class="message-block">
+      <div class="message-header">
+        <span>Modèle de contact · Français formel · Vouvoiement</span>
+        <button class="copy-btn" onclick="copierMessage()">Copier</button>
+      </div>
+      <div class="message-body" id="messageBody"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-flag">
+    <div class="ch-cross"></div>
+  </div>
+  <p>Outil d'analyse pour le marché des petites annonces · Canton de Vaud · Suisse romande</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

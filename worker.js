@@ -49,20 +49,39 @@ export default {
             // ── Construction des messages multimodaux ──────────────────────────────
             const content = [];
 
-            // Ajout des images (max 5)
+            // Ajout des images en base64 (max 5)
+            // L'API Anthropic requiert que les images soient envoyées en base64
             for (const imgUrl of images.slice(0, 5)) {
-                content.push({
-                    type: "image",
-                    source: { type: "url", url: imgUrl },
-                });
-            }
+                try {
+                    const imgResp = await fetch(imgUrl);
+                    if (imgResp.ok) {
+                        const buffer = await imgResp.arrayBuffer();
+                        let mimeType = imgResp.headers.get("content-type") || "image/jpeg";
 
-            // --- DEBUG ---
-            // console.log("Extracted images:", images);
-            if (images.some(img => !img.startsWith("https://"))) {
-                return new Response(JSON.stringify({ error: "Non-HTTPS image found", images }), { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
+                        // Anthropic supporte image/jpeg, image/png, image/gif, image/webp
+                        if (!["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mimeType)) {
+                            mimeType = "image/jpeg"; // Fallback
+                        }
+
+                        // Conversion ArrayBuffer -> Base64
+                        const base64 = btoa(
+                            new Uint8Array(buffer)
+                                .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                        );
+
+                        content.push({
+                            type: "image",
+                            source: {
+                                type: "base64",
+                                media_type: mimeType,
+                                data: base64,
+                            },
+                        });
+                    }
+                } catch (e) {
+                    // Ignorer silencieusement si l'image échoue
+                }
             }
-            // --- FIN DEBUG ---
 
             // Ajout du prompt texte
             content.push({

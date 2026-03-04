@@ -57,6 +57,13 @@ export default {
                 });
             }
 
+            // --- DEBUG ---
+            // console.log("Extracted images:", images);
+            if (images.some(img => !img.startsWith("https://"))) {
+                return new Response(JSON.stringify({ error: "Non-HTTPS image found", images }), { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } });
+            }
+            // --- FIN DEBUG ---
+
             // Ajout du prompt texte
             content.push({
                 type: "text",

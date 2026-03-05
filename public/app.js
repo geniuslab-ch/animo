@@ -1,7 +1,15 @@
 // ── Config ──────────────────────────────────────────────────────────────────
-// La clé API est protégée côté Worker Cloudflare — ne jamais l'écrire ici.
 const WORKER_URL = "/api/analyze";
 const SECRET_TOKEN = "animo*2026";
+
+// ── Tab Navigation ───────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById("pageAnalyse").classList.toggle("active", tab === "analyse");
+  document.getElementById("pageHistorique").classList.toggle("active", tab === "historique");
+  document.getElementById("tabAnalyse").classList.toggle("active", tab === "analyse");
+  document.getElementById("tabHistorique").classList.toggle("active", tab === "historique");
+  if (tab === "historique") loadHistory();
+}
 
 // ── Analyse principale ───────────────────────────────────────────────────────
 async function analyser() {
@@ -12,7 +20,6 @@ async function analyser() {
     return;
   }
 
-  // Validation basique de l'URL
   let listingUrl;
   try {
     listingUrl = new URL(input).href;
@@ -27,7 +34,6 @@ async function analyser() {
   const results = document.getElementById("results");
   const divider = document.getElementById("divider");
 
-  // Reset UI
   errorBox.classList.remove("visible");
   results.classList.remove("visible");
   btn.disabled = true;
@@ -58,6 +64,7 @@ async function analyser() {
     const clean = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
 
+    saveToHistory(listingUrl, parsed);
     afficherResultats(parsed);
 
   } catch (err) {
@@ -74,8 +81,25 @@ async function analyser() {
 function afficherResultats(parsed) {
   const loading = document.getElementById("loadingState");
   const results = document.getElementById("results");
-  const grid = document.getElementById("diagGrid");
 
+  // Score annonce
+  if (parsed.score_annonce) {
+    const s = parsed.score_annonce;
+    document.getElementById("scoreAnnonceVal").textContent = s.valeur + "/100";
+    document.getElementById("scoreAnnonceInterp").textContent = s.interpretation || "";
+    document.getElementById("scoreAnnonceExpl").textContent = s.explication || "";
+  }
+
+  // Radar vendeur
+  if (parsed.radar_vendeur) {
+    const r = parsed.radar_vendeur;
+    document.getElementById("radarVal").textContent = r.opportunite_score + "/100";
+    document.getElementById("radarNiveau").textContent = r.niveau ? r.niveau.replace("_", " ") : "";
+    document.getElementById("radarExpl").textContent = r.explication || "";
+  }
+
+  // Diagnostic
+  const grid = document.getElementById("diagGrid");
   grid.innerHTML = "";
   if (parsed.diagnostic && Array.isArray(parsed.diagnostic)) {
     parsed.diagnostic.forEach((d, i) => {
@@ -90,8 +114,10 @@ function afficherResultats(parsed) {
     });
   }
 
-  document.getElementById("comparaisonBody").textContent = parsed.comparaison || "";
+  // Comparaison marché (le nouveau champ est comparaison_marche)
+  document.getElementById("comparaisonBody").textContent = parsed.comparaison_marche || parsed.comparaison || "";
 
+  // Recommandations
   const recList = document.getElementById("recommandationsList");
   recList.innerHTML = "";
   if (parsed.recommandations && Array.isArray(parsed.recommandations)) {
@@ -102,6 +128,13 @@ function afficherResultats(parsed) {
     });
   }
 
+  // Angle de prospection
+  if (parsed.angle_prospection) {
+    document.getElementById("anglePositionnement").textContent = parsed.angle_prospection.positionnement || "";
+    document.getElementById("angleQuestion").textContent = parsed.angle_prospection.question_ouverture || "";
+  }
+
+  // Messages
   document.getElementById("message1Body").textContent = parsed.message1 || "";
   document.getElementById("message2Body").textContent = parsed.message2 || "";
 
@@ -126,9 +159,97 @@ function afficherErreur(msg) {
 }
 
 function escapeHTML(str) {
+  if (!str) return "";
   return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+// ── Historique (localStorage) ─────────────────────────────────────────────────
+function saveToHistory(url, data) {
+  const history = JSON.parse(localStorage.getItem("animo_history") || "[]");
+
+  // Try to extract a meaningful title from the data
+  const title = extractTitle(data, url);
+
+  const newItem = {
+    id: Date.now(),
+    url: url,
+    title: title,
+    date: new Date().toLocaleString("fr-CH"),
+    data: data
+  };
+
+  history.unshift(newItem);
+  localStorage.setItem("animo_history", JSON.stringify(history.slice(0, 20)));
+}
+
+function extractTitle(data, url) {
+  // Look for a property title in the diagnostic titles or comparaison
+  if (data.diagnostic && data.diagnostic.length > 0) {
+    // Try to guess from the URL itself (anibis URL often contains property title)
+    try {
+      const urlObj = new URL(url);
+      const parts = urlObj.pathname.split("/").filter(Boolean);
+      if (parts.length > 0) {
+        // Last segment usually has the slug
+        const slug = parts[parts.length - 1];
+        const titleFromSlug = slug.replace(/-/g, " ").replace(/\d+$/, "").trim();
+        if (titleFromSlug.length > 5) return titleFromSlug;
+      }
+    } catch (e) { }
+  }
+  return url;
+}
+
+function loadHistory() {
+  const container = document.getElementById("historyList");
+  if (!container) return;
+
+  const history = JSON.parse(localStorage.getItem("animo_history") || "[]");
+
+  if (history.length === 0) {
+    container.innerHTML = '<div class="history-empty">Aucune analyse récente</div>';
+    return;
+  }
+
+  container.innerHTML = history.map(item => `
+    <div class="history-item" onclick="restaurerAnalyse(${item.id})">
+      <div class="history-item-date">${item.date}</div>
+      <div class="history-item-title">${escapeHTML(item.title || item.url)}</div>
+      <div class="history-item-url">${escapeHTML(item.url)}</div>
+    </div>
+  `).join("");
+}
+
+function restaurerAnalyse(id) {
+  const history = JSON.parse(localStorage.getItem("animo_history") || "[]");
+  const item = history.find(i => i.id === id);
+  if (item) {
+    // Switch to analyse tab
+    switchTab("analyse");
+    document.getElementById("annonce").value = item.url;
+    afficherResultats(item.data);
+    setTimeout(() => {
+      document.getElementById("divider").classList.add("visible");
+      document.getElementById("divider").scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  }
+}
+
+// ── Génération PDF ──────────────────────────────────────────────────────────
+function genererPDF() {
+  const element = document.getElementById("pdf-report");
+  const opt = {
+    margin: 10,
+    filename: 'Analyse-Anibis.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  html2pdf().set(opt).from(element).save();
+}
+
+window.onload = () => loadHistory();

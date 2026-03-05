@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Analyste Anibis — Marché Suisse</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -19,61 +20,118 @@
       </div>
       <div class="header-badge">CH · VD</div>
     </div>
+    <!-- Tabs -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
+      <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
+    </nav>
   </header>
 
   <main>
-    <div class="section-label">Lien de l'annonce Anibis</div>
-    <textarea id="annonce"
-      placeholder="Collez ici le lien complet de l'annonce (ex: https://www.anibis.ch/fr/d/appartement-...)"></textarea>
 
-    <button class="btn-analyser" id="btnAnalyse" onclick="analyser()">
-      <div class="spinner"></div>
-      <span class="btn-text">Analyser l'annonce</span>
-    </button>
+    <!-- ── TAB: Analyse ─────────────────────────────────────────────────── -->
+    <div id="pageAnalyse" class="tab-page active">
+      <div class="section-label">Lien de l'annonce Anibis</div>
+      <textarea id="annonce"
+        placeholder="Collez ici le lien complet de l'annonce (ex: https://www.anibis.ch/fr/d/appartement-...)"></textarea>
 
-    <div class="error-box" id="errorBox"></div>
+      <button class="btn-analyser" id="btnAnalyse" onclick="analyser()">
+        <div class="spinner"></div>
+        <span class="btn-text">Analyser l'annonce</span>
+      </button>
 
-    <div class="divider" id="divider">
-      <div class="divider-line"></div>
-      <div class="divider-text">Résultats de l'analyse</div>
-      <div class="divider-line"></div>
-    </div>
+      <div class="error-box" id="errorBox"></div>
 
-    <div class="loading-state" id="loadingState">
-      <div class="loading-bars">
-        <span></span><span></span><span></span><span></span>
+      <div class="divider" id="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">Résultats de l'analyse</div>
+        <div class="divider-line"></div>
       </div>
-      <div class="loading-text">Analyse en cours · Récupération de l'annonce et des photos</div>
-    </div>
 
-    <div id="results">
-      <div class="section-label" style="margin-bottom:16px">Diagnostic · 3 points critiques</div>
-      <div class="diagnostic-grid" id="diagGrid"></div>
-
-      <div class="section-label" style="margin-bottom:16px; margin-top:32px">Comparaison avec le marché</div>
-      <div class="comparaison-block" id="comparaisonBody"></div>
-
-      <div class="section-label" style="margin-bottom:16px; margin-top:32px">Recommandations</div>
-      <ol class="recommandations-list" id="recommandationsList"></ol>
-
-      <div class="section-label" style="margin-bottom:16px; margin-top:32px">1. Ice Breaker (Premier contact)</div>
-      <div class="message-block">
-        <div class="message-header">
-          <span>Message d'approche · À envoyer en premier</span>
-          <button class="copy-btn" onclick="copierMessage('message1Body', this)">Copier</button>
+      <div class="loading-state" id="loadingState">
+        <div class="loading-bars">
+          <span></span><span></span><span></span><span></span>
         </div>
-        <div class="message-body" id="message1Body"></div>
+        <div class="loading-text">Analyse en cours · Récupération de l'annonce et des photos</div>
       </div>
 
-      <div class="section-label" style="margin-bottom:16px; margin-top:32px">2. L'Analyse (Si réponse positive)</div>
-      <div class="message-block">
-        <div class="message-header">
-          <span>Diagnostic complet · À envoyer ensuite</span>
-          <button class="copy-btn" onclick="copierMessage('message2Body', this)">Copier</button>
+      <div id="results">
+
+        <!-- Scores en haut -->
+        <div class="scores-row">
+          <div class="score-card" id="scoreAnnonce">
+            <div class="score-label">Score annonce</div>
+            <div class="score-value" id="scoreAnnonceVal">—</div>
+            <div class="score-interp" id="scoreAnnonceInterp"></div>
+            <div class="score-expl" id="scoreAnnonceExpl"></div>
+          </div>
+          <div class="score-card accent" id="scoreRadar">
+            <div class="score-label">Opportunité vendeur</div>
+            <div class="score-value" id="radarVal">—</div>
+            <div class="score-interp" id="radarNiveau"></div>
+            <div class="score-expl" id="radarExpl"></div>
+          </div>
         </div>
-        <div class="message-body" id="message2Body"></div>
+
+        <!-- PDF report zone -->
+        <div id="pdf-report">
+          <div class="results-header">
+            <div class="section-label">Diagnostic · 3 points critiques</div>
+            <button class="btn-pdf" onclick="genererPDF()">Télécharger PDF</button>
+          </div>
+          <h1 class="pdf-title print-only">Rapport d'Analyse — Analyste Animo</h1>
+          <div class="diagnostic-grid" id="diagGrid"></div>
+
+          <div class="section-label" style="margin-bottom:16px; margin-top:32px">Comparaison avec le marché</div>
+          <div class="comparaison-block" id="comparaisonBody"></div>
+
+          <div class="section-label" style="margin-bottom:16px; margin-top:32px">Recommandations</div>
+          <ol class="recommandations-list" id="recommandationsList"></ol>
+        </div>
+
+        <!-- Angle prospection -->
+        <div class="section-label" style="margin-bottom:16px; margin-top:32px">Angle de prospection</div>
+        <div class="angle-block">
+          <div class="angle-row">
+            <span class="angle-label">Positionnement</span>
+            <span id="anglePositionnement"></span>
+          </div>
+          <div class="angle-row">
+            <span class="angle-label">Question d'ouverture</span>
+            <span id="angleQuestion"></span>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="section-label" style="margin-bottom:16px; margin-top:32px">1. Ice Breaker (Premier contact)</div>
+        <div class="message-block">
+          <div class="message-header">
+            <span>Message d'approche · À envoyer en premier</span>
+            <button class="copy-btn" onclick="copierMessage('message1Body', this)">Copier</button>
+          </div>
+          <div class="message-body" id="message1Body"></div>
+        </div>
+
+        <div class="section-label" style="margin-bottom:16px; margin-top:32px">2. L'Analyse (Si réponse positive)</div>
+        <div class="message-block">
+          <div class="message-header">
+            <span>Diagnostic complet · À envoyer ensuite</span>
+            <button class="copy-btn" onclick="copierMessage('message2Body', this)">Copier</button>
+          </div>
+          <div class="message-body" id="message2Body"></div>
+        </div>
+
       </div>
     </div>
+
+    <!-- ── TAB: Historique ──────────────────────────────────────────────── -->
+    <div id="pageHistorique" class="tab-page">
+      <div class="section-label" style="margin-bottom:24px">Historique de vos analyses</div>
+      <div id="historyList" class="history-list">
+        <div class="history-empty">Aucune analyse récente</div>
+      </div>
+    </div>
+
   </main>
 
   <footer>

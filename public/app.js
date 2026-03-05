@@ -128,12 +128,6 @@ function afficherResultats(parsed) {
     });
   }
 
-  // Angle de prospection
-  if (parsed.angle_prospection) {
-    document.getElementById("anglePositionnement").textContent = parsed.angle_prospection.positionnement || "";
-    document.getElementById("angleQuestion").textContent = parsed.angle_prospection.question_ouverture || "";
-  }
-
   // Messages
   document.getElementById("message1Body").textContent = parsed.message1 || "";
   document.getElementById("message2Body").textContent = parsed.message2 || "";

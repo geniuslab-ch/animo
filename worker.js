@@ -196,30 +196,36 @@ async function scrapeAnibis(url) {
     return { text, images: uniqueImages };
 }
 
-// ── Prompt système ───────────────────────────────────────────────────────────
 function buildPrompt(text, url, imageCount) {
-    return `Tu es un expert en négociation et vente sur le marché Anibis, spécialiste du Canton de Vaud (Suisse).
+    return `You are a Swiss real estate market analyst specialized in the canton of Vaud.
+Your task is to analyze a real estate listing published by a private seller and generate a short diagnostic report.
+The goal of the report is to highlight opportunities to improve the attractiveness of the listing compared to typical listings in the Vaud real estate market.
 
-Analyse cette annonce immobilière (lien : ${url}) et réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks.
-${imageCount > 0 ? `Tu as accès à ${imageCount} photo(s) de l'annonce — analyse-les également (qualité, luminosité, mise en scène, ce qu'elles révèlent ou cachent).` : ''}
+Tone: Professional, neutral, constructive, never judgmental. Write the report in French.
 
-Format exact attendu:
+Analyze this real estate listing (URL: ${url}).
+${imageCount > 0 ? `You also have access to ${imageCount} photo(s) of the listing — analyze them as well.` : ''}
+
+You MUST reply ONLY with valid JSON, without any markdown formatting or \`\`\` wrappers.
+
+EXPECTED EXACT JSON FORMAT:
 {
   "diagnostic": [
-    {"titre": "TITRE COURT", "texte": "Explication précise du frein à la vente (2-3 phrases)"},
-    {"titre": "TITRE COURT", "texte": "Explication précise du frein à la vente (2-3 phrases)"},
-    {"titre": "TITRE COURT", "texte": "Explication précise du frein à la vente (2-3 phrases)"}
-  ],
-  "message": "Message complet en français formel avec vouvoiement, prêt à envoyer au vendeur. Poli, constructif, demande les informations manquantes ou propose un contact."
+    {
+      "titre": "Short title",
+      "texte": "Explain why this matters for buyers in the canton of Vaud and how it affects the attractiveness of the listing. (2-3 sentences max)"
+    }
+  ], // Identify exactly the 3 most important improvement opportunities
+  "comparaison": "Explain briefly how similar properties in the region are usually presented (photos, description, information provided).",
+  "recommandations": [
+    "Concrete recommendation 1",
+    "Concrete recommendation 2",
+    "Concrete recommendation 3"
+  ], // Provide 3–5 concrete recommendations that could increase buyer interest
+  "message1": "Write a short ice-breaker message. Example: 'Bonjour, Je me permets de vous écrire car j’ai analysé votre annonce... Souhaitez-vous que je vous le transmette ?'",
+  "message2": "Write the follow-up message containing the actual analysis findings, based on the diagnostic, comparisons, and recommendations above. (formal French 'vous')."
 }
 
-Critères d'analyse pour le marché vaudois:
-- Prix: cohérence avec le marché immobilier vaudois (PPE, Vaud) — si absent, le signaler
-- Qualité des photos: nombre, luminosité, mise en scène, angles, ce qui est caché
-- Précision technique: CECB, année de construction, charges PPE, état toiture, diagnostics, règlement PPE
-- Psychologie: ton adapté à l'acheteur suisse romand (confiance, sérieux, précision)
-- Informations manquantes clés pour le marché suisse
-
-Contenu extrait de la page:
+Listing text content:
 ${text}`;
 }

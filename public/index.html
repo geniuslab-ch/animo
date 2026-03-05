@@ -50,13 +50,28 @@
       <div class="section-label" style="margin-bottom:16px">Diagnostic · 3 points critiques</div>
       <div class="diagnostic-grid" id="diagGrid"></div>
 
-      <div class="section-label" style="margin-bottom:16px">Message à envoyer au vendeur</div>
+      <div class="section-label" style="margin-bottom:16px; margin-top:32px">Comparaison avec le marché</div>
+      <div class="comparaison-block" id="comparaisonBody"></div>
+
+      <div class="section-label" style="margin-bottom:16px; margin-top:32px">Recommandations</div>
+      <ol class="recommandations-list" id="recommandationsList"></ol>
+
+      <div class="section-label" style="margin-bottom:16px; margin-top:32px">1. Ice Breaker (Premier contact)</div>
       <div class="message-block">
         <div class="message-header">
-          <span>Modèle de contact · Français formel · Vouvoiement</span>
-          <button class="copy-btn" onclick="copierMessage()">Copier</button>
+          <span>Message d'approche · À envoyer en premier</span>
+          <button class="copy-btn" onclick="copierMessage('message1Body', this)">Copier</button>
         </div>
-        <div class="message-body" id="messageBody"></div>
+        <div class="message-body" id="message1Body"></div>
+      </div>
+
+      <div class="section-label" style="margin-bottom:16px; margin-top:32px">2. L'Analyse (Si réponse positive)</div>
+      <div class="message-block">
+        <div class="message-header">
+          <span>Diagnostic complet · À envoyer ensuite</span>
+          <button class="copy-btn" onclick="copierMessage('message2Body', this)">Copier</button>
+        </div>
+        <div class="message-body" id="message2Body"></div>
       </div>
     </div>
   </main>

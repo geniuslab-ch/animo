@@ -77,30 +77,44 @@ function afficherResultats(parsed) {
   const grid = document.getElementById("diagGrid");
 
   grid.innerHTML = "";
-  parsed.diagnostic.forEach((d, i) => {
-    grid.innerHTML += `
-      <div class="diag-card">
-        <div class="diag-num">${i + 1}</div>
-        <div class="diag-content">
-          <h3>${escapeHTML(d.titre)}</h3>
-          <p>${escapeHTML(d.texte)}</p>
-        </div>
-      </div>`;
-  });
+  if (parsed.diagnostic && Array.isArray(parsed.diagnostic)) {
+    parsed.diagnostic.forEach((d, i) => {
+      grid.innerHTML += `
+        <div class="diag-card">
+          <div class="diag-num">${i + 1}</div>
+          <div class="diag-content">
+            <h3>${escapeHTML(d.titre)}</h3>
+            <p>${escapeHTML(d.texte)}</p>
+          </div>
+        </div>`;
+    });
+  }
 
-  document.getElementById("messageBody").textContent = parsed.message;
+  document.getElementById("comparaisonBody").textContent = parsed.comparaison || "";
+
+  const recList = document.getElementById("recommandationsList");
+  recList.innerHTML = "";
+  if (parsed.recommandations && Array.isArray(parsed.recommandations)) {
+    parsed.recommandations.forEach(r => {
+      const li = document.createElement("li");
+      li.textContent = r;
+      recList.appendChild(li);
+    });
+  }
+
+  document.getElementById("message1Body").textContent = parsed.message1 || "";
+  document.getElementById("message2Body").textContent = parsed.message2 || "";
 
   loading.classList.remove("visible");
   results.classList.add("visible");
 }
 
 // ── Copier le message ────────────────────────────────────────────────────────
-function copierMessage() {
-  const msg = document.getElementById("messageBody").textContent;
+function copierMessage(elementId, btnElement) {
+  const msg = document.getElementById(elementId).textContent;
   navigator.clipboard.writeText(msg).then(() => {
-    const btn = document.querySelector(".copy-btn");
-    btn.textContent = "Copié ✓";
-    setTimeout(() => (btn.textContent = "Copier"), 2000);
+    btnElement.textContent = "Copié ✓";
+    setTimeout(() => (btnElement.textContent = "Copier"), 2000);
   });
 }
 

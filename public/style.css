@@ -216,6 +216,34 @@ textarea::placeholder { color: #bbb; font-style: italic; }
   color: var(--noir);
 }
 
+/* ── Comparaison & Recommandations ── */
+.comparaison-block {
+  background: white;
+  border: 1px solid var(--gris-clair);
+  padding: 24px;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--noir);
+}
+
+.recommandations-list {
+  background: white;
+  border: 1px solid var(--gris-clair);
+  padding: 24px 24px 24px 48px;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--noir);
+}
+
+.recommandations-list li {
+  margin-bottom: 12px;
+  padding-left: 8px;
+}
+
+.recommandations-list li:last-child {
+  margin-bottom: 0;
+}
+
 /* ── Message ── */
 .message-block {
   border: 1px solid var(--gris-clair);

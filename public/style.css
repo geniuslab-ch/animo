@@ -593,12 +593,8 @@ textarea::placeholder {
   box-shadow: var(--shadow-md);
 }
 
-.recommandations-list {
-  counter-reset: reco;
-}
-
 .recommandations-list li::before {
-  content: counter(reco, decimal-leading-zero);
+  content: attr(data-num);
   position: absolute;
   left: 16px;
   top: 14px;
@@ -662,6 +658,51 @@ textarea::placeholder {
 }
 
 /* ── History Tab ────────────────────────────────────────────────────────────*/
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.history-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--gris);
+  letter-spacing: 0.1em;
+  display: block;
+  margin-top: 4px;
+}
+
+.history-search-wrap {
+  flex: 0 0 auto;
+}
+
+.history-search {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  padding: 9px 14px;
+  border: 1.5px solid var(--gris-clair);
+  border-radius: var(--radius);
+  background: white;
+  color: var(--noir);
+  width: 280px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+
+.history-search::placeholder {
+  color: #bbb;
+}
+
+.history-search:focus {
+  border-color: var(--rouge);
+  box-shadow: 0 0 0 3px var(--rouge-soft);
+}
+
 .history-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

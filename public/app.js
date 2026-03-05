@@ -121,8 +121,9 @@ function afficherResultats(parsed) {
   const recList = document.getElementById("recommandationsList");
   recList.innerHTML = "";
   if (parsed.recommandations && Array.isArray(parsed.recommandations)) {
-    parsed.recommandations.forEach(r => {
+    parsed.recommandations.forEach((r, i) => {
       const li = document.createElement("li");
+      li.setAttribute("data-num", String(i + 1).padStart(2, "0"));
       li.textContent = r;
       recList.appendChild(li);
     });
@@ -176,8 +177,9 @@ function saveToHistory(url, data) {
     data: data
   };
 
+  // Keep ALL entries, no cap
   history.unshift(newItem);
-  localStorage.setItem("animo_history", JSON.stringify(history.slice(0, 20)));
+  localStorage.setItem("animo_history", JSON.stringify(history));
 }
 
 function extractTitle(data, url) {
@@ -198,24 +200,40 @@ function extractTitle(data, url) {
   return url;
 }
 
-function loadHistory() {
+function loadHistory(query = "") {
   const container = document.getElementById("historyList");
   if (!container) return;
 
   const history = JSON.parse(localStorage.getItem("animo_history") || "[]");
+  const q = query.toLowerCase().trim();
+  const filtered = q ? history.filter(i =>
+    (i.url && i.url.toLowerCase().includes(q)) ||
+    (i.title && i.title.toLowerCase().includes(q))
+  ) : history;
 
-  if (history.length === 0) {
-    container.innerHTML = '<div class="history-empty">Aucune analyse récente</div>';
+  // Update count badge
+  const badge = document.getElementById("historyCount");
+  if (badge) badge.textContent = `${filtered.length} / ${history.length}`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = q
+      ? '<div class="history-empty">Aucun résultat pour cette recherche</div>'
+      : '<div class="history-empty">Aucune analyse récente</div>';
     return;
   }
 
-  container.innerHTML = history.map(item => `
+  container.innerHTML = filtered.map(item => `
     <div class="history-item" onclick="restaurerAnalyse(${item.id})">
       <div class="history-item-date">${item.date}</div>
       <div class="history-item-title">${escapeHTML(item.title || item.url)}</div>
       <div class="history-item-url">${escapeHTML(item.url)}</div>
     </div>
   `).join("");
+}
+
+function filterHistory() {
+  const q = document.getElementById("historySearch")?.value || "";
+  loadHistory(q);
 }
 
 function restaurerAnalyse(id) {

@@ -116,7 +116,16 @@
 
     <!-- ── TAB: Historique ──────────────────────────────────────────────── -->
     <div id="pageHistorique" class="tab-page">
-      <div class="section-label" style="margin-bottom:24px">Historique de vos analyses</div>
+      <div class="history-header">
+        <div>
+          <div class="section-label">Historique de vos analyses</div>
+          <span class="history-count" id="historyCount"></span>
+        </div>
+        <div class="history-search-wrap">
+          <input type="text" id="historySearch" class="history-search" placeholder="Filtrer par URL ou titre…"
+            oninput="filterHistory()" />
+        </div>
+      </div>
       <div id="historyList" class="history-list">
         <div class="history-empty">Aucune analyse récente</div>
       </div>

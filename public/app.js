@@ -140,8 +140,8 @@ function afficherResultats(parsed) {
   document.getElementById("message1Body").textContent = parsed.message1 || "";
   document.getElementById("message2Body").textContent = parsed.message2 || "";
 
-  loading.classList.remove("visible");
-  results.classList.add("visible");
+  if (loading) loading.classList.remove("visible");
+  if (results) results.classList.add("visible");
 }
 
 // ── Copier le message ────────────────────────────────────────────────────────
@@ -156,8 +156,14 @@ function copierMessage(elementId, btnElement) {
 // ── Utilitaires ─────────────────────────────────────────────────────────────
 function afficherErreur(msg) {
   const box = document.getElementById("errorBox");
-  box.textContent = msg;
-  box.classList.add("visible");
+  if (box) {
+    box.textContent = msg;
+    box.classList.add("visible");
+  } else {
+    // Fallback if there is no error box
+    console.error(msg);
+    alert(msg);
+  }
 }
 
 function escapeHTML(str) {

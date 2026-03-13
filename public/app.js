@@ -13,7 +13,8 @@ function switchTab(tab) {
 
 // ── Analyse principale ───────────────────────────────────────────────────────
 async function analyser() {
-  const input = document.getElementById("annonce").value.trim();
+  const annonceEl = document.getElementById("annonce");
+  const input = annonceEl ? annonceEl.value.trim() : window.location.href;
 
   if (!input) {
     afficherErreur("Veuillez coller le lien d'une annonce Anibis avant de lancer l'analyse.");
@@ -34,14 +35,16 @@ async function analyser() {
   const results = document.getElementById("results");
   const divider = document.getElementById("divider");
 
-  errorBox.classList.remove("visible");
-  results.classList.remove("visible");
-  btn.disabled = true;
-  btn.classList.add("loading");
+  if (errorBox) errorBox.classList.remove("visible");
+  if (results) results.classList.remove("visible");
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add("loading");
+  }
 
-  setTimeout(() => {
-    loading.classList.add("visible");
-    divider.classList.add("visible");
+  const timeoutId = setTimeout(() => {
+    if (loading) loading.classList.add("visible");
+    if (divider) divider.classList.add("visible");
   }, 200);
 
   try {
@@ -65,16 +68,20 @@ async function analyser() {
     const parsed = JSON.parse(clean);
 
     saveToHistory(listingUrl, parsed);
+    clearTimeout(timeoutId);
     afficherResultats(parsed);
 
   } catch (err) {
-    loading.classList.remove("visible");
-    divider.classList.remove("visible");
+    clearTimeout(timeoutId);
+    if (loading) loading.classList.remove("visible");
+    if (divider) divider.classList.remove("visible");
     afficherErreur("Erreur lors de l'analyse : " + err.message);
   }
 
-  btn.disabled = false;
-  btn.classList.remove("loading");
+  if (btn) {
+    btn.disabled = false;
+    btn.classList.remove("loading");
+  }
 }
 
 // ── Affichage des résultats ──────────────────────────────────────────────────

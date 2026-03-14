@@ -11,22 +11,54 @@ function switchTab(tab) {
   if (tab === "historique") loadHistory();
 }
 
+// ── Mode de saisie (URL ou contenu colle) ────────────────────────────────────
+let inputMode = "url"; // "url" ou "content"
+
+function switchInputMode(mode) {
+  inputMode = mode;
+  const annonce = document.getElementById("annonce");
+  const btnUrl = document.getElementById("btnModeUrl");
+  const btnContent = document.getElementById("btnModeContent");
+  const label = document.getElementById("inputLabel");
+
+  if (mode === "content") {
+    annonce.placeholder = "Collez ici le texte complet de l'annonce (copiez tout le contenu visible de la page Anibis)";
+    annonce.style.minHeight = "150px";
+    if (label) label.textContent = "Contenu de l'annonce (copier-coller)";
+  } else {
+    annonce.placeholder = "Collez ici le lien complet de l'annonce (ex: https://www.anibis.ch/fr/d/appartement-...)";
+    annonce.style.minHeight = "";
+    if (label) label.textContent = "Lien de l'annonce";
+  }
+
+  if (btnUrl) btnUrl.classList.toggle("active", mode === "url");
+  if (btnContent) btnContent.classList.toggle("active", mode === "content");
+}
+
 // ── Analyse principale ───────────────────────────────────────────────────────
 async function analyser() {
   const annonceEl = document.getElementById("annonce");
-  const input = annonceEl ? annonceEl.value.trim() : window.location.href;
+  const input = annonceEl ? annonceEl.value.trim() : "";
 
   if (!input) {
-    afficherErreur("Veuillez coller le lien d'une annonce Anibis avant de lancer l'analyse.");
+    afficherErreur(inputMode === "url"
+      ? "Veuillez coller le lien d'une annonce avant de lancer l'analyse."
+      : "Veuillez coller le contenu de l'annonce avant de lancer l'analyse.");
     return;
   }
 
-  let listingUrl;
-  try {
-    listingUrl = new URL(input).href;
-  } catch {
-    afficherErreur("Le texte saisi ne ressemble pas à une URL valide. Collez le lien complet de l'annonce (ex: https://www.anibis.ch/...)");
-    return;
+  let listingUrl = null;
+  let listingContent = null;
+
+  if (inputMode === "content") {
+    listingContent = input;
+  } else {
+    try {
+      listingUrl = new URL(input).href;
+    } catch {
+      afficherErreur("Le texte saisi ne ressemble pas a une URL valide. Collez le lien complet ou passez en mode Coller le contenu.");
+      return;
+    }
   }
 
   const btn = document.getElementById("btnAnalyse");
@@ -48,13 +80,14 @@ async function analyser() {
   }, 200);
 
   try {
+    const payload = listingContent ? { listingContent } : { listingUrl };
     const response = await fetch(WORKER_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-secret-token": SECRET_TOKEN,
       },
-      body: JSON.stringify({ listingUrl }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -63,11 +96,26 @@ async function analyser() {
     }
 
     const data = await response.json();
+
+    // Verifier si le scraping a ete bloque
+    if (data.error === "SCRAPE_BLOCKED") {
+      clearTimeout(timeoutId);
+      if (loading) loading.classList.remove("visible");
+      if (divider) divider.classList.remove("visible");
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove("loading");
+      }
+      afficherErreur("Le site bloque l'acces automatique. Passez en mode « Coller le contenu » : ouvrez l'annonce dans votre navigateur, selectionnez tout le texte (Ctrl+A), copiez-le (Ctrl+C), puis collez-le ici.");
+      switchInputMode("content");
+      return;
+    }
+
     const raw = data.content.map(b => b.text || "").join("");
     const clean = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
 
-    saveToHistory(listingUrl, parsed);
+    saveToHistory(listingUrl || "contenu-colle", parsed);
     clearTimeout(timeoutId);
     afficherResultats(parsed);
 
@@ -84,7 +132,7 @@ async function analyser() {
   }
 }
 
-// ── Affichage des résultats ──────────────────────────────────────────────────
+// ── Affichage des resultats ──────────────────────────────────────────────────
 function afficherResultats(parsed) {
   const loading = document.getElementById("loadingState");
   const results = document.getElementById("results");
@@ -121,7 +169,7 @@ function afficherResultats(parsed) {
     });
   }
 
-  // Comparaison marché (le nouveau champ est comparaison_marche)
+  // Comparaison marche
   document.getElementById("comparaisonBody").textContent = parsed.comparaison_marche || parsed.comparaison || "";
 
   // Recommandations
@@ -148,19 +196,18 @@ function afficherResultats(parsed) {
 function copierMessage(elementId, btnElement) {
   const msg = document.getElementById(elementId).textContent;
   navigator.clipboard.writeText(msg).then(() => {
-    btnElement.textContent = "Copié ✓";
+    btnElement.textContent = "Copie !";
     setTimeout(() => (btnElement.textContent = "Copier"), 2000);
   });
 }
 
-// ── Utilitaires ─────────────────────────────────────────────────────────────
+// ── Utilitaires ──────────────────────────────────────────────────────────────
 function afficherErreur(msg) {
   const box = document.getElementById("errorBox");
   if (box) {
     box.textContent = msg;
     box.classList.add("visible");
   } else {
-    // Fallback if there is no error box
     console.error(msg);
     alert(msg);
   }
@@ -175,11 +222,10 @@ function escapeHTML(str) {
     .replace(/"/g, "&quot;");
 }
 
-// ── Historique (localStorage) ─────────────────────────────────────────────────
+// ── Historique (localStorage) ────────────────────────────────────────────────
 function saveToHistory(url, data) {
   const history = JSON.parse(localStorage.getItem("animo_history") || "[]");
 
-  // Try to extract a meaningful title from the data
   const title = extractTitle(data, url);
 
   const newItem = {
@@ -190,20 +236,16 @@ function saveToHistory(url, data) {
     data: data
   };
 
-  // Keep ALL entries, no cap
   history.unshift(newItem);
   localStorage.setItem("animo_history", JSON.stringify(history));
 }
 
 function extractTitle(data, url) {
-  // Look for a property title in the diagnostic titles or comparaison
   if (data.diagnostic && data.diagnostic.length > 0) {
-    // Try to guess from the URL itself (anibis URL often contains property title)
     try {
       const urlObj = new URL(url);
       const parts = urlObj.pathname.split("/").filter(Boolean);
       if (parts.length > 0) {
-        // Last segment usually has the slug
         const slug = parts[parts.length - 1];
         const titleFromSlug = slug.replace(/-/g, " ").replace(/\d+$/, "").trim();
         if (titleFromSlug.length > 5) return titleFromSlug;
@@ -224,14 +266,13 @@ function loadHistory(query = "") {
     (i.title && i.title.toLowerCase().includes(q))
   ) : history;
 
-  // Update count badge
   const badge = document.getElementById("historyCount");
   if (badge) badge.textContent = `${filtered.length} / ${history.length}`;
 
   if (filtered.length === 0) {
     container.innerHTML = q
-      ? '<div class="history-empty">Aucun résultat pour cette recherche</div>'
-      : '<div class="history-empty">Aucune analyse récente</div>';
+      ? '<div class="history-empty">Aucun resultat pour cette recherche</div>'
+      : '<div class="history-empty">Aucune analyse recente</div>';
     return;
   }
 
@@ -253,7 +294,6 @@ function restaurerAnalyse(id) {
   const history = JSON.parse(localStorage.getItem("animo_history") || "[]");
   const item = history.find(i => i.id === id);
   if (item) {
-    // Switch to analyse tab
     switchTab("analyse");
     document.getElementById("annonce").value = item.url;
     afficherResultats(item.data);
@@ -264,7 +304,7 @@ function restaurerAnalyse(id) {
   }
 }
 
-// ── Génération PDF ──────────────────────────────────────────────────────────
+// ── Generation PDF ───────────────────────────────────────────────────────────
 function genererPDF() {
   const element = document.getElementById("pdf-report");
   const opt = {

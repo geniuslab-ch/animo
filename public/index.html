@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Analyste Anibis — Marché Suisse</title>
+  <title>Analyste Immobilier — Marché Suisse</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -17,7 +17,7 @@
       <div class="header-brand">
         <div class="header-logo-mark">A</div>
         <div class="header-text">
-          <div class="header-title">Analyste d'Annonces Anibis</div>
+          <div class="header-title">Analyste Immobilier</div>
           <div class="header-sub">Marché vaudois · Intelligence immobilière</div>
         </div>
       </div>
@@ -26,6 +26,7 @@
     <!-- Tabs -->
     <nav class="tab-nav">
       <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
+      <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
     </nav>
   </header>
@@ -121,6 +122,77 @@
       </div>
     </div>
 
+    <!-- ── TAB: Agences (Bookmarklet) ────────────────────────────────── -->
+    <div id="pageAgences" class="tab-page">
+
+      <div class="agences-intro">
+        <div class="section-label">Analyser les annonces d'agences immobilières</div>
+        <p class="agences-desc">
+          Analysez n'importe quelle annonce sur les sites d'agences immobilières en un clic,
+          directement depuis votre navigateur. Le bookmarklet extrait automatiquement le texte
+          et les photos de la page, puis lance l'analyse.
+        </p>
+      </div>
+
+      <!-- Installation -->
+      <div class="bookmarklet-install">
+        <div class="bookmarklet-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Installer le bookmarklet</h3>
+            <p>Glissez-déposez ce bouton dans votre <strong>barre de favoris</strong> :</p>
+            <div class="bookmarklet-drag-zone">
+              <a href="#" id="bookmarkletLink" class="bookmarklet-btn" title="Glissez-moi dans vos favoris !">
+                Analyser avec Animo
+              </a>
+              <span class="drag-hint">Glissez vers vos favoris</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bookmarklet-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Naviguer vers une annonce</h3>
+            <p>Allez sur le site d'une agence immobilière et ouvrez la page d'un bien en vente.</p>
+          </div>
+        </div>
+
+        <div class="bookmarklet-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Cliquer sur le bookmarklet</h3>
+            <p>Cliquez sur « Analyser avec Animo » dans vos favoris. L'outil s'ouvre et l'analyse démarre automatiquement avec le texte et les photos de la page.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sites compatibles -->
+      <div class="section-label" style="margin-top:40px; margin-bottom:16px">Sites compatibles</div>
+      <p class="agences-desc" style="margin-bottom:16px">
+        Le bookmarklet fonctionne sur <strong>tous les sites</strong> — il extrait le contenu visible de la page.
+        Particulièrement optimisé pour les agences immobilières du canton de Vaud :
+      </p>
+      <div class="sites-grid">
+        <span class="site-tag">Naef</span>
+        <span class="site-tag">Bernard Nicod</span>
+        <span class="site-tag">Cogestim</span>
+        <span class="site-tag">Maillard Immo</span>
+        <span class="site-tag">Barnes Suisse</span>
+        <span class="site-tag">Domicim</span>
+        <span class="site-tag">Gerofinance</span>
+        <span class="site-tag">Comptoir Immo</span>
+        <span class="site-tag">Neho</span>
+        <span class="site-tag">SPG</span>
+        <span class="site-tag">Régie du Boux</span>
+        <span class="site-tag">Galland</span>
+        <span class="site-tag">Burnier</span>
+        <span class="site-tag">Anibis</span>
+        <span class="site-tag">+ tout autre site</span>
+      </div>
+
+    </div>
+
     <!-- ── TAB: Historique ──────────────────────────────────────────────── -->
     <div id="pageHistorique" class="tab-page">
       <div class="history-header">
@@ -144,7 +216,7 @@
     <div class="footer-flag">
       <div class="ch-cross"></div>
     </div>
-    <p>Outil d'analyse pour le marché des petites annonces · Canton de Vaud · Suisse romande</p>
+    <p>Outil d'analyse pour le marché immobilier · Canton de Vaud · Suisse romande</p>
   </footer>
 
   <script src="app.js"></script>

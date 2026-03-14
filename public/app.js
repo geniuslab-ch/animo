@@ -6,8 +6,10 @@ const SECRET_TOKEN = "animo*2026";
 function switchTab(tab) {
   document.getElementById("pageAnalyse").classList.toggle("active", tab === "analyse");
   document.getElementById("pageHistorique").classList.toggle("active", tab === "historique");
+  document.getElementById("pageAgences").classList.toggle("active", tab === "agences");
   document.getElementById("tabAnalyse").classList.toggle("active", tab === "analyse");
   document.getElementById("tabHistorique").classList.toggle("active", tab === "historique");
+  document.getElementById("tabAgences").classList.toggle("active", tab === "agences");
   if (tab === "historique") loadHistory();
 }
 
@@ -22,7 +24,7 @@ function switchInputMode(mode) {
   const label = document.getElementById("inputLabel");
 
   if (mode === "content") {
-    annonce.placeholder = "Collez ici le texte complet de l'annonce (copiez tout le contenu visible de la page Anibis)";
+    annonce.placeholder = "Collez ici le texte complet de l'annonce (copiez tout le contenu visible de la page)";
     annonce.style.minHeight = "150px";
     if (label) label.textContent = "Contenu de l'annonce (copier-coller)";
   } else {
@@ -61,11 +63,19 @@ async function analyser() {
     }
   }
 
+  lancerAnalyse({ listingUrl, listingContent });
+}
+
+// ── Lancer l'analyse (commun URL / contenu / bookmarklet) ────────────────────
+async function lancerAnalyse({ listingUrl, listingContent, listingImages }) {
   const btn = document.getElementById("btnAnalyse");
   const errorBox = document.getElementById("errorBox");
   const loading = document.getElementById("loadingState");
   const results = document.getElementById("results");
   const divider = document.getElementById("divider");
+
+  // S'assurer qu'on est sur l'onglet analyse
+  switchTab("analyse");
 
   if (errorBox) errorBox.classList.remove("visible");
   if (results) results.classList.remove("visible");
@@ -80,7 +90,11 @@ async function analyser() {
   }, 200);
 
   try {
-    const payload = listingContent ? { listingContent } : { listingUrl };
+    const payload = {};
+    if (listingContent) payload.listingContent = listingContent;
+    if (listingUrl) payload.listingUrl = listingUrl;
+    if (listingImages && listingImages.length > 0) payload.listingImages = listingImages;
+
     const response = await fetch(WORKER_URL, {
       method: "POST",
       headers: {
@@ -106,7 +120,7 @@ async function analyser() {
         btn.disabled = false;
         btn.classList.remove("loading");
       }
-      afficherErreur("Le site bloque l'acces automatique. Passez en mode « Coller le contenu » : ouvrez l'annonce dans votre navigateur, selectionnez tout le texte (Ctrl+A), copiez-le (Ctrl+C), puis collez-le ici.");
+      afficherErreur("Le site bloque l'acces automatique. Utilisez le bookmarklet (onglet Agences) ou passez en mode « Coller le contenu ».");
       switchInputMode("content");
       return;
     }
@@ -115,7 +129,7 @@ async function analyser() {
     const clean = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
 
-    saveToHistory(listingUrl || "contenu-colle", parsed);
+    saveToHistory(listingUrl || "bookmarklet", parsed);
     clearTimeout(timeoutId);
     afficherResultats(parsed);
 
@@ -131,6 +145,24 @@ async function analyser() {
     btn.classList.remove("loading");
   }
 }
+
+// ── Reception des donnees du bookmarklet ─────────────────────────────────────
+window.addEventListener("message", function(event) {
+  // Accepter les messages du bookmarklet
+  if (event.data && event.data.type === "ANIMO_BOOKMARKLET") {
+    const { url, text, images } = event.data;
+
+    // Afficher l'URL dans le champ
+    const annonce = document.getElementById("annonce");
+    if (annonce) annonce.value = url || "";
+
+    lancerAnalyse({
+      listingUrl: url,
+      listingContent: text,
+      listingImages: images || [],
+    });
+  }
+});
 
 // ── Affichage des resultats ──────────────────────────────────────────────────
 function afficherResultats(parsed) {
@@ -317,4 +349,52 @@ function genererPDF() {
   html2pdf().set(opt).from(element).save();
 }
 
-window.onload = () => loadHistory();
+// ── Bookmarklet URL generation ───────────────────────────────────────────────
+function getBookmarkletCode() {
+  // Le bookmarklet extrait le texte + images de la page courante
+  // puis ouvre Animo et envoie les donnees via postMessage
+  const animoUrl = window.location.origin;
+
+  const code = `javascript:void(function(){
+    var text='';
+    var imgs=[];
+    var url=location.href;
+
+    /* Extraire le texte visible */
+    var body=document.body.cloneNode(true);
+    var kill=body.querySelectorAll('script,style,nav,header,footer,iframe,noscript');
+    for(var i=0;i<kill.length;i++)kill[i].remove();
+    text=body.innerText.replace(/\\s+/g,' ').trim().substring(0,4000);
+
+    /* Extraire les images du bien (pas logos/icons) */
+    var allImgs=document.querySelectorAll('img[src]');
+    for(var j=0;j<allImgs.length;j++){
+      var s=allImgs[j].src;
+      var w=allImgs[j].naturalWidth||allImgs[j].width||0;
+      if(s.startsWith('https://')&&w>200&&s.indexOf('logo')<0&&s.indexOf('icon')<0&&s.indexOf('avatar')<0&&s.indexOf('favicon')<0){
+        imgs.push(s);
+      }
+      if(imgs.length>=5)break;
+    }
+
+    /* Ouvrir Animo et envoyer les donnees */
+    var w2=window.open('${animoUrl}','_blank');
+    setTimeout(function(){
+      w2.postMessage({type:'ANIMO_BOOKMARKLET',url:url,text:text,images:imgs},'*');
+    },2000);
+  }())`;
+
+  return code.replace(/\n\s*/g, '');
+}
+
+function initBookmarklet() {
+  const link = document.getElementById("bookmarkletLink");
+  if (link) {
+    link.href = getBookmarkletCode();
+  }
+}
+
+window.onload = () => {
+  loadHistory();
+  initBookmarklet();
+};

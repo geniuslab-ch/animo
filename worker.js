@@ -36,24 +36,23 @@ export default {
         }
 
         try {
-            const { listingUrl, listingContent } = await request.json();
+            const { listingUrl, listingContent, listingImages } = await request.json();
             if (!listingUrl && !listingContent) {
                 return new Response(JSON.stringify({ error: "listingUrl ou listingContent manquant" }), {
                     status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
                 });
             }
 
-            // ── Scraping ou contenu collé ────────────────────────────────────────
+            // ── Scraping ou contenu collé / bookmarklet ──────────────────────────
             let text, images;
             if (listingContent) {
-                // Mode fallback : contenu collé par l'utilisateur
+                // Mode bookmarklet ou copier-coller
                 text = listingContent.substring(0, 4000);
-                images = [];
+                images = listingImages || [];
             } else {
                 try {
-                    ({ text, images } = await scrapeAnibis(listingUrl));
+                    ({ text, images } = await scrapePage(listingUrl));
                 } catch (scrapeErr) {
-                    // Si le scraping échoue (403, etc.), renvoyer une erreur spécifique
                     return new Response(JSON.stringify({
                         error: "SCRAPE_BLOCKED",
                         message: scrapeErr.message,
@@ -67,24 +66,29 @@ export default {
             // ── Construction des messages multimodaux ──────────────────────────────
             const content = [];
 
-            // Filtrer strictement les HTTPS (Anibis a des vieux liens http://)
+            // Filtrer strictement les HTTPS
             const secureImages = images.filter(img => img.startsWith("https://"));
 
             // Ajout des images en base64 (max 5)
-            // L'API Anthropic requiert que les images soient envoyées en base64
             for (const imgUrl of secureImages.slice(0, 5)) {
                 try {
-                    const imgResp = await fetch(imgUrl);
+                    const imgResp = await fetch(imgUrl, {
+                        headers: {
+                            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                            "Referer": listingUrl || "",
+                        },
+                    });
                     if (imgResp.ok) {
                         const buffer = await imgResp.arrayBuffer();
-                        let mimeType = imgResp.headers.get("content-type") || "image/jpeg";
+                        // Ignorer les images trop petites (< 2KB, probablement des icônes)
+                        if (buffer.byteLength < 2000) continue;
 
-                        // Anthropic supporte image/jpeg, image/png, image/gif, image/webp
+                        let mimeType = imgResp.headers.get("content-type") || "image/jpeg";
                         if (!["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mimeType)) {
-                            mimeType = "image/jpeg"; // Fallback
+                            mimeType = "image/jpeg";
                         }
 
-                        // Conversion ArrayBuffer -> Base64
                         const base64 = btoa(
                             new Uint8Array(buffer)
                                 .reduce((data, byte) => data + String.fromCharCode(byte), '')
@@ -107,7 +111,7 @@ export default {
             // Ajout du prompt texte
             content.push({
                 type: "text",
-                text: buildPrompt(text, listingUrl || "contenu collé manuellement", images.length),
+                text: buildPrompt(text, listingUrl || "contenu extrait par bookmarklet", images.length),
             });
 
             // ── Appel Anthropic ────────────────────────────────────────────────────
@@ -140,13 +144,19 @@ export default {
     },
 };
 
-// ── Scraping de la page Anibis ───────────────────────────────────────────────
-async function scrapeAnibis(url) {
+// ── Scraping générique d'une page immobilière ────────────────────────────────
+async function scrapePage(url) {
     const response = await fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "fr-CH,fr;q=0.9",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
         },
     });
 
@@ -164,7 +174,7 @@ async function scrapeAnibis(url) {
         || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
     if (ogMatch) images.push(ogMatch[1]);
 
-    // 2. Images de la galerie Anibis (patterns courants)
+    // 2. Images de la galerie (patterns courants pour sites immobiliers suisses)
     const galleryPatterns = [
         /https:\/\/[^"'\s]+anibis[^"'\s]+\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s]*)?/gi,
         /https:\/\/img\.[^"'\s]+\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s]*)?/gi,
@@ -178,19 +188,17 @@ async function scrapeAnibis(url) {
         for (const m of matches) {
             let imgUrl = m[1] || m[0];
 
-            // Forcer le HTTPS si l'URL commence par //
             if (imgUrl && imgUrl.startsWith('//')) {
                 imgUrl = 'https:' + imgUrl;
             }
 
-            if (imgUrl && imgUrl.startsWith('https://') && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('avatar') && !imgUrl.includes('placeholder')) {
+            if (imgUrl && imgUrl.startsWith('https://') && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('avatar') && !imgUrl.includes('placeholder') && !imgUrl.includes('favicon')) {
                 images.push(imgUrl);
             }
         }
         if (images.length >= 6) break;
     }
 
-    // Dédoublonnage
     const uniqueImages = [...new Set(images)].slice(0, 5);
 
     // ── Extraction du texte ────────────────────────────────────────────────────
@@ -215,14 +223,14 @@ async function scrapeAnibis(url) {
 }
 
 function buildPrompt(text, url, imageCount) {
-    const daysOnline = "N/A";
-    const price = "N/A";
-    const location = "N/A";
-    const propertyType = "N/A";
+    const isAgencySite = !url.includes('anibis.ch') && !url.includes('contenu');
+    const sellerContext = isAgencySite
+        ? "published by a real estate agency"
+        : "published by a private seller";
 
     return `You are a Swiss real estate market intelligence analyst specialized in the canton of Vaud.
 
-Your role is to analyze a real estate listing published by a private seller and generate:
+Your role is to analyze a real estate listing ${sellerContext} and generate:
 1) a listing quality diagnostic
 2) a seller opportunity radar score (probability that the seller could be receptive to professional help)
 3) prospecting messages that a real estate professional could send.
@@ -247,16 +255,10 @@ You are analyzing this listing:
 
 URL: ${url}
 
-${imageCount > 0 ? `The listing contains ${imageCount} photo(s). You should consider their quantity and potential coverage of the property.` : ''}
+${imageCount > 0 ? `The listing contains ${imageCount} photo(s). You should consider their quantity and potential coverage of the property.` : 'No photos were provided with this listing.'}
 
 Listing content:
 ${text}
-
-If available:
-days_online: ${daysOnline}
-price: ${price}
-location: ${location}
-property_type: ${propertyType}
 
 Your analysis should follow these steps internally:
 
@@ -280,10 +282,10 @@ Your analysis should follow these steps internally:
 4. Estimate an "opportunite_score" from 0 to 100 representing the probability that the seller could be receptive to professional support.
 
 Interpretation:
-0–30: faible
-30–50: moyenne
-50–70: élevée
-70–100: très élevée
+0-30: faible
+30-50: moyenne
+50-70: elevee
+70-100: tres elevee
 
 Return the following JSON structure EXACTLY:
 

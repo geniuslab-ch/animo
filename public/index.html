@@ -34,7 +34,14 @@
 
     <!-- ── TAB: Analyse ─────────────────────────────────────────────────── -->
     <div id="pageAnalyse" class="tab-page active">
-      <div class="section-label">Lien de l'annonce Anibis</div>
+
+      <!-- Mode toggle -->
+      <div class="input-mode-toggle">
+        <button class="mode-btn active" id="btnModeUrl" onclick="switchInputMode('url')">Lien URL</button>
+        <button class="mode-btn" id="btnModeContent" onclick="switchInputMode('content')">Coller le contenu</button>
+      </div>
+
+      <div class="section-label" id="inputLabel">Lien de l'annonce</div>
       <textarea id="annonce"
         placeholder="Collez ici le lien complet de l'annonce (ex: https://www.anibis.ch/fr/d/appartement-...)"></textarea>
 

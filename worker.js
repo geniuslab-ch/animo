@@ -36,15 +36,33 @@ export default {
         }
 
         try {
-            const { listingUrl } = await request.json();
-            if (!listingUrl) {
-                return new Response(JSON.stringify({ error: "listingUrl manquant" }), {
+            const { listingUrl, listingContent } = await request.json();
+            if (!listingUrl && !listingContent) {
+                return new Response(JSON.stringify({ error: "listingUrl ou listingContent manquant" }), {
                     status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
                 });
             }
 
-            // ── Scraping de l'annonce ──────────────────────────────────────────────
-            const { text, images } = await scrapeAnibis(listingUrl);
+            // ── Scraping ou contenu collé ────────────────────────────────────────
+            let text, images;
+            if (listingContent) {
+                // Mode fallback : contenu collé par l'utilisateur
+                text = listingContent.substring(0, 4000);
+                images = [];
+            } else {
+                try {
+                    ({ text, images } = await scrapeAnibis(listingUrl));
+                } catch (scrapeErr) {
+                    // Si le scraping échoue (403, etc.), renvoyer une erreur spécifique
+                    return new Response(JSON.stringify({
+                        error: "SCRAPE_BLOCKED",
+                        message: scrapeErr.message,
+                    }), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json", ...corsHeaders },
+                    });
+                }
+            }
 
             // ── Construction des messages multimodaux ──────────────────────────────
             const content = [];
@@ -89,7 +107,7 @@ export default {
             // Ajout du prompt texte
             content.push({
                 type: "text",
-                text: buildPrompt(text, listingUrl, images.length),
+                text: buildPrompt(text, listingUrl || "contenu collé manuellement", images.length),
             });
 
             // ── Appel Anthropic ────────────────────────────────────────────────────

@@ -895,3 +895,42 @@ footer p {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--gris);
 }
+
+/* ── Input Mode Toggle ────────────────────────────────────────────────────*/
+.input-mode-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border: 1.5px solid var(--gris-clair);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: white;
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gris);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn + .mode-btn {
+  border-left: 1.5px solid var(--gris-clair);
+}
+
+.mode-btn.active {
+  background: var(--noir);
+  color: white;
+}
+
+.mode-btn:not(.active):hover {
+  background: var(--gris-clair);
+  color: var(--noir);
+}

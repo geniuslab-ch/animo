@@ -7,9 +7,14 @@ export default {
     async fetch(request, env) {
         const url = new URL(request.url);
 
-        // ── Route : scrape-listings (scan en masse) ──────────────────────────
+        // ── Route : scrape-listings (scan en masse petitesannonces) ─────────
         if (url.pathname === "/api/scrape-listings") {
             return handleScrapeListings(request, env);
+        }
+
+        // ── Route : scrape-agency (scan automatique site agence) ─────────────
+        if (url.pathname === "/api/scrape-agency") {
+            return handleScrapeAgency(request, env);
         }
 
         if (url.pathname !== "/api/analyze") {
@@ -251,11 +256,29 @@ async function handleScrapeListings(request, env) {
     }
 
     try {
-        const { url: pageUrl } = await request.json();
+        const { url: pageUrl, singleAd } = await request.json();
         if (!pageUrl) {
             return new Response(JSON.stringify({ error: "url manquant" }), {
                 status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
             });
+        }
+
+        // Mode fiche individuelle (pour le matching)
+        if (singleAd) {
+            try {
+                const ad = await scrapeAdDetail(pageUrl);
+                return new Response(JSON.stringify({
+                    annonces: ad ? [ad] : [],
+                    hasMore: false,
+                    total: ad ? 1 : 0,
+                }), {
+                    status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+                });
+            } catch (e) {
+                return new Response(JSON.stringify({ annonces: [], hasMore: false, total: 0 }), {
+                    status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+                });
+            }
         }
 
         // Fetcher la page de liste
@@ -406,6 +429,281 @@ async function scrapeAdDetail(adUrl) {
         localisation,
         image_url,
         source: "petitesannonces.ch",
+    };
+}
+
+// ── Scrape Agency (scan automatique d'un site d'agence) ─────────────────────
+async function handleScrapeAgency(request, env) {
+    const corsHeaders = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, x-secret-token",
+    };
+
+    if (request.method === "OPTIONS") {
+        return new Response(null, { headers: corsHeaders });
+    }
+    if (request.method !== "POST") {
+        return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+    }
+
+    const token = request.headers.get("x-secret-token");
+    if (!token || token !== env.SECRET_TOKEN) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+
+    try {
+        const { url: pageUrl, agencyName } = await request.json();
+        if (!pageUrl) {
+            return new Response(JSON.stringify({ error: "url manquant" }), {
+                status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+        }
+
+        const baseObj = new URL(pageUrl);
+        const baseDomain = baseObj.origin;
+
+        // Fetcher la page de listings de l'agence
+        const response = await fetch(pageUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+                "Referer": baseDomain + "/",
+            },
+        });
+
+        if (!response.ok) {
+            return new Response(JSON.stringify({
+                annonces: [],
+                error: `Site inaccessible (${response.status})`,
+            }), {
+                status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+        }
+
+        const html = await response.text();
+        const isSPA = detectSPAShell(html);
+
+        // Strategie generique : extraire les annonces directement depuis le HTML de la page de liste
+        const annonces = isSPA ? [] : extractAgencyListings(html, baseDomain, agencyName || "Agence");
+
+        const status = annonces.length > 0 ? 'ok' : (isSPA ? 'spa_empty' : 'empty');
+        const message = isSPA ? 'Site SPA - contenu rendu cote client, extraction limitee' : null;
+
+        return new Response(JSON.stringify({ annonces, total: annonces.length, status, message }), {
+            status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+
+    } catch (err) {
+        return new Response(JSON.stringify({ annonces: [], error: err.message }), {
+            status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+}
+
+function detectSPAShell(html) {
+    const textContent = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return textContent.length < 200;
+}
+
+// ── Extraction generique des listings depuis une page d'agence ──────────────
+function extractAgencyListings(html, baseDomain, agencyName) {
+    const annonces = [];
+
+    // Nettoyer le HTML pour le texte
+    const textOnly = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+        .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+        .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+
+    // Strategie 1 : JSON-LD (schema.org) — beaucoup d'agences l'utilisent
+    const jsonLdMatches = html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    for (const m of jsonLdMatches) {
+        try {
+            const jsonData = JSON.parse(m[1].trim());
+            const items = Array.isArray(jsonData) ? jsonData : [jsonData];
+            for (const item of items) {
+                if (item["@type"] === "RealEstateListing" || item["@type"] === "Product" ||
+                    item["@type"] === "Apartment" || item["@type"] === "House" ||
+                    item["@type"] === "Residence") {
+                    const ad = extractFromJsonLd(item, baseDomain, agencyName);
+                    if (ad) annonces.push(ad);
+                }
+                // ItemList contenant des listings
+                if (item["@type"] === "ItemList" && item.itemListElement) {
+                    for (const el of item.itemListElement) {
+                        const subItem = el.item || el;
+                        const ad = extractFromJsonLd(subItem, baseDomain, agencyName);
+                        if (ad) annonces.push(ad);
+                    }
+                }
+            }
+        } catch (e) { /* JSON invalide */ }
+    }
+
+    // Si JSON-LD a donne des resultats, on les retourne
+    if (annonces.length > 0) return annonces;
+
+    // Strategie 2 : Extraction par patterns HTML generiques
+    // Chercher les blocs qui ressemblent a des annonces (contenant prix + lien)
+    const prixPattern = /(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/gi;
+    const piecesPattern = /(\d+(?:[.,]\d)?)\s*(?:pi[eè]ces?|pcs?\.?|rooms?|Zimmer|½)/gi;
+    const surfacePattern = /(\d+)\s*m[²2]/gi;
+    const npaPattern = /\b(\d{4})\s+([A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/g;
+
+    // Trouver les liens internes qui menent a des fiches
+    const linkPattern = /href=["']((?:https?:\/\/[^"']*|\/[^"']*))["'][^>]*>([\s\S]*?)<\/a>/gi;
+    const seenUrls = new Set();
+    let linkMatch;
+
+    while ((linkMatch = linkPattern.exec(textOnly)) !== null) {
+        let href = linkMatch[1];
+        const linkContent = linkMatch[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+        // Ignorer les liens courts (navigation, etc.)
+        if (linkContent.length < 10) continue;
+        // Ignorer les liens externes
+        if (href.startsWith("http") && !href.includes(baseDomain.replace("https://", "").replace("http://", ""))) continue;
+        // Ignorer les liens generiques
+        if (/\/(contact|about|agence|team|login|register|privacy|legal|cgu|faq)\b/i.test(href)) continue;
+
+        if (href.startsWith("/")) href = baseDomain + href;
+
+        if (seenUrls.has(href)) continue;
+        seenUrls.add(href);
+
+        // Chercher les infos autour du lien (500 chars avant et apres dans le HTML)
+        const linkPos = textOnly.indexOf(linkMatch[0]);
+        const context = textOnly.substring(Math.max(0, linkPos - 300), Math.min(textOnly.length, linkPos + linkMatch[0].length + 300));
+        const contextText = context.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+
+        // Extraire le prix
+        let prix = null;
+        const prixM = contextText.match(/(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/i);
+        if (prixM) {
+            prix = parseInt(prixM[1].replace(/[''\u2019.,\s]/g, ''), 10) || null;
+            // Ignorer les prix trop petits (probablement loyer mensuel) ou aberrants
+            if (prix && prix < 5000) prix = null;
+        }
+
+        // Extraire les pieces
+        let pieces = null;
+        const pcsM = contextText.match(/(\d+(?:[.,]\d)?)\s*(?:pi[eè]ces?|pcs?\.?|rooms?|Zimmer)/i);
+        if (pcsM) pieces = parseFloat(pcsM[1].replace(',', '.'));
+
+        // Extraire la surface
+        let surface_m2 = null;
+        const surfM = contextText.match(/(\d+)\s*m[²2]/i);
+        if (surfM) surface_m2 = parseInt(surfM[1], 10);
+
+        // Extraire la localisation
+        let localisation = null;
+        const locM = contextText.match(/\b(\d{4}\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/);
+        if (locM) localisation = locM[1].trim();
+
+        // Ne garder que si au moins prix ou pieces
+        if (!prix && !pieces && !surface_m2) continue;
+
+        // Extraire l'image la plus proche
+        let image_url = null;
+        const imgContext = html.substring(Math.max(0, linkPos - 500), Math.min(html.length, linkPos + 500));
+        const imgM = imgContext.match(/(?:src|data-src)=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
+        if (imgM && !imgM[1].includes('logo') && !imgM[1].includes('icon')) {
+            image_url = imgM[1];
+        }
+
+        // Extraire le type de bien
+        const typeText = (linkContent + ' ' + contextText).toLowerCase();
+        let type = 'unknown';
+        if (/maison|villa|chalet/i.test(typeText)) type = 'house';
+        else if (/appartement|appart\b/i.test(typeText)) type = 'apartment';
+        else if (/terrain|parcelle/i.test(typeText)) type = 'land';
+        else if (/commercial|bureau|local\b/i.test(typeText)) type = 'commercial';
+        else if (/parking|garage|box/i.test(typeText)) type = 'parking';
+        else if (/immeuble/i.test(typeText)) type = 'building';
+
+        annonces.push({
+            url: href,
+            titre: linkContent.substring(0, 100),
+            prix,
+            pieces,
+            surface_m2,
+            localisation,
+            image_url,
+            type,
+            source: agencyName,
+        });
+
+        if (annonces.length >= 30) break;
+    }
+
+    return annonces;
+}
+
+function extractFromJsonLd(item, baseDomain, agencyName) {
+    if (!item) return null;
+
+    let prix = null;
+    if (item.offers && item.offers.price) {
+        prix = parseInt(String(item.offers.price).replace(/[^\d]/g, ''), 10) || null;
+    } else if (item.price) {
+        prix = parseInt(String(item.price).replace(/[^\d]/g, ''), 10) || null;
+    }
+
+    let url = item.url || null;
+    if (url && url.startsWith("/")) url = baseDomain + url;
+
+    let image_url = null;
+    if (item.image) {
+        image_url = Array.isArray(item.image) ? item.image[0] : item.image;
+        if (typeof image_url === "object") image_url = image_url.url || null;
+    }
+
+    const name = item.name || item.headline || null;
+    let localisation = null;
+    if (item.address) {
+        const addr = item.address;
+        localisation = [addr.postalCode, addr.addressLocality].filter(Boolean).join(" ") || null;
+    }
+
+    let pieces = null;
+    let surface_m2 = null;
+    if (item.numberOfRooms) pieces = parseFloat(item.numberOfRooms);
+    if (item.floorSize && item.floorSize.value) surface_m2 = parseInt(item.floorSize.value, 10);
+
+    if (!prix && !pieces && !surface_m2 && !localisation) return null;
+
+    // Type de bien depuis schema.org @type ou le nom
+    let type = 'unknown';
+    const schemaType = (item["@type"] || '').toLowerCase();
+    const nameText = (name || '').toLowerCase();
+    if (schemaType === 'apartment' || /appartement|appart\b/i.test(nameText)) type = 'apartment';
+    else if (schemaType === 'house' || /maison|villa|chalet/i.test(nameText)) type = 'house';
+    else if (/terrain|parcelle/i.test(nameText)) type = 'land';
+    else if (/parking|garage|box/i.test(nameText)) type = 'parking';
+    else if (/commercial|bureau|local\b/i.test(nameText)) type = 'commercial';
+    else if (/immeuble/i.test(nameText)) type = 'building';
+
+    return {
+        url,
+        titre: name,
+        prix,
+        pieces,
+        surface_m2,
+        localisation,
+        image_url,
+        type,
+        source: agencyName,
     };
 }
 

@@ -2,16 +2,65 @@
 const WORKER_URL = "/api/analyze";
 const SECRET_TOKEN = "animo*2026";
 
+// ── NPA Regions (Suisse romande) ─────────────────────────────────────────────
+const NPA_REGIONS = {
+  '10': 'Lausanne', '11': 'Morges-Cossonay', '12': 'Nyon-Rolle',
+  '13': 'Yverdon', '14': 'Broye-Payerne', '15': 'Moudon-Oron',
+  '16': 'Aigle-Bex', '17': 'Chateau-dOex', '18': 'Montreux-Vevey',
+  '19': 'Sion-Valais', '20': 'Neuchatel', '21': 'Fribourg',
+  '22': 'Fribourg-Sud', '23': 'Bienne', '24': 'Jura', '25': 'Bern',
+};
+
+const ADJACENT_REGIONS = {
+  '10': ['11', '18', '15'],
+  '11': ['10', '12'],
+  '12': ['11', '13'],
+  '13': ['14', '15', '12'],
+  '14': ['13', '15'],
+  '15': ['10', '14', '18'],
+  '16': ['18'],
+  '17': ['18'],
+  '18': ['10', '15', '16', '17'],
+};
+
+function getNPARegion(npa) {
+  if (!npa || npa.length !== 4) return null;
+  return npa.substring(0, 2);
+}
+
+function npaProximityScore(npa1, npa2) {
+  if (npa1 === npa2) return 1.0;
+  const r1 = getNPARegion(npa1);
+  const r2 = getNPARegion(npa2);
+  if (!r1 || !r2) return 0;
+  if (r1 === r2) return 0.7;
+  const adj = ADJACENT_REGIONS[r1];
+  if (adj && adj.includes(r2)) return 0.3;
+  return 0;
+}
+
+function extractPropertyType(annonce) {
+  const text = ((annonce.titre || '') + ' ' + (annonce.localisation || '')).toLowerCase();
+  if (/maison|villa|chalet/.test(text)) return 'house';
+  if (/appartement|appart\b/.test(text)) return 'apartment';
+  if (/terrain|parcelle/.test(text)) return 'land';
+  if (/commercial|bureau|local\b/.test(text)) return 'commercial';
+  if (/parking|garage|box/.test(text)) return 'parking';
+  if (/immeuble/.test(text)) return 'building';
+  return 'unknown';
+}
+
 // ── Tab Navigation ───────────────────────────────────────────────────────────
 function switchTab(tab) {
-  document.getElementById("pageAnalyse").classList.toggle("active", tab === "analyse");
-  document.getElementById("pageHistorique").classList.toggle("active", tab === "historique");
-  document.getElementById("pageAgences").classList.toggle("active", tab === "agences");
-  document.getElementById("pageScraper").classList.toggle("active", tab === "scraper");
-  document.getElementById("tabAnalyse").classList.toggle("active", tab === "analyse");
-  document.getElementById("tabHistorique").classList.toggle("active", tab === "historique");
-  document.getElementById("tabAgences").classList.toggle("active", tab === "agences");
-  document.getElementById("tabScraper").classList.toggle("active", tab === "scraper");
+  const tabs = ["analyse", "agences", "scraper", "matching", "historique"];
+  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matching: "pageMatching", historique: "pageHistorique" };
+  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matching: "tabMatching", historique: "tabHistorique" };
+  for (const t of tabs) {
+    const page = document.getElementById(pageIds[t]);
+    const btn = document.getElementById(tabIds[t]);
+    if (page) page.classList.toggle("active", t === tab);
+    if (btn) btn.classList.toggle("active", t === tab);
+  }
   if (tab === "historique") loadHistory();
 }
 
@@ -601,6 +650,403 @@ function exporterJSON() {
 
 function afficherErreurScraper(msg) {
   const box = document.getElementById("scraperErrorBox");
+  if (box) {
+    box.textContent = msg;
+    box.classList.add("visible");
+  }
+}
+
+// ── Matching Acheteur / Bien ─────────────────────────────────────────────────
+let matchBuyers = [];
+let matchBiens = [];
+let matchResults = [];
+
+// Configuration des agences avec leurs URLs de listings
+const AGENCIES = {
+  naef: {
+    name: "Naef",
+    listingsUrl: "https://www.naef.ch/acheter/appartements-maisons/",
+  },
+  bernardnicod: {
+    name: "Bernard Nicod",
+    listingsUrl: "https://www.bernard-nicod.ch/acheter?action=acheter&transaction=buy",
+  },
+  cogestim: {
+    name: "Cogestim",
+    listingsUrl: "https://www.cogestim.ch/fr/acheter/",
+  },
+  maillard: {
+    name: "Maillard Immo",
+    listingsUrl: "https://www.maillard-immo.ch/acheter/",
+  },
+  barnes: {
+    name: "Barnes Suisse",
+    listingsUrl: "https://www.barnes-suisse.ch/p2777-acheter.html",
+  },
+  domicim: {
+    name: "Domicim",
+    listingsUrl: "https://immobilier.domicim.ch/suisse/vaud/acheter/",
+  },
+  gerofinance: {
+    name: "Gerofinance",
+    listingsUrl: "https://www.gerofinance-dunand.ch/a-vendre",
+  },
+  comptoirimmo: {
+    name: "Comptoir Immo",
+    listingsUrl: "https://comptoir-immo.ch/vente/all/Vaud/all/",
+  },
+  neho: {
+    name: "Neho",
+    listingsUrl: "https://neho.ch/fr/a-vendre/proprietes/canton/vaud",
+  },
+  spg: {
+    name: "SPG Rytz",
+    listingsUrl: "https://www.spg-rytz.ch/vente",
+  },
+  galland: {
+    name: "Galland & Cie",
+    listingsUrl: "https://www.galland.ch/a-vendre/",
+  },
+  burnier: {
+    name: "Burnier",
+    listingsUrl: "https://www.burnier.ch/vente",
+  },
+};
+
+function toggleAllAgencies(checked) {
+  const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]");
+  checkboxes.forEach(cb => cb.checked = checked);
+}
+
+async function scannerAcheteurs() {
+  const urlEl = document.getElementById("matchBuyersUrl");
+  const input = urlEl ? urlEl.value.trim() : "";
+  const maxPages = parseInt(document.getElementById("matchBuyersPages")?.value || "2", 10);
+
+  if (!input) {
+    showMatchError("matchBuyersError", "Veuillez coller l'URL d'une rubrique.");
+    return;
+  }
+
+  let baseUrl;
+  try { baseUrl = new URL(input).href; } catch {
+    showMatchError("matchBuyersError", "URL invalide.");
+    return;
+  }
+
+  const btn = document.getElementById("btnScanBuyers");
+  const loading = document.getElementById("matchBuyersLoading");
+  const loadingText = document.getElementById("matchBuyersLoadingText");
+  const errBox = document.getElementById("matchBuyersError");
+
+  if (errBox) errBox.classList.remove("visible");
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (loading) loading.classList.add("visible");
+
+  matchBuyers = [];
+
+  try {
+    for (let page = 1; page <= maxPages; page++) {
+      if (loadingText) loadingText.textContent = `Scan acheteurs page ${page}/${maxPages}...`;
+      const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`;
+
+      const response = await fetch("/api/scrape-listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+        body: JSON.stringify({ url: pageUrl }),
+      });
+
+      if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+      const data = await response.json();
+
+      if (data.annonces && data.annonces.length > 0) {
+        matchBuyers.push(...data.annonces);
+      }
+
+      if (!data.annonces || data.annonces.length === 0 || !data.hasMore) break;
+      if (page < maxPages) await new Promise(r => setTimeout(r, 1500));
+    }
+
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
+    const badge = document.getElementById("buyersCountBadge");
+    if (badge) {
+      badge.textContent = `${matchBuyers.length} acheteur(s) trouve(s)`;
+      badge.classList.add("visible");
+    }
+
+    if (matchBuyers.length === 0) {
+      showMatchError("matchBuyersError", "Aucun acheteur trouve.");
+    }
+
+  } catch (err) {
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    showMatchError("matchBuyersError", "Erreur : " + err.message);
+  }
+}
+
+async function scannerAgences() {
+  const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
+  const selectedAgencies = [...checkboxes].map(cb => cb.value);
+
+  if (selectedAgencies.length === 0) {
+    showMatchError("matchBienError", "Selectionnez au moins une agence.");
+    return;
+  }
+
+  const btn = document.getElementById("btnScanAgencies");
+  const loading = document.getElementById("matchBienLoading");
+  const loadingText = document.getElementById("matchBienLoadingText");
+  const errBox = document.getElementById("matchBienError");
+
+  if (errBox) errBox.classList.remove("visible");
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (loading) loading.classList.add("visible");
+
+  matchBiens = [];
+  const agencyStatuses = [];
+  let scannedCount = 0;
+
+  for (const agencyKey of selectedAgencies) {
+    const agency = AGENCIES[agencyKey];
+    if (!agency) continue;
+
+    scannedCount++;
+    if (loadingText) {
+      loadingText.textContent = `Scan ${agency.name} (${scannedCount}/${selectedAgencies.length})...`;
+    }
+
+    try {
+      const response = await fetch("/api/scrape-agency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+        body: JSON.stringify({ url: agency.listingsUrl, agencyName: agency.name }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const count = data.annonces?.length || 0;
+        if (count > 0) {
+          matchBiens.push(...data.annonces.map(a => ({ ...a, source: agency.name })));
+        }
+        agencyStatuses.push({
+          name: agency.name,
+          status: data.status || (count > 0 ? 'ok' : 'empty'),
+          count,
+          message: data.message || null,
+        });
+      } else {
+        agencyStatuses.push({ name: agency.name, status: 'error', count: 0, message: `HTTP ${response.status}` });
+      }
+    } catch (e) {
+      agencyStatuses.push({ name: agency.name, status: 'error', count: 0, message: e.message });
+    }
+
+    // Pause entre les agences
+    if (scannedCount < selectedAgencies.length) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+
+  if (loading) loading.classList.remove("visible");
+  if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
+  const badge = document.getElementById("biensCountBadge");
+  if (badge) {
+    badge.textContent = `${matchBiens.length} bien(s) trouves sur ${scannedCount} agence(s)`;
+    badge.classList.add("visible");
+  }
+
+  afficherAgencyStatuses(agencyStatuses);
+
+  if (matchBiens.length === 0) {
+    showMatchError("matchBienError", "Aucun bien extrait. Les sites bloquent peut-etre l'acces automatique.");
+  }
+}
+
+function afficherAgencyStatuses(statuses) {
+  const container = document.getElementById("agencyStatusList");
+  if (!container) return;
+  container.innerHTML = statuses.map(s => {
+    const icon = s.status === 'ok' ? '\u2705' : s.status === 'spa_empty' ? '\u26A0\uFE0F' : s.status === 'empty' ? '\u26AB' : '\u274C';
+    const label = s.status === 'ok' ? `${s.count} bien(s)`
+      : s.status === 'spa_empty' ? 'Site SPA'
+      : s.status === 'empty' ? 'Aucun resultat'
+      : `Erreur`;
+    const tooltip = s.message ? ` title="${escapeHTML(s.message)}"` : '';
+    return `<span class="agency-status-item agency-status-${s.status}"${tooltip}>${icon} ${escapeHTML(s.name)}: ${label}</span>`;
+  }).join('');
+  container.classList.add("visible");
+}
+
+function lancerMatching() {
+  if (matchBuyers.length === 0) {
+    showMatchError("matchBuyersError", "Scannez d'abord les acheteurs (etape 1).");
+    return;
+  }
+  if (matchBiens.length === 0) {
+    showMatchError("matchBienError", "Chargez d'abord les biens (etape 2).");
+    return;
+  }
+
+  matchResults = [];
+
+  for (const buyer of matchBuyers) {
+    for (const bien of matchBiens) {
+      const { score, breakdown } = calculerMatchScore(buyer, bien);
+      if (score > 20) {
+        matchResults.push({ buyer, bien, score, breakdown });
+      }
+    }
+  }
+
+  // Trier par score decroissant
+  matchResults.sort((a, b) => b.score - a.score);
+
+  afficherMatchResults(matchResults);
+}
+
+function calculerMatchScore(buyer, bien) {
+  const breakdown = { location: 0, price: 0, rooms: 0, surface: 0, type: 0 };
+  let maxPossible = 0;
+
+  // Localisation (35 pts max) — proximite par region NPA
+  if (buyer.localisation && bien.localisation) {
+    const buyerNPA = buyer.localisation.match(/\d{4}/);
+    const bienNPA = bien.localisation.match(/\d{4}/);
+    if (buyerNPA && bienNPA) {
+      maxPossible += 35;
+      const proximity = npaProximityScore(buyerNPA[0], bienNPA[0]);
+      breakdown.location = Math.round(35 * proximity);
+    }
+  }
+
+  // Prix (30 pts max)
+  if (buyer.prix && bien.prix) {
+    maxPossible += 30;
+    const ratio = bien.prix / buyer.prix;
+    if (ratio >= 0.9 && ratio <= 1.1) breakdown.price = 30;
+    else if (ratio >= 0.8 && ratio <= 1.2) breakdown.price = 22;
+    else if (ratio >= 0.7 && ratio <= 1.3) breakdown.price = 15;
+    else if (ratio >= 0.6 && ratio <= 1.4) breakdown.price = 8;
+  }
+
+  // Pieces (15 pts max)
+  if (buyer.pieces && bien.pieces) {
+    maxPossible += 15;
+    const diff = Math.abs(buyer.pieces - bien.pieces);
+    if (diff === 0) breakdown.rooms = 15;
+    else if (diff <= 0.5) breakdown.rooms = 12;
+    else if (diff <= 1) breakdown.rooms = 7;
+    else if (diff <= 1.5) breakdown.rooms = 3;
+  }
+
+  // Surface (10 pts max)
+  if (buyer.surface_m2 && bien.surface_m2) {
+    maxPossible += 10;
+    const ratio = bien.surface_m2 / buyer.surface_m2;
+    if (ratio >= 0.8 && ratio <= 1.2) breakdown.surface = 10;
+    else if (ratio >= 0.65 && ratio <= 1.35) breakdown.surface = 5;
+  }
+
+  // Type de bien (10 pts max)
+  const buyerType = buyer.type || extractPropertyType(buyer);
+  const bienType = bien.type || extractPropertyType(bien);
+  if (buyerType !== 'unknown' && bienType !== 'unknown') {
+    maxPossible += 10;
+    if (buyerType === bienType) breakdown.type = 10;
+    else if (
+      (buyerType === 'house' && bienType === 'apartment') ||
+      (buyerType === 'apartment' && bienType === 'house')
+    ) breakdown.type = 3;
+  }
+
+  if (maxPossible === 0) return { score: 0, breakdown };
+
+  const rawScore = breakdown.location + breakdown.price + breakdown.rooms + breakdown.surface + breakdown.type;
+  const score = Math.round((rawScore / maxPossible) * 100);
+
+  return { score, breakdown };
+}
+
+function afficherMatchResults(results) {
+  const resultsDiv = document.getElementById("matchResults");
+  const grid = document.getElementById("matchGrid");
+  const countEl = document.getElementById("matchCount");
+
+  if (countEl) countEl.textContent = results.length;
+
+  if (results.length === 0) {
+    grid.innerHTML = '<div class="history-empty">Aucune correspondance trouvee avec les criteres actuels.</div>';
+    if (resultsDiv) resultsDiv.classList.add("visible");
+    return;
+  }
+
+  grid.innerHTML = results.map((m, i) => {
+    const scoreClass = m.score >= 70 ? "match-high" : m.score >= 40 ? "match-medium" : "match-low";
+    const b = m.breakdown || {};
+    return `
+    <div class="match-card ${scoreClass}">
+      <div class="match-score-badge">${m.score}%</div>
+      <div class="match-pair">
+        <div class="match-side match-buyer">
+          <div class="match-side-label">Acheteur recherche</div>
+          <div class="match-side-price">${m.buyer.prix ? formatPrix(m.buyer.prix) : '\u2014'}</div>
+          <div class="match-side-details">
+            ${m.buyer.pieces ? `${m.buyer.pieces} pcs` : ''}
+            ${m.buyer.surface_m2 ? ` \u00b7 ${m.buyer.surface_m2} m\u00b2` : ''}
+          </div>
+          <div class="match-side-loc">${escapeHTML(m.buyer.localisation || '\u2014')}</div>
+          <div class="match-side-title">${escapeHTML(m.buyer.titre || '')}</div>
+        </div>
+        <div class="match-arrow">&#8596;</div>
+        <div class="match-side match-bien">
+          <div class="match-side-label">Bien disponible</div>
+          ${m.bien.source ? `<div class="match-side-source">${escapeHTML(m.bien.source)}</div>` : ''}
+          <div class="match-side-price">${m.bien.prix ? formatPrix(m.bien.prix) : '\u2014'}</div>
+          <div class="match-side-details">
+            ${m.bien.pieces ? `${m.bien.pieces} pcs` : ''}
+            ${m.bien.surface_m2 ? ` \u00b7 ${m.bien.surface_m2} m\u00b2` : ''}
+          </div>
+          <div class="match-side-loc">${escapeHTML(m.bien.localisation || '\u2014')}</div>
+          <div class="match-side-title">${escapeHTML(m.bien.titre || '')}</div>
+        </div>
+      </div>
+      <div class="match-breakdown">
+        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/35">Loc ${b.location}</span>
+        <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/30">Prix ${b.price}</span>
+        <span class="breakdown-pill ${b.rooms > 0 ? 'active' : ''}" title="Pieces: ${b.rooms}/15">Pcs ${b.rooms}</span>
+        <span class="breakdown-pill ${b.surface > 0 ? 'active' : ''}" title="Surface: ${b.surface}/10">m2 ${b.surface}</span>
+        <span class="breakdown-pill ${b.type > 0 ? 'active' : ''}" title="Type: ${b.type}/10">Type ${b.type}</span>
+      </div>
+      <div class="match-actions">
+        <a href="${escapeHTML(m.buyer.url || '#')}" target="_blank" class="match-link">Voir acheteur</a>
+        <a href="${escapeHTML(m.bien.url || '#')}" target="_blank" class="match-link">Voir bien</a>
+      </div>
+    </div>`;
+  }).join("");
+
+  if (resultsDiv) resultsDiv.classList.add("visible");
+}
+
+function exporterMatches() {
+  if (matchResults.length === 0) return;
+  const blob = new Blob(
+    [JSON.stringify(matchResults, null, 2)],
+    { type: "application/json" }
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "matching-results.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function showMatchError(id, msg) {
+  const box = document.getElementById(id);
   if (box) {
     box.textContent = msg;
     box.classList.add("visible");

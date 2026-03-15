@@ -28,6 +28,7 @@
       <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
       <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
       <button class="tab-btn" id="tabScraper" onclick="switchTab('scraper')">Petites Annonces</button>
+      <button class="tab-btn" id="tabMatching" onclick="switchTab('matching')">Matching</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
     </nav>
   </header>
@@ -256,6 +257,117 @@
           <button class="btn-pdf" onclick="exporterJSON()">Exporter JSON</button>
         </div>
         <div id="scraperGrid" class="scraper-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- ── TAB: Matching Acheteur / Vendeur ─────────────────────────────── -->
+    <div id="pageMatching" class="tab-page">
+
+      <div class="agences-intro">
+        <div class="section-label">Matching Acheteur / Bien</div>
+        <p class="agences-desc">
+          Croisez les <strong>recherches d'acheteurs</strong> sur petitesannonces.ch avec les
+          <strong>biens d'agences</strong>. Identifiez les correspondances et contactez
+          les acheteurs avec le bon bien.
+        </p>
+      </div>
+
+      <!-- Etape 1 : Scanner les acheteurs -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">1</span>
+          <div>
+            <div class="section-label">Scanner les acheteurs</div>
+            <p class="agences-desc">URL de la rubrique « Recherche » sur petitesannonces.ch</p>
+          </div>
+        </div>
+        <textarea id="matchBuyersUrl"
+          placeholder="Ex: https://www.petitesannonces.ch/r/270724">https://www.petitesannonces.ch/r/270724</textarea>
+        <div class="scraper-options">
+          <label class="scraper-option">
+            <span>Pages :</span>
+            <input type="number" id="matchBuyersPages" value="2" min="1" max="10" />
+          </label>
+        </div>
+        <button class="btn-analyser" id="btnScanBuyers" onclick="scannerAcheteurs()">
+          <div class="spinner"></div>
+          <span class="btn-text">Scanner les acheteurs</span>
+        </button>
+        <div class="error-box" id="matchBuyersError"></div>
+        <div class="loading-state" id="matchBuyersLoading">
+          <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="loading-text" id="matchBuyersLoadingText">Scan des acheteurs...</div>
+        </div>
+        <div class="match-count-badge" id="buyersCountBadge"></div>
+      </div>
+
+      <!-- Etape 2 : Scanner les agences automatiquement -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">2</span>
+          <div>
+            <div class="section-label">Scanner les biens d'agences</div>
+            <p class="agences-desc">Selectionnez les agences a scanner. Les biens en vente seront extraits automatiquement.</p>
+          </div>
+        </div>
+
+        <div class="agency-checklist" id="agencyChecklist">
+          <label class="agency-check"><input type="checkbox" value="naef" checked> Naef</label>
+          <label class="agency-check"><input type="checkbox" value="bernardnicod" checked> Bernard Nicod</label>
+          <label class="agency-check"><input type="checkbox" value="cogestim"> Cogestim</label>
+          <label class="agency-check"><input type="checkbox" value="maillard"> Maillard Immo</label>
+          <label class="agency-check"><input type="checkbox" value="barnes"> Barnes Suisse</label>
+          <label class="agency-check"><input type="checkbox" value="domicim"> Domicim</label>
+          <label class="agency-check"><input type="checkbox" value="gerofinance"> Gerofinance</label>
+          <label class="agency-check"><input type="checkbox" value="comptoirimmo"> Comptoir Immo</label>
+          <label class="agency-check"><input type="checkbox" value="neho"> Neho</label>
+          <label class="agency-check"><input type="checkbox" value="spg"> SPG Rytz</label>
+          <label class="agency-check"><input type="checkbox" value="galland"> Galland &amp; Cie</label>
+          <label class="agency-check"><input type="checkbox" value="burnier"> Burnier</label>
+        </div>
+
+        <div class="agency-select-actions">
+          <button class="agency-select-btn" onclick="toggleAllAgencies(true)">Tout cocher</button>
+          <button class="agency-select-btn" onclick="toggleAllAgencies(false)">Tout decocher</button>
+        </div>
+
+        <button class="btn-analyser" id="btnScanAgencies" onclick="scannerAgences()">
+          <div class="spinner"></div>
+          <span class="btn-text">Scanner les agences selectionnees</span>
+        </button>
+
+        <div class="error-box" id="matchBienError"></div>
+        <div class="loading-state" id="matchBienLoading">
+          <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="loading-text" id="matchBienLoadingText">Scan des agences...</div>
+        </div>
+        <div class="match-count-badge" id="biensCountBadge"></div>
+        <div class="agency-status-list" id="agencyStatusList"></div>
+      </div>
+
+      <!-- Etape 3 : Lancer le matching -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">3</span>
+          <div>
+            <div class="section-label">Lancer le matching</div>
+            <p class="agences-desc">Croisement automatique par localisation, budget, pieces et surface</p>
+          </div>
+        </div>
+        <button class="btn-analyser accent" id="btnMatch" onclick="lancerMatching()">
+          <div class="spinner"></div>
+          <span class="btn-text">Trouver les correspondances</span>
+        </button>
+      </div>
+
+      <!-- Resultats matching -->
+      <div id="matchResults" class="scraper-results">
+        <div class="scraper-results-header">
+          <div class="section-label">Correspondances · <span id="matchCount">0</span> matches</div>
+          <button class="btn-pdf" onclick="exporterMatches()">Exporter JSON</button>
+        </div>
+        <div id="matchGrid" class="match-grid"></div>
       </div>
 
     </div>

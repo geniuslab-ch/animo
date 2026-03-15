@@ -4,14 +4,15 @@ const SECRET_TOKEN = "animo*2026";
 
 // ── Tab Navigation ───────────────────────────────────────────────────────────
 function switchTab(tab) {
-  document.getElementById("pageAnalyse").classList.toggle("active", tab === "analyse");
-  document.getElementById("pageHistorique").classList.toggle("active", tab === "historique");
-  document.getElementById("pageAgences").classList.toggle("active", tab === "agences");
-  document.getElementById("pageScraper").classList.toggle("active", tab === "scraper");
-  document.getElementById("tabAnalyse").classList.toggle("active", tab === "analyse");
-  document.getElementById("tabHistorique").classList.toggle("active", tab === "historique");
-  document.getElementById("tabAgences").classList.toggle("active", tab === "agences");
-  document.getElementById("tabScraper").classList.toggle("active", tab === "scraper");
+  const tabs = ["analyse", "agences", "scraper", "matching", "historique"];
+  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matching: "pageMatching", historique: "pageHistorique" };
+  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matching: "tabMatching", historique: "tabHistorique" };
+  for (const t of tabs) {
+    const page = document.getElementById(pageIds[t]);
+    const btn = document.getElementById(tabIds[t]);
+    if (page) page.classList.toggle("active", t === tab);
+    if (btn) btn.classList.toggle("active", t === tab);
+  }
   if (tab === "historique") loadHistory();
 }
 
@@ -601,6 +602,319 @@ function exporterJSON() {
 
 function afficherErreurScraper(msg) {
   const box = document.getElementById("scraperErrorBox");
+  if (box) {
+    box.textContent = msg;
+    box.classList.add("visible");
+  }
+}
+
+// ── Matching Acheteur / Bien ─────────────────────────────────────────────────
+let matchBuyers = [];
+let matchBiens = [];
+let matchResults = [];
+
+function switchBienMode(mode) {
+  const btnUrls = document.getElementById("btnBienUrls");
+  const btnScraper = document.getElementById("btnBienScraper");
+  const zoneUrls = document.getElementById("bienUrlsZone");
+  const zoneScraper = document.getElementById("bienScraperZone");
+
+  if (btnUrls) btnUrls.classList.toggle("active", mode === "urls");
+  if (btnScraper) btnScraper.classList.toggle("active", mode === "scraper");
+  if (zoneUrls) zoneUrls.style.display = mode === "urls" ? "" : "none";
+  if (zoneScraper) zoneScraper.style.display = mode === "scraper" ? "" : "none";
+}
+
+async function scannerAcheteurs() {
+  const urlEl = document.getElementById("matchBuyersUrl");
+  const input = urlEl ? urlEl.value.trim() : "";
+  const maxPages = parseInt(document.getElementById("matchBuyersPages")?.value || "2", 10);
+
+  if (!input) {
+    showMatchError("matchBuyersError", "Veuillez coller l'URL d'une rubrique.");
+    return;
+  }
+
+  let baseUrl;
+  try { baseUrl = new URL(input).href; } catch {
+    showMatchError("matchBuyersError", "URL invalide.");
+    return;
+  }
+
+  const btn = document.getElementById("btnScanBuyers");
+  const loading = document.getElementById("matchBuyersLoading");
+  const loadingText = document.getElementById("matchBuyersLoadingText");
+  const errBox = document.getElementById("matchBuyersError");
+
+  if (errBox) errBox.classList.remove("visible");
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (loading) loading.classList.add("visible");
+
+  matchBuyers = [];
+
+  try {
+    for (let page = 1; page <= maxPages; page++) {
+      if (loadingText) loadingText.textContent = `Scan acheteurs page ${page}/${maxPages}...`;
+      const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`;
+
+      const response = await fetch("/api/scrape-listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+        body: JSON.stringify({ url: pageUrl }),
+      });
+
+      if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+      const data = await response.json();
+
+      if (data.annonces && data.annonces.length > 0) {
+        matchBuyers.push(...data.annonces);
+      }
+
+      if (!data.annonces || data.annonces.length === 0 || !data.hasMore) break;
+      if (page < maxPages) await new Promise(r => setTimeout(r, 1500));
+    }
+
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
+    const badge = document.getElementById("buyersCountBadge");
+    if (badge) {
+      badge.textContent = `${matchBuyers.length} acheteur(s) trouve(s)`;
+      badge.classList.add("visible");
+    }
+
+    if (matchBuyers.length === 0) {
+      showMatchError("matchBuyersError", "Aucun acheteur trouve.");
+    }
+
+  } catch (err) {
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    showMatchError("matchBuyersError", "Erreur : " + err.message);
+  }
+}
+
+async function scannerBiens() {
+  const urlEl = document.getElementById("matchBienUrls");
+  const input = urlEl ? urlEl.value.trim() : "";
+
+  if (!input) {
+    showMatchError("matchBienError", "Veuillez coller au moins une URL.");
+    return;
+  }
+
+  const urls = input.split("\n").map(u => u.trim()).filter(u => u.length > 0);
+
+  const btn = document.getElementById("btnScanBiens");
+  const loading = document.getElementById("matchBienLoading");
+  const errBox = document.getElementById("matchBienError");
+
+  if (errBox) errBox.classList.remove("visible");
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (loading) loading.classList.add("visible");
+
+  matchBiens = [];
+
+  try {
+    for (const url of urls) {
+      try {
+        const response = await fetch("/api/scrape-listings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+          body: JSON.stringify({ url, singleAd: true }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.annonces && data.annonces.length > 0) {
+            matchBiens.push(...data.annonces);
+          } else if (data.ad) {
+            matchBiens.push(data.ad);
+          }
+        }
+      } catch (e) { /* ignorer */ }
+    }
+
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
+    const badge = document.getElementById("biensCountBadge");
+    if (badge) {
+      badge.textContent = `${matchBiens.length} bien(s) charge(s)`;
+      badge.classList.add("visible");
+    }
+
+    if (matchBiens.length === 0) {
+      showMatchError("matchBienError", "Aucun bien extrait. Verifiez les URLs.");
+    }
+
+  } catch (err) {
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    showMatchError("matchBienError", "Erreur : " + err.message);
+  }
+}
+
+function utiliserAnnoncesScraper() {
+  if (scrapedAnnonces.length === 0) {
+    showMatchError("matchBienError", "Aucune annonce scrapee. Allez d'abord dans l'onglet Petites Annonces pour scanner.");
+    return;
+  }
+  matchBiens = [...scrapedAnnonces];
+  const badge = document.getElementById("biensCountBadge");
+  if (badge) {
+    badge.textContent = `${matchBiens.length} bien(s) importes depuis le scraper`;
+    badge.classList.add("visible");
+  }
+}
+
+function lancerMatching() {
+  if (matchBuyers.length === 0) {
+    showMatchError("matchBuyersError", "Scannez d'abord les acheteurs (etape 1).");
+    return;
+  }
+  if (matchBiens.length === 0) {
+    showMatchError("matchBienError", "Chargez d'abord les biens (etape 2).");
+    return;
+  }
+
+  matchResults = [];
+
+  for (const buyer of matchBuyers) {
+    for (const bien of matchBiens) {
+      const score = calculerMatchScore(buyer, bien);
+      if (score > 0) {
+        matchResults.push({ buyer, bien, score });
+      }
+    }
+  }
+
+  // Trier par score decroissant
+  matchResults.sort((a, b) => b.score - a.score);
+
+  afficherMatchResults(matchResults);
+}
+
+function calculerMatchScore(buyer, bien) {
+  let score = 0;
+  let factors = 0;
+
+  // Correspondance localisation (NPA)
+  if (buyer.localisation && bien.localisation) {
+    const buyerNPA = buyer.localisation.match(/\d{4}/);
+    const bienNPA = bien.localisation.match(/\d{4}/);
+    if (buyerNPA && bienNPA) {
+      factors++;
+      if (buyerNPA[0] === bienNPA[0]) {
+        score += 40; // meme NPA = fort match
+      } else if (Math.abs(parseInt(buyerNPA[0]) - parseInt(bienNPA[0])) <= 10) {
+        score += 20; // NPA proche = match moyen
+      }
+    }
+  }
+
+  // Correspondance prix (tolerance +/- 20%)
+  if (buyer.prix && bien.prix) {
+    factors++;
+    const ratio = bien.prix / buyer.prix;
+    if (ratio >= 0.8 && ratio <= 1.2) {
+      score += 30;
+    } else if (ratio >= 0.6 && ratio <= 1.4) {
+      score += 15;
+    }
+  }
+
+  // Correspondance pieces
+  if (buyer.pieces && bien.pieces) {
+    factors++;
+    const diff = Math.abs(buyer.pieces - bien.pieces);
+    if (diff === 0) score += 20;
+    else if (diff <= 0.5) score += 15;
+    else if (diff <= 1) score += 8;
+  }
+
+  // Correspondance surface (tolerance +/- 25%)
+  if (buyer.surface_m2 && bien.surface_m2) {
+    factors++;
+    const ratio = bien.surface_m2 / buyer.surface_m2;
+    if (ratio >= 0.75 && ratio <= 1.25) {
+      score += 10;
+    }
+  }
+
+  // Si aucun facteur commun, pas de match
+  if (factors === 0) return 0;
+
+  return Math.round(score);
+}
+
+function afficherMatchResults(results) {
+  const resultsDiv = document.getElementById("matchResults");
+  const grid = document.getElementById("matchGrid");
+  const countEl = document.getElementById("matchCount");
+
+  if (countEl) countEl.textContent = results.length;
+
+  if (results.length === 0) {
+    grid.innerHTML = '<div class="history-empty">Aucune correspondance trouvee avec les criteres actuels.</div>';
+    if (resultsDiv) resultsDiv.classList.add("visible");
+    return;
+  }
+
+  grid.innerHTML = results.map((m, i) => {
+    const scoreClass = m.score >= 60 ? "match-high" : m.score >= 30 ? "match-medium" : "match-low";
+    return `
+    <div class="match-card ${scoreClass}">
+      <div class="match-score-badge">${m.score}%</div>
+      <div class="match-pair">
+        <div class="match-side match-buyer">
+          <div class="match-side-label">Acheteur recherche</div>
+          <div class="match-side-price">${m.buyer.prix ? formatPrix(m.buyer.prix) : '—'}</div>
+          <div class="match-side-details">
+            ${m.buyer.pieces ? `${m.buyer.pieces} pcs` : ''}
+            ${m.buyer.surface_m2 ? ` · ${m.buyer.surface_m2} m²` : ''}
+          </div>
+          <div class="match-side-loc">${escapeHTML(m.buyer.localisation || '—')}</div>
+          <div class="match-side-title">${escapeHTML(m.buyer.titre || '')}</div>
+        </div>
+        <div class="match-arrow">&#8596;</div>
+        <div class="match-side match-bien">
+          <div class="match-side-label">Bien disponible</div>
+          <div class="match-side-price">${m.bien.prix ? formatPrix(m.bien.prix) : '—'}</div>
+          <div class="match-side-details">
+            ${m.bien.pieces ? `${m.bien.pieces} pcs` : ''}
+            ${m.bien.surface_m2 ? ` · ${m.bien.surface_m2} m²` : ''}
+          </div>
+          <div class="match-side-loc">${escapeHTML(m.bien.localisation || '—')}</div>
+          <div class="match-side-title">${escapeHTML(m.bien.titre || '')}</div>
+        </div>
+      </div>
+      <div class="match-actions">
+        <a href="${escapeHTML(m.buyer.url || '#')}" target="_blank" class="match-link">Voir acheteur</a>
+        <a href="${escapeHTML(m.bien.url || '#')}" target="_blank" class="match-link">Voir bien</a>
+      </div>
+    </div>`;
+  }).join("");
+
+  if (resultsDiv) resultsDiv.classList.add("visible");
+}
+
+function exporterMatches() {
+  if (matchResults.length === 0) return;
+  const blob = new Blob(
+    [JSON.stringify(matchResults, null, 2)],
+    { type: "application/json" }
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "matching-results.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function showMatchError(id, msg) {
+  const box = document.getElementById(id);
   if (box) {
     box.textContent = msg;
     box.classList.add("visible");

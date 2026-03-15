@@ -251,11 +251,29 @@ async function handleScrapeListings(request, env) {
     }
 
     try {
-        const { url: pageUrl } = await request.json();
+        const { url: pageUrl, singleAd } = await request.json();
         if (!pageUrl) {
             return new Response(JSON.stringify({ error: "url manquant" }), {
                 status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
             });
+        }
+
+        // Mode fiche individuelle (pour le matching)
+        if (singleAd) {
+            try {
+                const ad = await scrapeAdDetail(pageUrl);
+                return new Response(JSON.stringify({
+                    annonces: ad ? [ad] : [],
+                    hasMore: false,
+                    total: ad ? 1 : 0,
+                }), {
+                    status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+                });
+            } catch (e) {
+                return new Response(JSON.stringify({ annonces: [], hasMore: false, total: 0 }), {
+                    status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+                });
+            }
         }
 
         // Fetcher la page de liste

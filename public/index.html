@@ -28,6 +28,7 @@
       <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
       <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
       <button class="tab-btn" id="tabScraper" onclick="switchTab('scraper')">Petites Annonces</button>
+      <button class="tab-btn" id="tabMatching" onclick="switchTab('matching')">Matching</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
     </nav>
   </header>
@@ -256,6 +257,115 @@
           <button class="btn-pdf" onclick="exporterJSON()">Exporter JSON</button>
         </div>
         <div id="scraperGrid" class="scraper-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- ── TAB: Matching Acheteur / Vendeur ─────────────────────────────── -->
+    <div id="pageMatching" class="tab-page">
+
+      <div class="agences-intro">
+        <div class="section-label">Matching Acheteur / Bien</div>
+        <p class="agences-desc">
+          Croisez les <strong>recherches d'acheteurs</strong> sur petitesannonces.ch avec les
+          <strong>biens d'agences</strong>. Identifiez les correspondances et contactez
+          les acheteurs avec le bon bien.
+        </p>
+      </div>
+
+      <!-- Etape 1 : Scanner les acheteurs -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">1</span>
+          <div>
+            <div class="section-label">Scanner les acheteurs</div>
+            <p class="agences-desc">URL de la rubrique « Recherche » sur petitesannonces.ch</p>
+          </div>
+        </div>
+        <textarea id="matchBuyersUrl"
+          placeholder="Ex: https://www.petitesannonces.ch/r/270724">https://www.petitesannonces.ch/r/270724</textarea>
+        <div class="scraper-options">
+          <label class="scraper-option">
+            <span>Pages :</span>
+            <input type="number" id="matchBuyersPages" value="2" min="1" max="10" />
+          </label>
+        </div>
+        <button class="btn-analyser" id="btnScanBuyers" onclick="scannerAcheteurs()">
+          <div class="spinner"></div>
+          <span class="btn-text">Scanner les acheteurs</span>
+        </button>
+        <div class="error-box" id="matchBuyersError"></div>
+        <div class="loading-state" id="matchBuyersLoading">
+          <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="loading-text" id="matchBuyersLoadingText">Scan des acheteurs...</div>
+        </div>
+        <div class="match-count-badge" id="buyersCountBadge"></div>
+      </div>
+
+      <!-- Etape 2 : Ajouter les biens (agences) -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">2</span>
+          <div>
+            <div class="section-label">Ajouter vos biens</div>
+            <p class="agences-desc">Collez les URLs des biens d'agences (un par ligne) ou utilisez les annonces deja scrapees</p>
+          </div>
+        </div>
+
+        <div class="matching-biens-toggle">
+          <button class="mode-btn active" id="btnBienUrls" onclick="switchBienMode('urls')">URLs d'agences</button>
+          <button class="mode-btn" id="btnBienScraper" onclick="switchBienMode('scraper')">Depuis Petites Annonces</button>
+        </div>
+
+        <div id="bienUrlsZone">
+          <textarea id="matchBienUrls"
+            placeholder="Collez ici les URLs des biens (un par ligne)&#10;Ex:&#10;https://www.naef.ch/bien/appartement-lausanne-123&#10;https://www.nicod.ch/annonce/456"></textarea>
+          <button class="btn-analyser" id="btnScanBiens" onclick="scannerBiens()">
+            <div class="spinner"></div>
+            <span class="btn-text">Charger les biens</span>
+          </button>
+        </div>
+
+        <div id="bienScraperZone" style="display:none">
+          <p class="agences-desc" style="margin-bottom:12px">
+            Les annonces scrapees dans l'onglet « Petites Annonces » seront utilisees comme biens disponibles.
+          </p>
+          <button class="btn-analyser" id="btnUseScraper" onclick="utiliserAnnoncesScraper()">
+            <div class="spinner"></div>
+            <span class="btn-text">Utiliser les annonces scrapees</span>
+          </button>
+        </div>
+
+        <div class="error-box" id="matchBienError"></div>
+        <div class="loading-state" id="matchBienLoading">
+          <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="loading-text">Chargement des biens...</div>
+        </div>
+        <div class="match-count-badge" id="biensCountBadge"></div>
+      </div>
+
+      <!-- Etape 3 : Lancer le matching -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">3</span>
+          <div>
+            <div class="section-label">Lancer le matching</div>
+            <p class="agences-desc">Croisement automatique par localisation, budget, pieces et surface</p>
+          </div>
+        </div>
+        <button class="btn-analyser accent" id="btnMatch" onclick="lancerMatching()">
+          <div class="spinner"></div>
+          <span class="btn-text">Trouver les correspondances</span>
+        </button>
+      </div>
+
+      <!-- Resultats matching -->
+      <div id="matchResults" class="scraper-results">
+        <div class="scraper-results-header">
+          <div class="section-label">Correspondances · <span id="matchCount">0</span> matches</div>
+          <button class="btn-pdf" onclick="exporterMatches()">Exporter JSON</button>
+        </div>
+        <div id="matchGrid" class="match-grid"></div>
       </div>
 
     </div>

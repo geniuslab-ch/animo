@@ -302,44 +302,45 @@
         <div class="match-count-badge" id="buyersCountBadge"></div>
       </div>
 
-      <!-- Etape 2 : Ajouter les biens (agences) -->
+      <!-- Etape 2 : Scanner les agences automatiquement -->
       <div class="matching-section">
         <div class="matching-step-header">
           <span class="matching-step-num">2</span>
           <div>
-            <div class="section-label">Ajouter vos biens</div>
-            <p class="agences-desc">Collez les URLs des biens d'agences (un par ligne) ou utilisez les annonces deja scrapees</p>
+            <div class="section-label">Scanner les biens d'agences</div>
+            <p class="agences-desc">Selectionnez les agences a scanner. Les biens en vente seront extraits automatiquement.</p>
           </div>
         </div>
 
-        <div class="matching-biens-toggle">
-          <button class="mode-btn active" id="btnBienUrls" onclick="switchBienMode('urls')">URLs d'agences</button>
-          <button class="mode-btn" id="btnBienScraper" onclick="switchBienMode('scraper')">Depuis Petites Annonces</button>
+        <div class="agency-checklist" id="agencyChecklist">
+          <label class="agency-check"><input type="checkbox" value="naef" checked> Naef</label>
+          <label class="agency-check"><input type="checkbox" value="bernardnicod" checked> Bernard Nicod</label>
+          <label class="agency-check"><input type="checkbox" value="cogestim"> Cogestim</label>
+          <label class="agency-check"><input type="checkbox" value="maillard"> Maillard Immo</label>
+          <label class="agency-check"><input type="checkbox" value="barnes"> Barnes Suisse</label>
+          <label class="agency-check"><input type="checkbox" value="domicim"> Domicim</label>
+          <label class="agency-check"><input type="checkbox" value="gerofinance"> Gerofinance</label>
+          <label class="agency-check"><input type="checkbox" value="comptoirimmo"> Comptoir Immo</label>
+          <label class="agency-check"><input type="checkbox" value="neho"> Neho</label>
+          <label class="agency-check"><input type="checkbox" value="spg"> SPG Rytz</label>
+          <label class="agency-check"><input type="checkbox" value="galland"> Galland &amp; Cie</label>
+          <label class="agency-check"><input type="checkbox" value="burnier"> Burnier</label>
         </div>
 
-        <div id="bienUrlsZone">
-          <textarea id="matchBienUrls"
-            placeholder="Collez ici les URLs des biens (un par ligne)&#10;Ex:&#10;https://www.naef.ch/bien/appartement-lausanne-123&#10;https://www.nicod.ch/annonce/456"></textarea>
-          <button class="btn-analyser" id="btnScanBiens" onclick="scannerBiens()">
-            <div class="spinner"></div>
-            <span class="btn-text">Charger les biens</span>
-          </button>
+        <div class="agency-select-actions">
+          <button class="agency-select-btn" onclick="toggleAllAgencies(true)">Tout cocher</button>
+          <button class="agency-select-btn" onclick="toggleAllAgencies(false)">Tout decocher</button>
         </div>
 
-        <div id="bienScraperZone" style="display:none">
-          <p class="agences-desc" style="margin-bottom:12px">
-            Les annonces scrapees dans l'onglet « Petites Annonces » seront utilisees comme biens disponibles.
-          </p>
-          <button class="btn-analyser" id="btnUseScraper" onclick="utiliserAnnoncesScraper()">
-            <div class="spinner"></div>
-            <span class="btn-text">Utiliser les annonces scrapees</span>
-          </button>
-        </div>
+        <button class="btn-analyser" id="btnScanAgencies" onclick="scannerAgences()">
+          <div class="spinner"></div>
+          <span class="btn-text">Scanner les agences selectionnees</span>
+        </button>
 
         <div class="error-box" id="matchBienError"></div>
         <div class="loading-state" id="matchBienLoading">
           <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
-          <div class="loading-text">Chargement des biens...</div>
+          <div class="loading-text" id="matchBienLoadingText">Scan des agences...</div>
         </div>
         <div class="match-count-badge" id="biensCountBadge"></div>
       </div>

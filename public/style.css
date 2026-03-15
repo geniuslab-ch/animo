@@ -772,6 +772,62 @@ textarea::placeholder {
 }
 
 /* ── Matching Tab ──────────────────────────────────────────────────────────*/
+.agency-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.agency-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid var(--gris-clair);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.agency-check:hover {
+  border-color: var(--rouge);
+}
+
+.agency-check input[type="checkbox"] {
+  accent-color: var(--rouge);
+  width: 16px;
+  height: 16px;
+}
+
+.agency-check:has(input:checked) {
+  background: #fef5f5;
+  border-color: var(--rouge);
+}
+
+.agency-select-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.agency-select-btn {
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  border: 1px solid var(--gris-clair);
+  border-radius: var(--radius);
+  background: white;
+  color: var(--gris-2);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.agency-select-btn:hover {
+  background: var(--gris-clair);
+}
+
 .matching-section {
   background: white;
   border: 1px solid var(--gris-clair);

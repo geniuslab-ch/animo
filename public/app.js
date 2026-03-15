@@ -613,16 +613,73 @@ let matchBuyers = [];
 let matchBiens = [];
 let matchResults = [];
 
-function switchBienMode(mode) {
-  const btnUrls = document.getElementById("btnBienUrls");
-  const btnScraper = document.getElementById("btnBienScraper");
-  const zoneUrls = document.getElementById("bienUrlsZone");
-  const zoneScraper = document.getElementById("bienScraperZone");
+// Configuration des agences avec leurs URLs de listings
+const AGENCIES = {
+  naef: {
+    name: "Naef",
+    listingsUrl: "https://www.naef.ch/recherche/acheter?localisation=vaud",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  bernardnicod: {
+    name: "Bernard Nicod",
+    listingsUrl: "https://www.bernardnicod.ch/acheter?canton=vaud",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property|achat)[^"']*)["']/gi,
+  },
+  cogestim: {
+    name: "Cogestim",
+    listingsUrl: "https://www.cogestim.ch/acheter",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  maillard: {
+    name: "Maillard Immo",
+    listingsUrl: "https://www.maillardimmo.ch/acheter",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  barnes: {
+    name: "Barnes Suisse",
+    listingsUrl: "https://www.barnes-suisse.ch/vente/vaud",
+    linkPattern: /href=["']([^"']*\/(?:annonce|bien|property|detail|vente\/vaud)[^"']*)["']/gi,
+  },
+  domicim: {
+    name: "Domicim",
+    listingsUrl: "https://www.domicim.ch/acheter",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  gerofinance: {
+    name: "Gerofinance",
+    listingsUrl: "https://www.gfrsd.ch/acheter?canton=vaud",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  comptoirimmo: {
+    name: "Comptoir Immo",
+    listingsUrl: "https://www.comptoirimmo.ch/acheter",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  neho: {
+    name: "Neho",
+    listingsUrl: "https://www.neho.ch/acheter?canton=vaud",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  spg: {
+    name: "SPG Rytz",
+    listingsUrl: "https://www.spg-rytz.ch/acheter?region=vaud",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  galland: {
+    name: "Galland & Cie",
+    listingsUrl: "https://www.galland.ch/acheter",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+  burnier: {
+    name: "Burnier",
+    listingsUrl: "https://www.burnier.ch/acheter",
+    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+  },
+};
 
-  if (btnUrls) btnUrls.classList.toggle("active", mode === "urls");
-  if (btnScraper) btnScraper.classList.toggle("active", mode === "scraper");
-  if (zoneUrls) zoneUrls.style.display = mode === "urls" ? "" : "none";
-  if (zoneScraper) zoneScraper.style.display = mode === "scraper" ? "" : "none";
+function toggleAllAgencies(checked) {
+  const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]");
+  checkboxes.forEach(cb => cb.checked = checked);
 }
 
 async function scannerAcheteurs() {
@@ -694,19 +751,18 @@ async function scannerAcheteurs() {
   }
 }
 
-async function scannerBiens() {
-  const urlEl = document.getElementById("matchBienUrls");
-  const input = urlEl ? urlEl.value.trim() : "";
+async function scannerAgences() {
+  const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
+  const selectedAgencies = [...checkboxes].map(cb => cb.value);
 
-  if (!input) {
-    showMatchError("matchBienError", "Veuillez coller au moins une URL.");
+  if (selectedAgencies.length === 0) {
+    showMatchError("matchBienError", "Selectionnez au moins une agence.");
     return;
   }
 
-  const urls = input.split("\n").map(u => u.trim()).filter(u => u.length > 0);
-
-  const btn = document.getElementById("btnScanBiens");
+  const btn = document.getElementById("btnScanAgencies");
   const loading = document.getElementById("matchBienLoading");
+  const loadingText = document.getElementById("matchBienLoadingText");
   const errBox = document.getElementById("matchBienError");
 
   if (errBox) errBox.classList.remove("visible");
@@ -714,57 +770,51 @@ async function scannerBiens() {
   if (loading) loading.classList.add("visible");
 
   matchBiens = [];
+  let scannedCount = 0;
 
-  try {
-    for (const url of urls) {
-      try {
-        const response = await fetch("/api/scrape-listings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
-          body: JSON.stringify({ url, singleAd: true }),
-        });
+  for (const agencyKey of selectedAgencies) {
+    const agency = AGENCIES[agencyKey];
+    if (!agency) continue;
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.annonces && data.annonces.length > 0) {
-            matchBiens.push(...data.annonces);
-          } else if (data.ad) {
-            matchBiens.push(data.ad);
-          }
+    scannedCount++;
+    if (loadingText) {
+      loadingText.textContent = `Scan ${agency.name} (${scannedCount}/${selectedAgencies.length})...`;
+    }
+
+    try {
+      const response = await fetch("/api/scrape-agency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+        body: JSON.stringify({ url: agency.listingsUrl, agencyName: agency.name }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.annonces && data.annonces.length > 0) {
+          matchBiens.push(...data.annonces.map(a => ({ ...a, source: agency.name })));
         }
-      } catch (e) { /* ignorer */ }
+      }
+    } catch (e) {
+      // Agence inaccessible, on continue
     }
 
-    if (loading) loading.classList.remove("visible");
-    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
-
-    const badge = document.getElementById("biensCountBadge");
-    if (badge) {
-      badge.textContent = `${matchBiens.length} bien(s) charge(s)`;
-      badge.classList.add("visible");
+    // Pause entre les agences
+    if (scannedCount < selectedAgencies.length) {
+      await new Promise(r => setTimeout(r, 1000));
     }
-
-    if (matchBiens.length === 0) {
-      showMatchError("matchBienError", "Aucun bien extrait. Verifiez les URLs.");
-    }
-
-  } catch (err) {
-    if (loading) loading.classList.remove("visible");
-    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
-    showMatchError("matchBienError", "Erreur : " + err.message);
   }
-}
 
-function utiliserAnnoncesScraper() {
-  if (scrapedAnnonces.length === 0) {
-    showMatchError("matchBienError", "Aucune annonce scrapee. Allez d'abord dans l'onglet Petites Annonces pour scanner.");
-    return;
-  }
-  matchBiens = [...scrapedAnnonces];
+  if (loading) loading.classList.remove("visible");
+  if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
   const badge = document.getElementById("biensCountBadge");
   if (badge) {
-    badge.textContent = `${matchBiens.length} bien(s) importes depuis le scraper`;
+    badge.textContent = `${matchBiens.length} bien(s) trouves sur ${scannedCount} agence(s)`;
     badge.classList.add("visible");
+  }
+
+  if (matchBiens.length === 0) {
+    showMatchError("matchBienError", "Aucun bien extrait. Les sites bloquent peut-etre l'acces automatique.");
   }
 }
 

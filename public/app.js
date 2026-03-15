@@ -72,17 +72,7 @@ function checkExclusions(buyer, bien) {
     }
   }
 
-  // Filtre 2 : Type incompatible (maison vs appartement)
-  const buyerType = buyer.type || extractPropertyType(buyer);
-  const bienType = bien.type || extractPropertyType(bien);
-  if (buyerType !== 'unknown' && bienType !== 'unknown' && buyerType !== bienType) {
-    if ((buyerType === 'house' && bienType === 'apartment') ||
-        (buyerType === 'apartment' && bienType === 'house')) {
-      return { compatible: false, reason: 'Type incompatible (' + buyerType + ' vs ' + bienType + ')' };
-    }
-  }
-
-  // Filtre 3 : Prix depasse budget de plus de 15%
+  // Filtre 2 : Prix depasse budget de plus de 15%
   if (buyer.prix && bien.prix) {
     if (bien.prix > buyer.prix * 1.15) {
       return { compatible: false, reason: 'Prix depasse le budget de plus de 15%' };
@@ -702,6 +692,8 @@ function afficherErreurScraper(msg) {
 let matchBuyers = [];
 let matchBiens = [];
 let matchResults = [];
+let scraperCategory = 'immobilier';
+let matchCategory = 'immobilier';
 
 // Configuration des agences avec leurs URLs de listings
 const AGENCIES = {
@@ -758,6 +750,141 @@ const AGENCIES = {
 function toggleAllAgencies(checked) {
   const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]");
   checkboxes.forEach(cb => cb.checked = checked);
+}
+
+// ── Category Switching ─────────────────────────────────────────────────────
+
+const SCRAPER_DEFAULTS = {
+  immobilier: { url: 'https://www.petitesannonces.ch/r/270724', placeholder: 'Collez l\'URL de la rubrique (ex: https://www.petitesannonces.ch/r/270724)' },
+  objets_petitesannonces: { url: 'https://www.petitesannonces.ch/r/p/32', placeholder: 'URL rubrique objets (ex: https://www.petitesannonces.ch/r/p/32)' },
+  objets_anibis: { url: 'https://www.anibis.ch/fr/c/collections', placeholder: 'URL categorie anibis (ex: https://www.anibis.ch/fr/c/collections)' },
+};
+
+function switchScraperCategory(cat) {
+  scraperCategory = cat;
+  document.getElementById('scraperCatImmobilier').classList.toggle('active', cat === 'immobilier');
+  document.getElementById('scraperCatObjets').classList.toggle('active', cat === 'objets');
+
+  const sourceToggle = document.getElementById('scraperSourceToggle');
+  const urlEl = document.getElementById('scraperUrl');
+
+  if (cat === 'objets') {
+    sourceToggle.style.display = 'flex';
+    const source = document.querySelector('input[name="scraperSource"]:checked')?.value || 'petitesannonces';
+    const key = 'objets_' + source;
+    urlEl.value = SCRAPER_DEFAULTS[key].url;
+    urlEl.placeholder = SCRAPER_DEFAULTS[key].placeholder;
+  } else {
+    sourceToggle.style.display = 'none';
+    urlEl.value = SCRAPER_DEFAULTS.immobilier.url;
+    urlEl.placeholder = SCRAPER_DEFAULTS.immobilier.placeholder;
+  }
+}
+
+// Update scraper URL when source radio changes
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('input[name="scraperSource"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (scraperCategory === 'objets') {
+        const key = 'objets_' + radio.value;
+        const urlEl = document.getElementById('scraperUrl');
+        urlEl.value = SCRAPER_DEFAULTS[key].url;
+        urlEl.placeholder = SCRAPER_DEFAULTS[key].placeholder;
+      }
+    });
+  });
+});
+
+function switchMatchCategory(cat) {
+  matchCategory = cat;
+  document.getElementById('matchCatImmobilier').classList.toggle('active', cat === 'immobilier');
+  document.getElementById('matchCatObjets').classList.toggle('active', cat === 'objets');
+
+  const agencesPanel = document.getElementById('matchAgencesPanel');
+  const objetsPanel = document.getElementById('matchObjetsPanel');
+  const step2Label = document.getElementById('matchStep2Label');
+  const step2Desc = document.getElementById('matchStep2Desc');
+
+  if (cat === 'objets') {
+    agencesPanel.style.display = 'none';
+    objetsPanel.style.display = 'block';
+    step2Label.textContent = 'Scanner les objets a vendre';
+    step2Desc.textContent = 'Scannez les objets sur petitesannonces.ch ou anibis.ch.';
+    document.getElementById('matchBuyersUrl').placeholder = 'URL rubrique recherche objets';
+  } else {
+    agencesPanel.style.display = 'block';
+    objetsPanel.style.display = 'none';
+    step2Label.textContent = 'Scanner les biens d\'agences';
+    step2Desc.textContent = 'Selectionnez les agences a scanner. Les biens en vente seront extraits automatiquement.';
+    document.getElementById('matchBuyersUrl').placeholder = 'Ex: https://www.petitesannonces.ch/r/270724';
+  }
+}
+
+async function scannerObjetsAVendre() {
+  const urlEl = document.getElementById("matchObjetsUrl");
+  const input = urlEl ? urlEl.value.trim() : "";
+  const maxPages = parseInt(document.getElementById("matchObjetsPages")?.value || "2", 10);
+
+  if (!input) {
+    showMatchError("matchBienError", "Veuillez coller l'URL d'une rubrique d'objets.");
+    return;
+  }
+
+  let baseUrl;
+  try { baseUrl = new URL(input).href; } catch {
+    showMatchError("matchBienError", "URL invalide.");
+    return;
+  }
+
+  const btn = document.getElementById("btnScanObjets");
+  const loading = document.getElementById("matchObjetsLoading");
+  const loadingText = document.getElementById("matchObjetsLoadingText");
+
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (loading) loading.classList.add("visible");
+
+  matchBiens = [];
+
+  try {
+    for (let page = 1; page <= maxPages; page++) {
+      if (loadingText) loadingText.textContent = `Scan objets page ${page}/${maxPages}...`;
+      const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`;
+
+      const response = await fetch("/api/scrape-listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+        body: JSON.stringify({ url: pageUrl }),
+      });
+
+      if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+      const data = await response.json();
+
+      if (data.annonces && data.annonces.length > 0) {
+        matchBiens.push(...data.annonces);
+      }
+
+      if (!data.annonces || data.annonces.length === 0 || !data.hasMore) break;
+      if (page < maxPages) await new Promise(r => setTimeout(r, 1500));
+    }
+
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
+    const badge = document.getElementById("biensCountBadge");
+    if (badge) {
+      badge.textContent = `${matchBiens.length} objet(s) trouve(s)`;
+      badge.classList.add("visible");
+    }
+
+    if (matchBiens.length === 0) {
+      showMatchError("matchBienError", "Aucun objet trouve.");
+    }
+
+  } catch (err) {
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    showMatchError("matchBienError", "Erreur : " + err.message);
+  }
 }
 
 async function scannerAcheteurs() {
@@ -946,7 +1073,8 @@ function lancerMatching() {
       }
 
       // Etape 3 : Score de pertinence
-      const { score, breakdown } = calculerMatchScore(buyer, bien);
+      const scoreFn = matchCategory === 'objets' ? calculerMatchScoreObjets : calculerMatchScore;
+      const { score, breakdown } = scoreFn(buyer, bien);
       if (score > 30) {
         matchResults.push({ buyer, bien, score, breakdown });
       }
@@ -960,41 +1088,92 @@ function lancerMatching() {
 }
 
 function calculerMatchScore(buyer, bien) {
-  const breakdown = { location: 0, rooms: 0, price: 0, bonus: 0 };
+  const breakdown = { location: 0, type: 0, roomsSurface: 0, price: 0 };
 
-  // Localisation parfaite : +40 pts max
+  // Localisation : +50 pts max (priorite #1)
   if (buyer.localisation && bien.localisation) {
     const buyerNPA = buyer.localisation.match(/\d{4}/);
     const bienNPA = bien.localisation.match(/\d{4}/);
     if (buyerNPA && bienNPA) {
-      const proximity = npaProximityScore(buyerNPA[0], bienNPA[0]);
-      breakdown.location = Math.round(40 * proximity);
+      if (buyerNPA[0] === bienNPA[0]) breakdown.location = 50;
+      else {
+        const proximity = npaProximityScore(buyerNPA[0], bienNPA[0]);
+        if (proximity >= 0.7) breakdown.location = 35;
+        else if (proximity >= 0.3) breakdown.location = 15;
+      }
     }
   }
 
-  // Pieces exact : +30 pts max (tolerance ±0.5)
+  // Type de bien : +20 pts max (priorite #2)
+  const buyerType = buyer.type || extractPropertyType(buyer);
+  const bienType = bien.type || extractPropertyType(bien);
+  if (buyerType !== 'unknown' && bienType !== 'unknown') {
+    if (buyerType === bienType) breakdown.type = 20;
+    else breakdown.type = 0;
+  } else if (buyerType === 'unknown' && bienType === 'unknown') {
+    breakdown.type = 10;
+  } else {
+    breakdown.type = 5;
+  }
+
+  // Pieces + Surface : +20 pts max (12 pieces + 8 surface)
   if (buyer.pieces && bien.pieces) {
     const diff = Math.abs(buyer.pieces - bien.pieces);
-    if (diff === 0) breakdown.rooms = 30;
-    else if (diff <= 0.5) breakdown.rooms = 24;
+    if (diff === 0) breakdown.roomsSurface += 12;
+    else if (diff <= 0.5) breakdown.roomsSurface += 9;
+    else if (diff <= 1) breakdown.roomsSurface += 5;
+  }
+  if (buyer.surface_m2 && bien.surface_m2) {
+    const ratio = Math.abs(buyer.surface_m2 - bien.surface_m2) / buyer.surface_m2;
+    if (ratio <= 0.1) breakdown.roomsSurface += 8;
+    else if (ratio <= 0.2) breakdown.roomsSurface += 5;
+    else if (ratio <= 0.3) breakdown.roomsSurface += 2;
   }
 
-  // Budget respecte : +20 pts max
+  // Budget : +10 pts max
   if (buyer.prix && bien.prix) {
-    if (bien.prix <= buyer.prix) breakdown.price = 20;
-    else if (bien.prix <= buyer.prix * 1.15) breakdown.price = 10;
+    if (bien.prix <= buyer.prix) breakdown.price = 10;
+    else if (bien.prix <= buyer.prix * 1.15) breakdown.price = 5;
   }
 
-  // Bonus (Jardin, Balcon, Vue) : +10 pts max
-  const bienBonus = extractBonus(bien);
-  let bonusCount = 0;
-  if (bienBonus.jardin) bonusCount++;
-  if (bienBonus.balcon) bonusCount++;
-  if (bienBonus.vue) bonusCount++;
-  breakdown.bonus = Math.min(10, Math.round(bonusCount * 3.33));
+  const score = breakdown.location + breakdown.type + breakdown.roomsSurface + breakdown.price;
 
-  const score = breakdown.location + breakdown.rooms + breakdown.price + breakdown.bonus;
+  return { score, breakdown };
+}
 
+function calculerMatchScoreObjets(buyer, bien) {
+  const breakdown = { location: 0, price: 0, keywords: 0 };
+
+  // Localisation : +40 pts max
+  if (buyer.localisation && bien.localisation) {
+    const buyerNPA = buyer.localisation.match(/\d{4}/);
+    const bienNPA = bien.localisation.match(/\d{4}/);
+    if (buyerNPA && bienNPA) {
+      if (buyerNPA[0] === bienNPA[0]) breakdown.location = 40;
+      else {
+        const proximity = npaProximityScore(buyerNPA[0], bienNPA[0]);
+        if (proximity >= 0.7) breakdown.location = 28;
+        else if (proximity >= 0.3) breakdown.location = 12;
+      }
+    }
+  }
+
+  // Prix : +30 pts max
+  if (buyer.prix && bien.prix) {
+    if (bien.prix <= buyer.prix) breakdown.price = 30;
+    else if (bien.prix <= buyer.prix * 1.2) breakdown.price = 15;
+  }
+
+  // Mots-cles titre : +30 pts max
+  const stopWords = new Set(['les','des','une','pour','avec','dans','sur','par','est','que','qui','sont','pas','plus','tout','cette','ces']);
+  const buyerWords = (buyer.titre || '').toLowerCase().split(/\s+/).filter(w => w.length > 3 && !stopWords.has(w));
+  const bienText = ((bien.titre || '') + ' ' + (bien.description || '')).toLowerCase();
+  if (buyerWords.length > 0) {
+    const matches = buyerWords.filter(w => bienText.includes(w)).length;
+    breakdown.keywords = Math.round((matches / buyerWords.length) * 30);
+  }
+
+  const score = breakdown.location + breakdown.price + breakdown.keywords;
   return { score, breakdown };
 }
 
@@ -1011,12 +1190,18 @@ function afficherMatchResults(results, incompatibles) {
     return;
   }
 
+  const isObjets = matchCategory === 'objets';
+
   let html = results.map((m, i) => {
     const scoreClass = m.score >= 70 ? "match-high" : m.score >= 40 ? "match-medium" : "match-low";
+    const scoreLabel = m.score >= 70 ? "Excellent" : m.score >= 40 ? "Bon" : "Faible";
     const b = m.breakdown || {};
     return `
     <div class="match-card ${scoreClass}">
-      <div class="match-score-badge">${m.score}/100</div>
+      <div class="match-score-badge">
+        <span class="match-score-value">${m.score}/100</span>
+        <span class="match-score-label">${scoreLabel}</span>
+      </div>
       <div class="match-pair">
         <div class="match-side match-buyer">
           <div class="match-side-label">Acheteur recherche</div>
@@ -1030,7 +1215,8 @@ function afficherMatchResults(results, incompatibles) {
         </div>
         <div class="match-arrow">&#8596;</div>
         <div class="match-side match-bien">
-          <div class="match-side-label">Bien disponible</div>
+          ${m.bien.image_url ? `<div class="match-thumb" style="background-image:url('${escapeHTML(m.bien.image_url)}')"></div>` : ''}
+          <div class="match-side-label">${isObjets ? 'Objet disponible' : 'Bien disponible'}</div>
           ${m.bien.source ? `<div class="match-side-source">${escapeHTML(m.bien.source)}</div>` : ''}
           <div class="match-side-price">${m.bien.prix ? formatPrix(m.bien.prix) : '\u2014'}</div>
           <div class="match-side-details">
@@ -1042,10 +1228,16 @@ function afficherMatchResults(results, incompatibles) {
         </div>
       </div>
       <div class="match-breakdown">
-        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/40">Loc ${b.location}/40</span>
-        <span class="breakdown-pill ${b.rooms > 0 ? 'active' : ''}" title="Pieces: ${b.rooms}/30">Pcs ${b.rooms}/30</span>
-        <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Budget: ${b.price}/20">Prix ${b.price}/20</span>
-        <span class="breakdown-pill ${b.bonus > 0 ? 'active' : ''}" title="Bonus: ${b.bonus}/10">Bonus ${b.bonus}/10</span>
+        ${isObjets ? `
+        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/40">Lieu ${b.location}/40</span>
+        <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/30">Prix ${b.price}/30</span>
+        <span class="breakdown-pill ${b.keywords > 0 ? 'active' : ''}" title="Mots-cles: ${b.keywords}/30">Mots-cles ${b.keywords}/30</span>
+        ` : `
+        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/50">Lieu ${b.location}/50</span>
+        <span class="breakdown-pill ${b.type > 0 ? 'active' : ''}" title="Type: ${b.type}/20">Type ${b.type}/20</span>
+        <span class="breakdown-pill ${b.roomsSurface > 0 ? 'active' : ''}" title="Pieces/Surface: ${b.roomsSurface}/20">Pcs/m\u00b2 ${b.roomsSurface}/20</span>
+        <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/10">Prix ${b.price}/10</span>
+        `}
       </div>
       <div class="match-actions">
         <a href="${escapeHTML(m.buyer.url || '#')}" target="_blank" class="match-link">Voir acheteur</a>

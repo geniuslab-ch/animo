@@ -63,6 +63,15 @@ function checkExclusions(buyer, bien) {
   // Filtre 1 : Localisation hors zone
   const buyerNPA = extractNPAFromText(buyer);
   const bienNPA = extractNPAFromText(bien);
+
+  // Si l'un a un NPA et l'autre non → incompatible
+  if (buyerNPA && !bienNPA) {
+    return { compatible: false, reason: 'Bien sans localisation identifiable' };
+  }
+  if (!buyerNPA && bienNPA) {
+    return { compatible: false, reason: 'Acheteur sans localisation identifiable' };
+  }
+
   if (buyerNPA && bienNPA) {
     const proximity = npaProximityScore(buyerNPA, bienNPA);
     if (proximity === 0) {
@@ -862,6 +871,64 @@ async function scannerAcheteurs() {
   }
 }
 
+async function importerAcheteurPDF(fileInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  const btn = document.getElementById("btnImportPDF");
+  const loading = document.getElementById("pdfImportLoading");
+  const errorBox = document.getElementById("pdfImportError");
+  const badge = document.getElementById("pdfImportBadge");
+
+  if (errorBox) errorBox.style.display = "none";
+  if (badge) badge.classList.remove("visible");
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (loading) loading.classList.add("visible");
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = () => reject(new Error('Erreur de lecture du fichier'));
+      reader.readAsDataURL(file);
+    });
+
+    const response = await fetch("/api/parse-buyer-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+      body: JSON.stringify({ pdf_base64: base64, filename: file.name }),
+    });
+
+    if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+    const data = await response.json();
+
+    if (!data.buyer) throw new Error(data.error || "Impossible d'extraire les criteres du PDF");
+
+    const buyer = data.buyer;
+    buyer.source = 'PDF off-market';
+    buyer.url = '';
+    matchBuyers.push(buyer);
+
+    if (badge) {
+      badge.textContent = `Acheteur importe : ${buyer.titre || file.name} — ${matchBuyers.length} acheteur(s) au total`;
+      badge.classList.add("visible");
+    }
+
+    const mainBadge = document.getElementById("buyersCountBadge");
+    if (mainBadge) {
+      mainBadge.textContent = `${matchBuyers.length} acheteur(s) au total`;
+      mainBadge.classList.add("visible");
+    }
+
+  } catch (err) {
+    showMatchError("pdfImportError", "Erreur : " + err.message);
+  } finally {
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    fileInput.value = '';
+  }
+}
+
 async function scannerAgences() {
   const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
   const selectedAgencies = [...checkboxes].map(cb => cb.value);
@@ -1015,7 +1082,7 @@ function lancerMatching() {
 
       // Etape 3 : Score de pertinence
       const { score, breakdown } = calculerMatchScore(buyer, bien);
-      if (score > 30) {
+      if (score >= 70) {
         matchResults.push({ buyer, bien, score, breakdown });
       }
     }

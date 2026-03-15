@@ -725,7 +725,6 @@ let matchResults = [];
 
 // URLs sources en ligne pour le matching immobilier
 const PA_ACHETEURS_URL = 'https://www.petitesannonces.ch/r/2707';
-const PA_VENTE_URL = 'https://www.petitesannonces.ch/r/2702';
 const ANIBIS_IMMOBILIER_URL = 'https://www.anibis.ch/fr/q/immobilier-appartements-maisons-terrains-objets-commerciaux-acheter/Ak8CqcmVhbEVzdGF0ZZSTkqljb21wYW55QWSncHJpdmF0ZZKrbGlzdGluZ1R5cGWUqWFwYXJ0bWVudKVob3VzZa5idWlsZGluZ0dyb3VuZLJjb21tZXJjaWFsUHJvcGVydHmSqXByaWNlVHlwZaNCVVnAwMA?sorting=newest&page=1';
 
 // Configuration des agences avec leurs URLs de listings
@@ -927,10 +926,9 @@ async function importerAcheteurPDF(fileInput) {
 async function scannerAgences() {
   const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
   const selectedAgencies = [...checkboxes].map(cb => cb.value);
-  const scanPA = document.getElementById("matchSourcePA")?.checked;
   const scanAnibis = document.getElementById("matchSourceAnibis")?.checked;
 
-  if (selectedAgencies.length === 0 && !scanPA && !scanAnibis) {
+  if (selectedAgencies.length === 0 && !scanAnibis) {
     showMatchError("matchBienError", "Selectionnez au moins une source.");
     return;
   }
@@ -950,7 +948,6 @@ async function scannerAgences() {
 
   // Scanner les sources en ligne d'abord
   const onlineSources = [];
-  if (scanPA) onlineSources.push({ name: 'petitesannonces.ch', url: PA_VENTE_URL });
   if (scanAnibis) onlineSources.push({ name: 'anibis.ch', url: ANIBIS_IMMOBILIER_URL });
 
   for (const source of onlineSources) {

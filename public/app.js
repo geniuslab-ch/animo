@@ -695,6 +695,10 @@ let matchResults = [];
 let scraperCategory = 'immobilier';
 let matchCategory = 'immobilier';
 
+// URLs sources en ligne pour le matching immobilier
+const PA_VENDEURS_URL = 'https://www.petitesannonces.ch/r/2702';
+const ANIBIS_IMMOBILIER_URL = 'https://www.anibis.ch/fr/q/immobilier-appartements-maisons-terrains-objets-commerciaux-acheter/Ak8CqcmVhbEVzdGF0ZZSTkqljb21wYW55QWSncHJpdmF0ZZKrbGlzdGluZ1R5cGWUqWFwYXJ0bWVudKVob3VzZa5idWlsZGluZ0dyb3VuZLJjb21tZXJjaWFsUHJvcGVydHmSqXByaWNlVHlwZaNCVVnAwMA?sorting=newest&page=1';
+
 // Configuration des agences avec leurs URLs de listings
 const AGENCIES = {
   naef: {
@@ -755,7 +759,7 @@ function toggleAllAgencies(checked) {
 // ── Category Switching ─────────────────────────────────────────────────────
 
 const SCRAPER_DEFAULTS = {
-  immobilier: { url: 'https://www.petitesannonces.ch/r/270724', placeholder: 'Collez l\'URL de la rubrique (ex: https://www.petitesannonces.ch/r/270724)' },
+  immobilier: { url: 'https://www.petitesannonces.ch/r/2707', placeholder: 'Collez l\'URL de la rubrique (ex: https://www.petitesannonces.ch/r/2707)' },
   objets_petitesannonces: { url: 'https://www.petitesannonces.ch/r/p/32', placeholder: 'URL rubrique objets (ex: https://www.petitesannonces.ch/r/p/32)' },
   objets_anibis: { url: 'https://www.anibis.ch/fr/c/collections', placeholder: 'URL categorie anibis (ex: https://www.anibis.ch/fr/c/collections)' },
 };
@@ -816,7 +820,7 @@ function switchMatchCategory(cat) {
     objetsPanel.style.display = 'none';
     step2Label.textContent = 'Scanner les biens d\'agences';
     step2Desc.textContent = 'Selectionnez les agences a scanner. Les biens en vente seront extraits automatiquement.';
-    document.getElementById('matchBuyersUrl').placeholder = 'Ex: https://www.petitesannonces.ch/r/270724';
+    document.getElementById('matchBuyersUrl').placeholder = 'Ex: https://www.petitesannonces.ch/r/2707';
   }
 }
 
@@ -959,9 +963,11 @@ async function scannerAcheteurs() {
 async function scannerAgences() {
   const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
   const selectedAgencies = [...checkboxes].map(cb => cb.value);
+  const scanPA = document.getElementById("matchSourcePA")?.checked;
+  const scanAnibis = document.getElementById("matchSourceAnibis")?.checked;
 
-  if (selectedAgencies.length === 0) {
-    showMatchError("matchBienError", "Selectionnez au moins une agence.");
+  if (selectedAgencies.length === 0 && !scanPA && !scanAnibis) {
+    showMatchError("matchBienError", "Selectionnez au moins une source.");
     return;
   }
 
@@ -977,6 +983,35 @@ async function scannerAgences() {
   matchBiens = [];
   const agencyStatuses = [];
   let scannedCount = 0;
+
+  // Scanner les sources en ligne d'abord
+  const onlineSources = [];
+  if (scanPA) onlineSources.push({ name: 'petitesannonces.ch', url: PA_VENDEURS_URL });
+  if (scanAnibis) onlineSources.push({ name: 'anibis.ch', url: ANIBIS_IMMOBILIER_URL });
+
+  for (const source of onlineSources) {
+    if (loadingText) loadingText.textContent = `Scan ${source.name}...`;
+    try {
+      for (let page = 1; page <= 2; page++) {
+        const pageUrl = page === 1 ? source.url : `${source.url}${source.url.includes('?') ? '&' : '?'}page=${page}`;
+        const response = await fetch("/api/scrape-listings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+          body: JSON.stringify({ url: pageUrl }),
+        });
+        if (!response.ok) break;
+        const data = await response.json();
+        if (data.annonces && data.annonces.length > 0) {
+          matchBiens.push(...data.annonces);
+        }
+        if (!data.annonces || data.annonces.length === 0 || !data.hasMore) break;
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      agencyStatuses.push({ name: source.name, status: 'ok', count: matchBiens.filter(b => b.source === source.name.replace('.ch', '.ch')).length, message: null });
+    } catch (e) {
+      agencyStatuses.push({ name: source.name, status: 'error', count: 0, message: e.message });
+    }
+  }
 
   for (const agencyKey of selectedAgencies) {
     const agency = AGENCIES[agencyKey];
@@ -1024,7 +1059,8 @@ async function scannerAgences() {
 
   const badge = document.getElementById("biensCountBadge");
   if (badge) {
-    badge.textContent = `${matchBiens.length} bien(s) trouves sur ${scannedCount} agence(s)`;
+    const totalSources = scannedCount + onlineSources.length;
+    badge.textContent = `${matchBiens.length} bien(s) trouves sur ${totalSources} source(s)`;
     badge.classList.add("visible");
   }
 

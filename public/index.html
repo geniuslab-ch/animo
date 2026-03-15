@@ -236,7 +236,7 @@
       <div class="agence-input-zone">
         <div class="section-label">URL de la rubrique</div>
         <textarea id="scraperUrl"
-          placeholder="Collez l'URL de la rubrique (ex: https://www.petitesannonces.ch/r/270724)">https://www.petitesannonces.ch/r/270724</textarea>
+          placeholder="Collez l'URL de la rubrique (ex: https://www.petitesannonces.ch/r/2707)">https://www.petitesannonces.ch/r/2707</textarea>
 
         <div class="scraper-options">
           <label class="scraper-option">
@@ -298,7 +298,7 @@
           </div>
         </div>
         <textarea id="matchBuyersUrl"
-          placeholder="Ex: https://www.petitesannonces.ch/r/270724">https://www.petitesannonces.ch/r/270724</textarea>
+          placeholder="Ex: https://www.petitesannonces.ch/r/2707">https://www.petitesannonces.ch/r/2707</textarea>
         <div class="scraper-options">
           <label class="scraper-option">
             <span>Pages :</span>
@@ -327,8 +327,18 @@
           </div>
         </div>
 
-        <!-- Panel Immobilier : agences -->
+        <!-- Panel Immobilier : sources en ligne + agences -->
         <div id="matchAgencesPanel">
+
+        <div class="matching-online-sources">
+          <div class="section-label" style="font-size:0.82rem; margin-bottom:8px">Sources en ligne</div>
+          <div class="agency-checklist">
+            <label class="agency-check"><input type="checkbox" id="matchSourcePA" checked> petitesannonces.ch vendeurs</label>
+            <label class="agency-check"><input type="checkbox" id="matchSourceAnibis" checked> anibis.ch immobilier</label>
+          </div>
+        </div>
+
+        <div class="section-label" style="font-size:0.82rem; margin-bottom:8px; margin-top:16px">Agences immobilières</div>
         <div class="agency-checklist" id="agencyChecklist">
           <label class="agency-check"><input type="checkbox" value="naef" checked> Naef</label>
           <label class="agency-check"><input type="checkbox" value="bernardnicod" checked> Bernard Nicod</label>

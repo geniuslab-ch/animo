@@ -986,6 +986,11 @@ textarea::placeholder {
   align-items: start;
 }
 
+.match-side {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .match-arrow {
   font-size: 1.5rem;
   color: var(--gris);
@@ -1019,6 +1024,9 @@ textarea::placeholder {
   font-size: 1.15rem;
   color: var(--noir);
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match-side-details {
@@ -1026,11 +1034,17 @@ textarea::placeholder {
   font-size: 0.75rem;
   color: var(--gris-2);
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match-side-loc {
   font-size: 0.82rem;
   color: var(--gris-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match-side-title {
@@ -1053,6 +1067,10 @@ textarea::placeholder {
   border-radius: 4px;
   display: inline-block;
   margin-bottom: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .match-breakdown {

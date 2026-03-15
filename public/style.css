@@ -657,6 +657,120 @@ textarea::placeholder {
   color: var(--noir);
 }
 
+/* ── Scraper Tab ───────────────────────────────────────────────────────────*/
+.scraper-options {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.scraper-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--gris-2);
+}
+
+.scraper-option input[type="number"] {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid var(--gris-clair);
+  border-radius: var(--radius);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.scraper-results {
+  display: none;
+  margin-top: 32px;
+}
+
+.scraper-results.visible {
+  display: block;
+}
+
+.scraper-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.scraper-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.scraper-card {
+  border: 1px solid var(--gris-clair);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: white;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.scraper-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.scraper-card-img {
+  height: 160px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--gris-clair);
+}
+
+.scraper-card-noimg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: var(--gris);
+  font-style: italic;
+}
+
+.scraper-card-body {
+  padding: 14px;
+}
+
+.scraper-card-price {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.15rem;
+  color: var(--noir);
+  margin-bottom: 4px;
+}
+
+.scraper-card-details {
+  display: flex;
+  gap: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--rouge);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+
+.scraper-card-location {
+  font-size: 0.82rem;
+  color: var(--gris-2);
+  margin-bottom: 4px;
+}
+
+.scraper-card-title {
+  font-size: 0.78rem;
+  color: var(--gris);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── History Tab ────────────────────────────────────────────────────────────*/
 .history-header {
   display: flex;

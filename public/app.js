@@ -7,9 +7,11 @@ function switchTab(tab) {
   document.getElementById("pageAnalyse").classList.toggle("active", tab === "analyse");
   document.getElementById("pageHistorique").classList.toggle("active", tab === "historique");
   document.getElementById("pageAgences").classList.toggle("active", tab === "agences");
+  document.getElementById("pageScraper").classList.toggle("active", tab === "scraper");
   document.getElementById("tabAnalyse").classList.toggle("active", tab === "analyse");
   document.getElementById("tabHistorique").classList.toggle("active", tab === "historique");
   document.getElementById("tabAgences").classList.toggle("active", tab === "agences");
+  document.getElementById("tabScraper").classList.toggle("active", tab === "scraper");
   if (tab === "historique") loadHistory();
 }
 
@@ -452,6 +454,157 @@ function genererPDF() {
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   html2pdf().set(opt).from(element).save();
+}
+
+// ── Scraper Petites Annonces ─────────────────────────────────────────────────
+let scrapedAnnonces = [];
+
+async function lancerScraping() {
+  const urlEl = document.getElementById("scraperUrl");
+  const input = urlEl ? urlEl.value.trim() : "";
+  const maxPages = parseInt(document.getElementById("scraperPages")?.value || "3", 10);
+
+  if (!input) {
+    afficherErreurScraper("Veuillez coller l'URL d'une rubrique petitesannonces.ch.");
+    return;
+  }
+
+  let baseUrl;
+  try {
+    baseUrl = new URL(input).href;
+  } catch {
+    afficherErreurScraper("URL invalide.");
+    return;
+  }
+
+  const btn = document.getElementById("btnScraper");
+  const loading = document.getElementById("scraperLoading");
+  const loadingText = document.getElementById("scraperLoadingText");
+  const errBox = document.getElementById("scraperErrorBox");
+  const resultsDiv = document.getElementById("scraperResults");
+
+  if (errBox) errBox.classList.remove("visible");
+  if (resultsDiv) resultsDiv.classList.remove("visible");
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (loading) loading.classList.add("visible");
+
+  scrapedAnnonces = [];
+
+  try {
+    for (let page = 1; page <= maxPages; page++) {
+      if (loadingText) loadingText.textContent = `Scan page ${page}/${maxPages}...`;
+
+      const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`;
+
+      const response = await fetch("/api/scrape-listings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-secret-token": SECRET_TOKEN,
+        },
+        body: JSON.stringify({ url: pageUrl }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.error || `Erreur HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.annonces && data.annonces.length > 0) {
+        scrapedAnnonces.push(...data.annonces);
+      }
+
+      // Pas d'annonces = derniere page atteinte
+      if (!data.annonces || data.annonces.length === 0 || !data.hasMore) {
+        break;
+      }
+
+      // Pause entre les pages
+      if (page < maxPages) {
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    }
+
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
+    if (scrapedAnnonces.length === 0) {
+      afficherErreurScraper("Aucune annonce trouvee. Le site bloque peut-etre l'acces automatique.");
+      return;
+    }
+
+    afficherScrapedAnnonces(scrapedAnnonces);
+
+  } catch (err) {
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    afficherErreurScraper("Erreur : " + err.message);
+  }
+}
+
+function afficherScrapedAnnonces(annonces) {
+  const resultsDiv = document.getElementById("scraperResults");
+  const grid = document.getElementById("scraperGrid");
+  const countEl = document.getElementById("scraperCount");
+
+  if (countEl) countEl.textContent = annonces.length;
+
+  grid.innerHTML = annonces.map((a, i) => `
+    <div class="scraper-card" onclick="analyserDepuisScraper(${i})">
+      ${a.image_url ? `<div class="scraper-card-img" style="background-image:url('${escapeHTML(a.image_url)}')"></div>` : '<div class="scraper-card-img scraper-card-noimg">Pas de photo</div>'}
+      <div class="scraper-card-body">
+        <div class="scraper-card-price">${a.prix ? formatPrix(a.prix) : 'Prix non indique'}</div>
+        <div class="scraper-card-details">
+          ${a.pieces ? `<span>${a.pieces} pcs</span>` : ''}
+          ${a.surface_m2 ? `<span>${a.surface_m2} m²</span>` : ''}
+        </div>
+        <div class="scraper-card-location">${escapeHTML(a.localisation || 'Localisation inconnue')}</div>
+        <div class="scraper-card-title">${escapeHTML(a.titre || '')}</div>
+      </div>
+    </div>
+  `).join("");
+
+  if (resultsDiv) resultsDiv.classList.add("visible");
+}
+
+function analyserDepuisScraper(index) {
+  const annonce = scrapedAnnonces[index];
+  if (!annonce || !annonce.url) return;
+
+  switchTab("analyse");
+  document.getElementById("annonce").value = annonce.url;
+  switchInputMode("url");
+  analyser();
+}
+
+function formatPrix(prix) {
+  if (!prix) return "";
+  return "CHF " + prix.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'") + ".–";
+}
+
+function exporterJSON() {
+  if (scrapedAnnonces.length === 0) return;
+
+  const blob = new Blob(
+    [JSON.stringify(scrapedAnnonces, null, 2)],
+    { type: "application/json" }
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "petitesannonces.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function afficherErreurScraper(msg) {
+  const box = document.getElementById("scraperErrorBox");
+  if (box) {
+    box.textContent = msg;
+    box.classList.add("visible");
+  }
 }
 
 window.onload = () => loadHistory();

@@ -27,6 +27,7 @@
     <nav class="tab-nav">
       <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
       <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
+      <button class="tab-btn" id="tabScraper" onclick="switchTab('scraper')">Petites Annonces</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
     </nav>
   </header>
@@ -205,6 +206,56 @@
         <span class="site-tag">Burnier</span>
         <span class="site-tag">Anibis</span>
         <span class="site-tag">+ tout autre site</span>
+      </div>
+
+    </div>
+
+    <!-- ── TAB: Scraper Petites Annonces ─────────────────────────────────── -->
+    <div id="pageScraper" class="tab-page">
+
+      <div class="agences-intro">
+        <div class="section-label">Scanner les petites annonces</div>
+        <p class="agences-desc">
+          Scannez automatiquement toutes les annonces d'une rubrique sur
+          <strong>petitesannonces.ch</strong>. Le scanner extrait le prix, le nombre de pièces,
+          la surface, la localisation et la photo de chaque annonce.
+        </p>
+      </div>
+
+      <div class="agence-input-zone">
+        <div class="section-label">URL de la rubrique</div>
+        <textarea id="scraperUrl"
+          placeholder="Collez l'URL de la rubrique (ex: https://www.petitesannonces.ch/r/270724)">https://www.petitesannonces.ch/r/270724</textarea>
+
+        <div class="scraper-options">
+          <label class="scraper-option">
+            <span>Pages à scanner :</span>
+            <input type="number" id="scraperPages" value="3" min="1" max="20" />
+          </label>
+        </div>
+
+        <button class="btn-analyser" id="btnScraper" onclick="lancerScraping()">
+          <div class="spinner"></div>
+          <span class="btn-text">Scanner les annonces</span>
+        </button>
+
+        <div class="error-box" id="scraperErrorBox"></div>
+
+        <div class="loading-state" id="scraperLoading">
+          <div class="loading-bars">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="loading-text" id="scraperLoadingText">Scan en cours...</div>
+        </div>
+      </div>
+
+      <!-- Résultats du scan -->
+      <div id="scraperResults" class="scraper-results">
+        <div class="scraper-results-header">
+          <div class="section-label">Annonces trouvées · <span id="scraperCount">0</span> résultats</div>
+          <button class="btn-pdf" onclick="exporterJSON()">Exporter JSON</button>
+        </div>
+        <div id="scraperGrid" class="scraper-grid"></div>
       </div>
 
     </div>

@@ -6,6 +6,12 @@
 export default {
     async fetch(request, env) {
         const url = new URL(request.url);
+
+        // ── Route : scrape-listings (scan en masse) ──────────────────────────
+        if (url.pathname === "/api/scrape-listings") {
+            return handleScrapeListings(request, env);
+        }
+
         if (url.pathname !== "/api/analyze") {
             return new Response("Not found", { status: 404 });
         }
@@ -220,6 +226,187 @@ async function scrapePage(url) {
         .substring(0, 4000);
 
     return { text, images: uniqueImages };
+}
+
+// ── Scrape Listings (scan en masse d'une rubrique) ──────────────────────────
+async function handleScrapeListings(request, env) {
+    const corsHeaders = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, x-secret-token",
+    };
+
+    if (request.method === "OPTIONS") {
+        return new Response(null, { headers: corsHeaders });
+    }
+    if (request.method !== "POST") {
+        return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+    }
+
+    const token = request.headers.get("x-secret-token");
+    if (!token || token !== env.SECRET_TOKEN) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+
+    try {
+        const { url: pageUrl } = await request.json();
+        if (!pageUrl) {
+            return new Response(JSON.stringify({ error: "url manquant" }), {
+                status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+        }
+
+        // Fetcher la page de liste
+        const response = await fetch(pageUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+            },
+        });
+
+        if (!response.ok) {
+            return new Response(JSON.stringify({
+                error: `Impossible de charger la page (${response.status})`,
+            }), {
+                status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+        }
+
+        const html = await response.text();
+
+        // Extraire les liens vers les fiches individuelles (/a/XXXXXXX)
+        const adLinkPattern = /href=["']([^"']*\/a\/\d+[^"']*)["']/gi;
+        const adLinks = new Set();
+        let match;
+        while ((match = adLinkPattern.exec(html)) !== null) {
+            let href = match[1];
+            if (href.startsWith("/")) {
+                const base = new URL(pageUrl);
+                href = base.origin + href;
+            }
+            adLinks.add(href);
+        }
+
+        // Scraper chaque fiche (max 20 par page)
+        const annonces = [];
+        const links = [...adLinks].slice(0, 20);
+
+        for (const adUrl of links) {
+            try {
+                const ad = await scrapeAdDetail(adUrl);
+                if (ad) annonces.push(ad);
+            } catch (e) {
+                // Ignorer les fiches qui echouent
+            }
+        }
+
+        // Detecter la pagination
+        const hasMore = html.includes('rel="next"')
+            || /suivant/i.test(html)
+            || /next/i.test(html)
+            || adLinks.size >= 10;
+
+        return new Response(JSON.stringify({ annonces, hasMore, total: adLinks.size }), {
+            status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+
+    } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+}
+
+// ── Scraper une fiche individuelle ──────────────────────────────────────────
+async function scrapeAdDetail(adUrl) {
+    const response = await fetch(adUrl, {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "fr-CH,fr;q=0.9",
+        },
+    });
+
+    if (!response.ok) return null;
+
+    const html = await response.text();
+
+    // Nettoyer le HTML pour extraire le texte
+    const text = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    // Titre : <title> ou og:title
+    let titre = null;
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+        || html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+    if (titleMatch) {
+        titre = titleMatch[1].trim().replace(/ - Petitesannonces\.ch.*$/i, '').trim();
+    }
+
+    // Prix : CHF xxx'xxx ou Fr. xxx'xxx
+    let prix = null;
+    const prixMatch = text.match(/(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/i)
+        || text.match(/([\d''\u2019.,]+)\s*(?:CHF|Fr\.?|SFr\.?)/i);
+    if (prixMatch) {
+        prix = parseInt(prixMatch[1].replace(/[''\u2019.,\s]/g, ''), 10) || null;
+    }
+
+    // Pieces
+    let pieces = null;
+    const piecesMatch = text.match(/(\d+(?:[.,]\d)?)\s*(?:pi[eè]ces?|pcs?\.?|rooms?|Zimmer)/i);
+    if (piecesMatch) {
+        pieces = parseFloat(piecesMatch[1].replace(',', '.'));
+    }
+
+    // Surface
+    let surface_m2 = null;
+    const surfaceMatch = text.match(/(\d+)\s*m[²2]/i);
+    if (surfaceMatch) {
+        surface_m2 = parseInt(surfaceMatch[1], 10);
+    }
+
+    // Localisation : NPA + ville
+    let localisation = null;
+    const locMatch = text.match(/\b(\d{4}\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/);
+    if (locMatch) {
+        localisation = locMatch[1].trim();
+    }
+
+    // Image
+    let image_url = null;
+    const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (ogImg) {
+        image_url = ogImg[1];
+    } else {
+        const imgMatch = html.match(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
+        if (imgMatch && !imgMatch[1].includes('logo') && !imgMatch[1].includes('icon')) {
+            image_url = imgMatch[1];
+        }
+    }
+
+    // Ne retourner que si au moins un champ utile
+    if (!prix && !pieces && !surface_m2 && !localisation) return null;
+
+    return {
+        url: adUrl,
+        titre,
+        prix,
+        pieces,
+        surface_m2,
+        localisation,
+        image_url,
+        source: "petitesannonces.ch",
+    };
 }
 
 function buildPrompt(text, url, imageCount) {

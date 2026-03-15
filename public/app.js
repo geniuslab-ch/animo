@@ -709,7 +709,7 @@ let matchBiens = [];
 let matchResults = [];
 
 // URLs sources en ligne pour le matching immobilier
-const PA_VENDEURS_URL = 'https://www.petitesannonces.ch/r/2702';
+const PA_ACHETEURS_URL = 'https://www.petitesannonces.ch/r/2707';
 const ANIBIS_IMMOBILIER_URL = 'https://www.anibis.ch/fr/q/immobilier-appartements-maisons-terrains-objets-commerciaux-acheter/Ak8CqcmVhbEVzdGF0ZZSTkqljb21wYW55QWSncHJpdmF0ZZKrbGlzdGluZ1R5cGWUqWFwYXJ0bWVudKVob3VzZa5idWlsZGluZ0dyb3VuZLJjb21tZXJjaWFsUHJvcGVydHmSqXByaWNlVHlwZaNCVVnAwMA?sorting=newest&page=1';
 
 // Configuration des agences avec leurs URLs de listings
@@ -876,7 +876,7 @@ async function scannerAgences() {
 
   // Scanner les sources en ligne d'abord
   const onlineSources = [];
-  if (scanPA) onlineSources.push({ name: 'petitesannonces.ch', url: PA_VENDEURS_URL });
+  if (scanPA) onlineSources.push({ name: 'petitesannonces.ch', url: PA_ACHETEURS_URL });
   if (scanAnibis) onlineSources.push({ name: 'anibis.ch', url: ANIBIS_IMMOBILIER_URL });
 
   for (const source of onlineSources) {

@@ -383,6 +383,14 @@ async function scrapeAdDetail(adUrl) {
             .trim();
     }
 
+    // Description : og:description ou meta description
+    let description = null;
+    const descMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+    if (descMatch) {
+        description = descMatch[1].trim();
+    }
+
     // Prix : CHF xxx'xxx ou Fr. xxx'xxx
     let prix = null;
     const prixMatch = text.match(/(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/i)
@@ -431,6 +439,7 @@ async function scrapeAdDetail(adUrl) {
     return {
         url: adUrl,
         titre,
+        description,
         prix,
         pieces,
         surface_m2,

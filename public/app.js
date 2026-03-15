@@ -64,14 +64,8 @@ function checkExclusions(buyer, bien) {
   const buyerNPA = extractNPAFromText(buyer);
   const bienNPA = extractNPAFromText(bien);
 
-  // Si l'un a un NPA et l'autre non → incompatible
-  if (buyerNPA && !bienNPA) {
-    return { compatible: false, reason: 'Bien sans localisation identifiable' };
-  }
-  if (!buyerNPA && bienNPA) {
-    return { compatible: false, reason: 'Acheteur sans localisation identifiable' };
-  }
-
+  // Si les deux NPA sont identifiés, vérifier la proximité
+  // Si l'un des deux manque (lieu dans le descriptif sans NPA), on laisse passer
   if (buyerNPA && bienNPA) {
     const proximity = npaProximityScore(buyerNPA, bienNPA);
     if (proximity === 0) {

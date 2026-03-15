@@ -6,6 +6,12 @@
 export default {
     async fetch(request, env) {
         const url = new URL(request.url);
+
+        // ── Route : scrape-listings (scan en masse) ──────────────────────────
+        if (url.pathname === "/api/scrape-listings") {
+            return handleScrapeListings(request, env);
+        }
+
         if (url.pathname !== "/api/analyze") {
             return new Response("Not found", { status: 404 });
         }
@@ -36,24 +42,23 @@ export default {
         }
 
         try {
-            const { listingUrl, listingContent } = await request.json();
+            const { listingUrl, listingContent, listingImages } = await request.json();
             if (!listingUrl && !listingContent) {
                 return new Response(JSON.stringify({ error: "listingUrl ou listingContent manquant" }), {
                     status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
                 });
             }
 
-            // ── Scraping ou contenu collé ────────────────────────────────────────
+            // ── Scraping ou contenu collé / bookmarklet ──────────────────────────
             let text, images;
             if (listingContent) {
-                // Mode fallback : contenu collé par l'utilisateur
+                // Mode bookmarklet ou copier-coller
                 text = listingContent.substring(0, 4000);
-                images = [];
+                images = listingImages || [];
             } else {
                 try {
-                    ({ text, images } = await scrapeAnibis(listingUrl));
+                    ({ text, images } = await scrapePage(listingUrl));
                 } catch (scrapeErr) {
-                    // Si le scraping échoue (403, etc.), renvoyer une erreur spécifique
                     return new Response(JSON.stringify({
                         error: "SCRAPE_BLOCKED",
                         message: scrapeErr.message,
@@ -67,24 +72,29 @@ export default {
             // ── Construction des messages multimodaux ──────────────────────────────
             const content = [];
 
-            // Filtrer strictement les HTTPS (Anibis a des vieux liens http://)
+            // Filtrer strictement les HTTPS
             const secureImages = images.filter(img => img.startsWith("https://"));
 
             // Ajout des images en base64 (max 5)
-            // L'API Anthropic requiert que les images soient envoyées en base64
             for (const imgUrl of secureImages.slice(0, 5)) {
                 try {
-                    const imgResp = await fetch(imgUrl);
+                    const imgResp = await fetch(imgUrl, {
+                        headers: {
+                            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                            "Referer": listingUrl || "",
+                        },
+                    });
                     if (imgResp.ok) {
                         const buffer = await imgResp.arrayBuffer();
-                        let mimeType = imgResp.headers.get("content-type") || "image/jpeg";
+                        // Ignorer les images trop petites (< 2KB, probablement des icônes)
+                        if (buffer.byteLength < 2000) continue;
 
-                        // Anthropic supporte image/jpeg, image/png, image/gif, image/webp
+                        let mimeType = imgResp.headers.get("content-type") || "image/jpeg";
                         if (!["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mimeType)) {
-                            mimeType = "image/jpeg"; // Fallback
+                            mimeType = "image/jpeg";
                         }
 
-                        // Conversion ArrayBuffer -> Base64
                         const base64 = btoa(
                             new Uint8Array(buffer)
                                 .reduce((data, byte) => data + String.fromCharCode(byte), '')
@@ -107,7 +117,7 @@ export default {
             // Ajout du prompt texte
             content.push({
                 type: "text",
-                text: buildPrompt(text, listingUrl || "contenu collé manuellement", images.length),
+                text: buildPrompt(text, listingUrl || "contenu extrait par bookmarklet", images.length),
             });
 
             // ── Appel Anthropic ────────────────────────────────────────────────────
@@ -140,13 +150,19 @@ export default {
     },
 };
 
-// ── Scraping de la page Anibis ───────────────────────────────────────────────
-async function scrapeAnibis(url) {
+// ── Scraping générique d'une page immobilière ────────────────────────────────
+async function scrapePage(url) {
     const response = await fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "fr-CH,fr;q=0.9",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
         },
     });
 
@@ -164,7 +180,7 @@ async function scrapeAnibis(url) {
         || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
     if (ogMatch) images.push(ogMatch[1]);
 
-    // 2. Images de la galerie Anibis (patterns courants)
+    // 2. Images de la galerie (patterns courants pour sites immobiliers suisses)
     const galleryPatterns = [
         /https:\/\/[^"'\s]+anibis[^"'\s]+\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s]*)?/gi,
         /https:\/\/img\.[^"'\s]+\.(?:jpg|jpeg|png|webp)(?:\?[^"'\s]*)?/gi,
@@ -178,19 +194,17 @@ async function scrapeAnibis(url) {
         for (const m of matches) {
             let imgUrl = m[1] || m[0];
 
-            // Forcer le HTTPS si l'URL commence par //
             if (imgUrl && imgUrl.startsWith('//')) {
                 imgUrl = 'https:' + imgUrl;
             }
 
-            if (imgUrl && imgUrl.startsWith('https://') && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('avatar') && !imgUrl.includes('placeholder')) {
+            if (imgUrl && imgUrl.startsWith('https://') && !imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('avatar') && !imgUrl.includes('placeholder') && !imgUrl.includes('favicon')) {
                 images.push(imgUrl);
             }
         }
         if (images.length >= 6) break;
     }
 
-    // Dédoublonnage
     const uniqueImages = [...new Set(images)].slice(0, 5);
 
     // ── Extraction du texte ────────────────────────────────────────────────────
@@ -214,15 +228,196 @@ async function scrapeAnibis(url) {
     return { text, images: uniqueImages };
 }
 
+// ── Scrape Listings (scan en masse d'une rubrique) ──────────────────────────
+async function handleScrapeListings(request, env) {
+    const corsHeaders = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, x-secret-token",
+    };
+
+    if (request.method === "OPTIONS") {
+        return new Response(null, { headers: corsHeaders });
+    }
+    if (request.method !== "POST") {
+        return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+    }
+
+    const token = request.headers.get("x-secret-token");
+    if (!token || token !== env.SECRET_TOKEN) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+
+    try {
+        const { url: pageUrl } = await request.json();
+        if (!pageUrl) {
+            return new Response(JSON.stringify({ error: "url manquant" }), {
+                status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+        }
+
+        // Fetcher la page de liste
+        const response = await fetch(pageUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+            },
+        });
+
+        if (!response.ok) {
+            return new Response(JSON.stringify({
+                error: `Impossible de charger la page (${response.status})`,
+            }), {
+                status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+        }
+
+        const html = await response.text();
+
+        // Extraire les liens vers les fiches individuelles (/a/XXXXXXX)
+        const adLinkPattern = /href=["']([^"']*\/a\/\d+[^"']*)["']/gi;
+        const adLinks = new Set();
+        let match;
+        while ((match = adLinkPattern.exec(html)) !== null) {
+            let href = match[1];
+            if (href.startsWith("/")) {
+                const base = new URL(pageUrl);
+                href = base.origin + href;
+            }
+            adLinks.add(href);
+        }
+
+        // Scraper chaque fiche (max 20 par page)
+        const annonces = [];
+        const links = [...adLinks].slice(0, 20);
+
+        for (const adUrl of links) {
+            try {
+                const ad = await scrapeAdDetail(adUrl);
+                if (ad) annonces.push(ad);
+            } catch (e) {
+                // Ignorer les fiches qui echouent
+            }
+        }
+
+        // Detecter la pagination
+        const hasMore = html.includes('rel="next"')
+            || /suivant/i.test(html)
+            || /next/i.test(html)
+            || adLinks.size >= 10;
+
+        return new Response(JSON.stringify({ annonces, hasMore, total: adLinks.size }), {
+            status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+
+    } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+}
+
+// ── Scraper une fiche individuelle ──────────────────────────────────────────
+async function scrapeAdDetail(adUrl) {
+    const response = await fetch(adUrl, {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "fr-CH,fr;q=0.9",
+        },
+    });
+
+    if (!response.ok) return null;
+
+    const html = await response.text();
+
+    // Nettoyer le HTML pour extraire le texte
+    const text = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    // Titre : <title> ou og:title
+    let titre = null;
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+        || html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+    if (titleMatch) {
+        titre = titleMatch[1].trim().replace(/ - Petitesannonces\.ch.*$/i, '').trim();
+    }
+
+    // Prix : CHF xxx'xxx ou Fr. xxx'xxx
+    let prix = null;
+    const prixMatch = text.match(/(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/i)
+        || text.match(/([\d''\u2019.,]+)\s*(?:CHF|Fr\.?|SFr\.?)/i);
+    if (prixMatch) {
+        prix = parseInt(prixMatch[1].replace(/[''\u2019.,\s]/g, ''), 10) || null;
+    }
+
+    // Pieces
+    let pieces = null;
+    const piecesMatch = text.match(/(\d+(?:[.,]\d)?)\s*(?:pi[eè]ces?|pcs?\.?|rooms?|Zimmer)/i);
+    if (piecesMatch) {
+        pieces = parseFloat(piecesMatch[1].replace(',', '.'));
+    }
+
+    // Surface
+    let surface_m2 = null;
+    const surfaceMatch = text.match(/(\d+)\s*m[²2]/i);
+    if (surfaceMatch) {
+        surface_m2 = parseInt(surfaceMatch[1], 10);
+    }
+
+    // Localisation : NPA + ville
+    let localisation = null;
+    const locMatch = text.match(/\b(\d{4}\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/);
+    if (locMatch) {
+        localisation = locMatch[1].trim();
+    }
+
+    // Image
+    let image_url = null;
+    const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (ogImg) {
+        image_url = ogImg[1];
+    } else {
+        const imgMatch = html.match(/src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
+        if (imgMatch && !imgMatch[1].includes('logo') && !imgMatch[1].includes('icon')) {
+            image_url = imgMatch[1];
+        }
+    }
+
+    // Ne retourner que si au moins un champ utile
+    if (!prix && !pieces && !surface_m2 && !localisation) return null;
+
+    return {
+        url: adUrl,
+        titre,
+        prix,
+        pieces,
+        surface_m2,
+        localisation,
+        image_url,
+        source: "petitesannonces.ch",
+    };
+}
+
 function buildPrompt(text, url, imageCount) {
-    const daysOnline = "N/A";
-    const price = "N/A";
-    const location = "N/A";
-    const propertyType = "N/A";
+    const isAgencySite = !url.includes('anibis.ch') && !url.includes('contenu');
+    const sellerContext = isAgencySite
+        ? "published by a real estate agency"
+        : "published by a private seller";
 
     return `You are a Swiss real estate market intelligence analyst specialized in the canton of Vaud.
 
-Your role is to analyze a real estate listing published by a private seller and generate:
+Your role is to analyze a real estate listing ${sellerContext} and generate:
 1) a listing quality diagnostic
 2) a seller opportunity radar score (probability that the seller could be receptive to professional help)
 3) prospecting messages that a real estate professional could send.
@@ -247,16 +442,10 @@ You are analyzing this listing:
 
 URL: ${url}
 
-${imageCount > 0 ? `The listing contains ${imageCount} photo(s). You should consider their quantity and potential coverage of the property.` : ''}
+${imageCount > 0 ? `The listing contains ${imageCount} photo(s). You should consider their quantity and potential coverage of the property.` : 'No photos were provided with this listing.'}
 
 Listing content:
 ${text}
-
-If available:
-days_online: ${daysOnline}
-price: ${price}
-location: ${location}
-property_type: ${propertyType}
 
 Your analysis should follow these steps internally:
 
@@ -280,10 +469,10 @@ Your analysis should follow these steps internally:
 4. Estimate an "opportunite_score" from 0 to 100 representing the probability that the seller could be receptive to professional support.
 
 Interpretation:
-0–30: faible
-30–50: moyenne
-50–70: élevée
-70–100: très élevée
+0-30: faible
+30-50: moyenne
+50-70: elevee
+70-100: tres elevee
 
 Return the following JSON structure EXACTLY:
 

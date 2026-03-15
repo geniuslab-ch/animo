@@ -777,6 +777,382 @@ const AGENCIES = {
     name: "Burnier",
     listingsUrl: "https://www.burnier.ch/vente",
   },
+  homewell: {
+    name: "Homewell",
+    listingsUrl: "http://www.homewell.ch/",
+  },
+  bcImmo: {
+    name: "BC Immo",
+    listingsUrl: "https://www.bcimmo.ch/",
+  },
+  proximmo: {
+    name: "Proximmo",
+    listingsUrl: "http://www.proximmo.ch/",
+  },
+  atticaImmobilier: {
+    name: "Attica Immobilier",
+    listingsUrl: "http://www.atticaimmobilier.ch/",
+  },
+  courvoisier: {
+    name: "Courvoisier Immo",
+    listingsUrl: "https://www.courvoisier.immo/",
+  },
+  omnia: {
+    name: "Omnia",
+    listingsUrl: "http://www.omnia.ch/",
+  },
+  ethicImmobilier: {
+    name: "Ethic Immobilier",
+    listingsUrl: "https://ethic-immobilier.ch/",
+  },
+  regieDuboux: {
+    name: "Regie Du Boux",
+    listingsUrl: "http://www.regieduboux.ch/",
+  },
+  regimoLausanne: {
+    name: "Regimo Lausanne",
+    listingsUrl: "https://regimo-lausanne.ch/louer/acheter",
+  },
+  golayImmobilier: {
+    name: "Golay Immobilier",
+    listingsUrl: "http://www.golay-immobilier.ch/",
+  },
+  dezage: {
+    name: "Dezage",
+    listingsUrl: "http://www.dezage.ch/",
+  },
+  pbbg: {
+    name: "PBBG",
+    listingsUrl: "http://www.pbbg.ch/",
+  },
+  johnTaylor: {
+    name: "John Taylor",
+    listingsUrl: "https://www.john-taylor.com/luxury-real-estate-agency/montreux/",
+  },
+  esteHomes: {
+    name: "Este Homes",
+    listingsUrl: "https://www.este-homes.ch/fr/",
+  },
+  transaxia: {
+    name: "Transaxia",
+    listingsUrl: "http://www.transaxia.ch/",
+  },
+  cgsImmobilier: {
+    name: "CGS Immobilier",
+    listingsUrl: "https://cgs-immobilier.ch/",
+  },
+  julienVolet: {
+    name: "Julien Volet",
+    listingsUrl: "http://www.julienvolet.ch/",
+  },
+  cofimo: {
+    name: "Cofimo",
+    listingsUrl: "http://www.cofimo.ch/",
+  },
+  gendreEmonet: {
+    name: "Gendre & Emonet",
+    listingsUrl: "http://www.gendre-emonet.ch/",
+  },
+  rivieraProperties: {
+    name: "Riviera Properties",
+    listingsUrl: "http://www.rivieraproperties.ch/",
+  },
+  sothebys: {
+    name: "Sotheby's Realty",
+    listingsUrl: "https://www.switzerland-sothebysrealty.ch/",
+  },
+  blueImmobilier: {
+    name: "Blue Immobilier",
+    listingsUrl: "http://www.blueimmobilier.ch/",
+  },
+  verbel: {
+    name: "Verbel",
+    listingsUrl: "https://www.verbel.ch/",
+  },
+  suisseRiviera: {
+    name: "Suisse Riviera Immobilier",
+    listingsUrl: "https://www.suisse-riviera-immobilier.com/",
+  },
+  ernstBeier: {
+    name: "Ernst Beier",
+    listingsUrl: "http://www.ernstbeier.ch/",
+  },
+  lcImmobilier: {
+    name: "LC Immobilier",
+    listingsUrl: "http://www.lc-immobilier.ch/",
+  },
+  lagenceImmobiliere: {
+    name: "L'Agence Immobiliere",
+    listingsUrl: "https://lagence-immobiliere.ch/",
+  },
+  lcrImmo: {
+    name: "LCR Immo",
+    listingsUrl: "http://www.lcr-immo.ch/",
+  },
+  swixim: {
+    name: "Swixim",
+    listingsUrl: "https://www.swixim.ch/",
+  },
+  profilId: {
+    name: "Profil ID",
+    listingsUrl: "https://profil-id.ch/",
+  },
+  wRe: {
+    name: "W Real Estate",
+    listingsUrl: "http://www.w-re.ch/",
+  },
+  rilsa: {
+    name: "Rilsa",
+    listingsUrl: "http://www.rilsa.ch/",
+  },
+  helvetImmo: {
+    name: "Helvet Immo",
+    listingsUrl: "http://www.helvet-immo.ch/",
+  },
+  regicote: {
+    name: "Regicote",
+    listingsUrl: "https://www.regicote.ch/",
+  },
+  swissdomImmo: {
+    name: "Swissdom Immo",
+    listingsUrl: "https://www.swissdom-immo.ch/",
+  },
+  morgesImmo: {
+    name: "Morges Immo",
+    listingsUrl: "http://www.morgesimmo.ch/",
+  },
+  gaiaImmobilier: {
+    name: "Gaia Immobilier",
+    listingsUrl: "https://www.gaia-immobilier.ch/",
+  },
+  reyImmobilier: {
+    name: "Rey Immobilier",
+    listingsUrl: "https://reyimmobilier.ch/",
+  },
+  sherlockHomes: {
+    name: "Sherlock Homes",
+    listingsUrl: "https://sherlockhomes.ch/",
+  },
+  deLuze: {
+    name: "De Luze",
+    listingsUrl: "https://deluze.ch/",
+  },
+  lugrinImmobilier: {
+    name: "Lugrin Immobilier",
+    listingsUrl: "https://lugrinimmobilier.ch/",
+  },
+  laSuiteImmo: {
+    name: "La Suite Immo",
+    listingsUrl: "https://www.lasuiteimmo.ch/",
+  },
+  ril: {
+    name: "RIL",
+    listingsUrl: "http://ril.ch/",
+  },
+  geranceJotterand: {
+    name: "Gerance Jotterand",
+    listingsUrl: "http://www.gerancejotterand.ch/",
+  },
+  cedimmo: {
+    name: "Cedimmo",
+    listingsUrl: "https://www.cedimmo.ch/",
+  },
+  aImmobilier: {
+    name: "A-Immobilier",
+    listingsUrl: "http://a-immobilier.ch/",
+  },
+  curtetImmobilier: {
+    name: "Curtet Immobilier",
+    listingsUrl: "http://www.curtet-immobilier.ch/",
+  },
+  amma: {
+    name: "Amma Immo",
+    listingsUrl: "https://amma.immo/",
+  },
+  bobstImmobilier: {
+    name: "Bobst Immobilier",
+    listingsUrl: "http://www.bobst-immobilier.ch/",
+  },
+  castellaImmobilier: {
+    name: "Castella Immobilier",
+    listingsUrl: "http://www.castella-immobilier.ch/",
+  },
+  capitalFirst: {
+    name: "Capital First",
+    listingsUrl: "https://www.capitalfirst.ch/",
+  },
+  regieDecker: {
+    name: "Regie Decker",
+    listingsUrl: "http://www.regiedecker.ch/",
+  },
+  rockwell: {
+    name: "Rockwell",
+    listingsUrl: "http://www.rockwell.ch/",
+  },
+  christeImmo: {
+    name: "Christe Immo",
+    listingsUrl: "http://www.christe-immo.ch/",
+  },
+  krealImmo: {
+    name: "Kreal Immo",
+    listingsUrl: "https://krealimmo.ch/",
+  },
+  myHomeImmobilier: {
+    name: "My Home Immobilier",
+    listingsUrl: "https://www.myhomeimmobilier.ch/",
+  },
+  privera: {
+    name: "Privera",
+    listingsUrl: "https://www.privera.ch/fr/home",
+  },
+  phoenixImmobilier: {
+    name: "Phoenix Immobilier",
+    listingsUrl: "http://www.phoenix-immobilier.ch/",
+  },
+  votreCourtier: {
+    name: "Votre Courtier",
+    listingsUrl: "https://www.votrecourtier.ch/",
+  },
+  realtaImmo: {
+    name: "Realta Immo",
+    listingsUrl: "https://www.realtaimmo.ch/",
+  },
+  valhome: {
+    name: "Valhome",
+    listingsUrl: "http://valhome.ch/",
+  },
+  procimmo: {
+    name: "Procimmo",
+    listingsUrl: "http://www.procimmo.ch/",
+  },
+  monnierImmo: {
+    name: "Monnier Immo",
+    listingsUrl: "https://monnier-immo.ch/",
+  },
+  regiePrivee: {
+    name: "Regie Privee",
+    listingsUrl: "https://www.regieprivee.ch/",
+  },
+  immoConsulting: {
+    name: "Immo Consulting",
+    listingsUrl: "http://www.immo-consulting.ch/",
+  },
+  acheterLouer: {
+    name: "Acheter Louer",
+    listingsUrl: "http://www.acheter-louer.ch/",
+  },
+  impulseProperties: {
+    name: "Impulse Properties",
+    listingsUrl: "https://www.impulseproperties.ch/",
+  },
+  scImmo: {
+    name: "SC Immo",
+    listingsUrl: "http://www.scimmo.ch/",
+  },
+  foncimo: {
+    name: "Foncimo",
+    listingsUrl: "https://foncimo.ch/",
+  },
+  intergerance: {
+    name: "Intergerance",
+    listingsUrl: "http://www.intergerance.ch/",
+  },
+  selectImmo: {
+    name: "Select Immo",
+    listingsUrl: "http://www.selectimmo.ch/",
+  },
+  ceriseImmobilier: {
+    name: "Cerise Immobilier",
+    listingsUrl: "http://www.cerise-immobilier.ch/",
+  },
+  valImmobilier: {
+    name: "Val Immobilier",
+    listingsUrl: "https://valimmobilier.ch/",
+  },
+  alturaCollection: {
+    name: "Altura Collection",
+    listingsUrl: "https://alturacollection.ch/",
+  },
+  drapelImmobilier: {
+    name: "Drapel Immobilier",
+    listingsUrl: "http://drapelimmobilier.ch/",
+  },
+  bertrandMorisod: {
+    name: "Bertrand Morisod",
+    listingsUrl: "http://www.bertrand-morisod.ch/",
+  },
+  schenkImmobilier: {
+    name: "Schenk Immobilier",
+    listingsUrl: "https://schenk-immobilier.ch/",
+  },
+  gemImmo: {
+    name: "Gem Immo",
+    listingsUrl: "http://www.gem-immo.ch/",
+  },
+  natimmo: {
+    name: "Natimmo",
+    listingsUrl: "http://www.natimmo.ch/",
+  },
+  faraoneImmobilier: {
+    name: "Faraone Immobilier",
+    listingsUrl: "http://www.faraone-immobilier.ch/",
+  },
+  gilliandImmobilier: {
+    name: "Gilliand Immobilier",
+    listingsUrl: "http://www.gilliand-immobilier.ch/",
+  },
+  immobilierBroye: {
+    name: "Immobilier Broye",
+    listingsUrl: "http://www.immobilier-broye.ch/",
+  },
+  regieChatelard: {
+    name: "Regie Chatelard",
+    listingsUrl: "http://www.regiechatelard.ch/",
+  },
+  nicolierImmobilier: {
+    name: "Nicolier Immobilier",
+    listingsUrl: "https://nicolier-immobilier.ch/",
+  },
+  regieBroye: {
+    name: "Regie Broye",
+    listingsUrl: "https://regie-broye.ch/",
+  },
+  lcpImmobilier: {
+    name: "LCP Immobilier",
+    listingsUrl: "https://www.lcp-immobilier.ch/",
+  },
+  symbioseImmobilier: {
+    name: "Symbiose Immobilier",
+    listingsUrl: "https://www.symbiose-immobilier.ch/",
+  },
+  groupeRichard: {
+    name: "Groupe Richard",
+    listingsUrl: "http://www.grouperichard.ch/",
+  },
+  caImmobilier: {
+    name: "CA Immobilier",
+    listingsUrl: "https://www.ca-immobilier.ch/",
+  },
+  gestival: {
+    name: "Gestival",
+    listingsUrl: "http://gestival.ch/",
+  },
+  concretise: {
+    name: "Concretise",
+    listingsUrl: "https://www.concretise.ch/",
+  },
+  nideal: {
+    name: "Nideal",
+    listingsUrl: "http://www.nideal.ch/",
+  },
+  remax: {
+    name: "RE/MAX",
+    listingsUrl: "https://www.remax.ch/epalinges",
+  },
+  homequest: {
+    name: "Homequest",
+    listingsUrl: "https://homequest.ch/",
+  },
 };
 
 function toggleAllAgencies(checked) {

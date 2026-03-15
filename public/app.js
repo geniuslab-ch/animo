@@ -50,6 +50,48 @@ function extractPropertyType(annonce) {
   return 'unknown';
 }
 
+function extractBonus(annonce) {
+  const text = ((annonce.titre || '') + ' ' + (annonce.description || '')).toLowerCase();
+  return {
+    jardin: /jardin|garden|garten/.test(text),
+    balcon: /balcon|terrasse|loggia|balkon/.test(text),
+    vue: /vue\s+(lac|montagne|alpes|d[ée]gag[ée]e)|panoram|lake\s*view/.test(text),
+  };
+}
+
+function checkExclusions(buyer, bien) {
+  // Filtre 1 : Localisation hors zone
+  if (buyer.localisation && bien.localisation) {
+    const buyerNPA = buyer.localisation.match(/\d{4}/);
+    const bienNPA = bien.localisation.match(/\d{4}/);
+    if (buyerNPA && bienNPA) {
+      const proximity = npaProximityScore(buyerNPA[0], bienNPA[0]);
+      if (proximity === 0) {
+        return { compatible: false, reason: 'Localisation hors zone de recherche' };
+      }
+    }
+  }
+
+  // Filtre 2 : Type incompatible (maison vs appartement)
+  const buyerType = buyer.type || extractPropertyType(buyer);
+  const bienType = bien.type || extractPropertyType(bien);
+  if (buyerType !== 'unknown' && bienType !== 'unknown' && buyerType !== bienType) {
+    if ((buyerType === 'house' && bienType === 'apartment') ||
+        (buyerType === 'apartment' && bienType === 'house')) {
+      return { compatible: false, reason: 'Type incompatible (' + buyerType + ' vs ' + bienType + ')' };
+    }
+  }
+
+  // Filtre 3 : Prix depasse budget de plus de 15%
+  if (buyer.prix && bien.prix) {
+    if (bien.prix > buyer.prix * 1.15) {
+      return { compatible: false, reason: 'Prix depasse le budget de plus de 15%' };
+    }
+  }
+
+  return { compatible: true, reason: null };
+}
+
 // ── Tab Navigation ───────────────────────────────────────────────────────────
 function switchTab(tab) {
   const tabs = ["analyse", "agences", "scraper", "matching", "historique"];
@@ -892,11 +934,20 @@ function lancerMatching() {
   }
 
   matchResults = [];
+  const incompatibles = [];
 
   for (const buyer of matchBuyers) {
     for (const bien of matchBiens) {
+      // Etape 2 : Filtres d'exclusion STOP/GO
+      const exclusion = checkExclusions(buyer, bien);
+      if (!exclusion.compatible) {
+        incompatibles.push({ buyer, bien, score: 0, breakdown: null, reason: exclusion.reason });
+        continue;
+      }
+
+      // Etape 3 : Score de pertinence
       const { score, breakdown } = calculerMatchScore(buyer, bien);
-      if (score > 20) {
+      if (score > 30) {
         matchResults.push({ buyer, bien, score, breakdown });
       }
     }
@@ -905,91 +956,67 @@ function lancerMatching() {
   // Trier par score decroissant
   matchResults.sort((a, b) => b.score - a.score);
 
-  afficherMatchResults(matchResults);
+  afficherMatchResults(matchResults, incompatibles);
 }
 
 function calculerMatchScore(buyer, bien) {
-  const breakdown = { location: 0, price: 0, rooms: 0, surface: 0, type: 0 };
-  let maxPossible = 0;
+  const breakdown = { location: 0, rooms: 0, price: 0, bonus: 0 };
 
-  // Localisation (35 pts max) — proximite par region NPA
+  // Localisation parfaite : +40 pts max
   if (buyer.localisation && bien.localisation) {
     const buyerNPA = buyer.localisation.match(/\d{4}/);
     const bienNPA = bien.localisation.match(/\d{4}/);
     if (buyerNPA && bienNPA) {
-      maxPossible += 35;
       const proximity = npaProximityScore(buyerNPA[0], bienNPA[0]);
-      breakdown.location = Math.round(35 * proximity);
+      breakdown.location = Math.round(40 * proximity);
     }
   }
 
-  // Prix (30 pts max)
-  if (buyer.prix && bien.prix) {
-    maxPossible += 30;
-    const ratio = bien.prix / buyer.prix;
-    if (ratio >= 0.9 && ratio <= 1.1) breakdown.price = 30;
-    else if (ratio >= 0.8 && ratio <= 1.2) breakdown.price = 22;
-    else if (ratio >= 0.7 && ratio <= 1.3) breakdown.price = 15;
-    else if (ratio >= 0.6 && ratio <= 1.4) breakdown.price = 8;
-  }
-
-  // Pieces (15 pts max)
+  // Pieces exact : +30 pts max (tolerance ±0.5)
   if (buyer.pieces && bien.pieces) {
-    maxPossible += 15;
     const diff = Math.abs(buyer.pieces - bien.pieces);
-    if (diff === 0) breakdown.rooms = 15;
-    else if (diff <= 0.5) breakdown.rooms = 12;
-    else if (diff <= 1) breakdown.rooms = 7;
-    else if (diff <= 1.5) breakdown.rooms = 3;
+    if (diff === 0) breakdown.rooms = 30;
+    else if (diff <= 0.5) breakdown.rooms = 24;
   }
 
-  // Surface (10 pts max)
-  if (buyer.surface_m2 && bien.surface_m2) {
-    maxPossible += 10;
-    const ratio = bien.surface_m2 / buyer.surface_m2;
-    if (ratio >= 0.8 && ratio <= 1.2) breakdown.surface = 10;
-    else if (ratio >= 0.65 && ratio <= 1.35) breakdown.surface = 5;
+  // Budget respecte : +20 pts max
+  if (buyer.prix && bien.prix) {
+    if (bien.prix <= buyer.prix) breakdown.price = 20;
+    else if (bien.prix <= buyer.prix * 1.15) breakdown.price = 10;
   }
 
-  // Type de bien (10 pts max)
-  const buyerType = buyer.type || extractPropertyType(buyer);
-  const bienType = bien.type || extractPropertyType(bien);
-  if (buyerType !== 'unknown' && bienType !== 'unknown') {
-    maxPossible += 10;
-    if (buyerType === bienType) breakdown.type = 10;
-    else if (
-      (buyerType === 'house' && bienType === 'apartment') ||
-      (buyerType === 'apartment' && bienType === 'house')
-    ) breakdown.type = 3;
-  }
+  // Bonus (Jardin, Balcon, Vue) : +10 pts max
+  const bienBonus = extractBonus(bien);
+  let bonusCount = 0;
+  if (bienBonus.jardin) bonusCount++;
+  if (bienBonus.balcon) bonusCount++;
+  if (bienBonus.vue) bonusCount++;
+  breakdown.bonus = Math.min(10, Math.round(bonusCount * 3.33));
 
-  if (maxPossible === 0) return { score: 0, breakdown };
-
-  const rawScore = breakdown.location + breakdown.price + breakdown.rooms + breakdown.surface + breakdown.type;
-  const score = Math.round((rawScore / maxPossible) * 100);
+  const score = breakdown.location + breakdown.rooms + breakdown.price + breakdown.bonus;
 
   return { score, breakdown };
 }
 
-function afficherMatchResults(results) {
+function afficherMatchResults(results, incompatibles) {
   const resultsDiv = document.getElementById("matchResults");
   const grid = document.getElementById("matchGrid");
   const countEl = document.getElementById("matchCount");
 
   if (countEl) countEl.textContent = results.length;
 
-  if (results.length === 0) {
+  if (results.length === 0 && (!incompatibles || incompatibles.length === 0)) {
     grid.innerHTML = '<div class="history-empty">Aucune correspondance trouvee avec les criteres actuels.</div>';
     if (resultsDiv) resultsDiv.classList.add("visible");
     return;
   }
 
-  grid.innerHTML = results.map((m, i) => {
+  let html = results.map((m, i) => {
     const scoreClass = m.score >= 70 ? "match-high" : m.score >= 40 ? "match-medium" : "match-low";
     const b = m.breakdown || {};
     return `
     <div class="match-card ${scoreClass}">
-      <div class="match-score-badge">${m.score}%</div>
+      <div class="match-score-badge">${m.score}/100</div>
       <div class="match-pair">
         <div class="match-side match-buyer">
           <div class="match-side-label">Acheteur recherche</div>
@@ -1015,11 +1042,10 @@ function afficherMatchResults(results) {
         </div>
       </div>
       <div class="match-breakdown">
-        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/35">Loc ${b.location}</span>
-        <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/30">Prix ${b.price}</span>
-        <span class="breakdown-pill ${b.rooms > 0 ? 'active' : ''}" title="Pieces: ${b.rooms}/15">Pcs ${b.rooms}</span>
-        <span class="breakdown-pill ${b.surface > 0 ? 'active' : ''}" title="Surface: ${b.surface}/10">m2 ${b.surface}</span>
-        <span class="breakdown-pill ${b.type > 0 ? 'active' : ''}" title="Type: ${b.type}/10">Type ${b.type}</span>
+        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/40">Loc ${b.location}/40</span>
+        <span class="breakdown-pill ${b.rooms > 0 ? 'active' : ''}" title="Pieces: ${b.rooms}/30">Pcs ${b.rooms}/30</span>
+        <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Budget: ${b.price}/20">Prix ${b.price}/20</span>
+        <span class="breakdown-pill ${b.bonus > 0 ? 'active' : ''}" title="Bonus: ${b.bonus}/10">Bonus ${b.bonus}/10</span>
       </div>
       <div class="match-actions">
         <a href="${escapeHTML(m.buyer.url || '#')}" target="_blank" class="match-link">Voir acheteur</a>
@@ -1028,6 +1054,30 @@ function afficherMatchResults(results) {
     </div>`;
   }).join("");
 
+  // Afficher les incompatibles en grise
+  if (incompatibles && incompatibles.length > 0) {
+    html += `<div class="match-incompatible-header">INCOMPATIBLES (${incompatibles.length} exclus)</div>`;
+    html += incompatibles.slice(0, 10).map(m => `
+    <div class="match-card match-incompatible">
+      <div class="match-score-badge">STOP</div>
+      <div class="match-pair">
+        <div class="match-side match-buyer">
+          <div class="match-side-label">Acheteur</div>
+          <div class="match-side-price">${m.buyer.prix ? formatPrix(m.buyer.prix) : '\u2014'}</div>
+          <div class="match-side-loc">${escapeHTML(m.buyer.localisation || '\u2014')}</div>
+        </div>
+        <div class="match-arrow">&#10007;</div>
+        <div class="match-side match-bien">
+          <div class="match-side-label">Bien</div>
+          <div class="match-side-price">${m.bien.prix ? formatPrix(m.bien.prix) : '\u2014'}</div>
+          <div class="match-side-loc">${escapeHTML(m.bien.localisation || '\u2014')}</div>
+        </div>
+      </div>
+      <div class="match-exclusion-reason">${escapeHTML(m.reason)}</div>
+    </div>`).join("");
+  }
+
+  grid.innerHTML = html;
   if (resultsDiv) resultsDiv.classList.add("visible");
 }
 

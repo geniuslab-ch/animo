@@ -14,7 +14,7 @@ function switchTab(tab) {
 }
 
 // ── Mode de saisie (URL ou contenu colle) ────────────────────────────────────
-let inputMode = "url"; // "url" ou "content"
+let inputMode = "url";
 
 function switchInputMode(mode) {
   inputMode = mode;
@@ -37,7 +37,7 @@ function switchInputMode(mode) {
   if (btnContent) btnContent.classList.toggle("active", mode === "content");
 }
 
-// ── Analyse principale ───────────────────────────────────────────────────────
+// ── Analyse principale (onglet Analyse) ──────────────────────────────────────
 async function analyser() {
   const annonceEl = document.getElementById("annonce");
   const input = annonceEl ? annonceEl.value.trim() : "";
@@ -66,7 +66,136 @@ async function analyser() {
   lancerAnalyse({ listingUrl, listingContent });
 }
 
-// ── Lancer l'analyse (commun URL / contenu / bookmarklet) ────────────────────
+// ── Analyse agence (onglet Agences) ──────────────────────────────────────────
+let agenceUrlEnCours = null;
+
+async function analyserAgence() {
+  const urlEl = document.getElementById("agenceUrl");
+  const input = urlEl ? urlEl.value.trim() : "";
+
+  if (!input) {
+    afficherErreurAgence("Veuillez coller le lien d'une annonce d'agence.");
+    return;
+  }
+
+  let listingUrl;
+  try {
+    listingUrl = new URL(input).href;
+  } catch {
+    afficherErreurAgence("Le texte saisi ne ressemble pas a une URL valide.");
+    return;
+  }
+
+  agenceUrlEnCours = listingUrl;
+
+  // Masquer l'erreur et le mode extraction
+  const errBox = document.getElementById("agenceErrorBox");
+  const extractZone = document.getElementById("extractZone");
+  if (errBox) errBox.classList.remove("visible");
+  if (extractZone) extractZone.classList.remove("visible");
+
+  // Afficher le loading
+  const btn = document.getElementById("btnAgence");
+  const loading = document.getElementById("agenceLoading");
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (loading) loading.classList.add("visible");
+
+  // Tenter le scraping serveur
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-secret-token": SECRET_TOKEN,
+      },
+      body: JSON.stringify({ listingUrl }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error || `Erreur HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Si le scraping est bloque, passer en mode extraction manuelle
+    if (data.error === "SCRAPE_BLOCKED") {
+      if (loading) loading.classList.remove("visible");
+      if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+      activerModeExtraction(listingUrl);
+      return;
+    }
+
+    // Scraping OK, afficher les resultats
+    const raw = data.content.map(b => b.text || "").join("");
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+
+    saveToHistory(listingUrl, parsed);
+
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
+    // Basculer sur l'onglet Analyse pour afficher les resultats
+    switchTab("analyse");
+    document.getElementById("annonce").value = listingUrl;
+    afficherResultats(parsed);
+    document.getElementById("divider").classList.add("visible");
+
+  } catch (err) {
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    // En cas d'erreur reseau, tenter le mode extraction
+    activerModeExtraction(listingUrl);
+  }
+}
+
+function activerModeExtraction(url) {
+  // Ouvrir la page dans un nouvel onglet
+  window.open(url, "_blank");
+
+  // Afficher la zone d'extraction
+  const extractZone = document.getElementById("extractZone");
+  if (extractZone) extractZone.classList.add("visible");
+}
+
+async function analyserDepuisClipboard() {
+  const btn = document.getElementById("btnClipboard");
+
+  try {
+    // Tenter de lire le presse-papier
+    const text = await navigator.clipboard.readText();
+
+    if (!text || text.trim().length < 50) {
+      afficherErreurAgence("Le presse-papier semble vide ou ne contient pas assez de texte. Retournez sur la page, faites Ctrl+A puis Ctrl+C.");
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = "Analyse en cours..."; }
+
+    // Lancer l'analyse avec le contenu du presse-papier
+    await lancerAnalyse({
+      listingUrl: agenceUrlEnCours,
+      listingContent: text.trim(),
+    });
+
+    if (btn) { btn.disabled = false; btn.textContent = "J'ai copie le contenu — Analyser"; }
+
+  } catch (err) {
+    // Si l'acces au presse-papier echoue, proposer le collage manuel
+    afficherErreurAgence("Impossible de lire le presse-papier automatiquement. Utilisez l'onglet Analyse en mode « Coller le contenu » pour coller manuellement le texte.");
+  }
+}
+
+function afficherErreurAgence(msg) {
+  const box = document.getElementById("agenceErrorBox");
+  if (box) {
+    box.textContent = msg;
+    box.classList.add("visible");
+  }
+}
+
+// ── Lancer l'analyse (commun a tous les modes) ──────────────────────────────
 async function lancerAnalyse({ listingUrl, listingContent, listingImages }) {
   const btn = document.getElementById("btnAnalyse");
   const errorBox = document.getElementById("errorBox");
@@ -111,17 +240,12 @@ async function lancerAnalyse({ listingUrl, listingContent, listingImages }) {
 
     const data = await response.json();
 
-    // Verifier si le scraping a ete bloque
     if (data.error === "SCRAPE_BLOCKED") {
       clearTimeout(timeoutId);
       if (loading) loading.classList.remove("visible");
       if (divider) divider.classList.remove("visible");
-      if (btn) {
-        btn.disabled = false;
-        btn.classList.remove("loading");
-      }
-      afficherErreur("Le site bloque l'acces automatique. Utilisez le bookmarklet (onglet Agences) ou passez en mode « Coller le contenu ».");
-      switchInputMode("content");
+      if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+      afficherErreur("Le site bloque l'acces automatique. Utilisez l'onglet « Agences » pour analyser ce site.");
       return;
     }
 
@@ -129,8 +253,13 @@ async function lancerAnalyse({ listingUrl, listingContent, listingImages }) {
     const clean = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
 
-    saveToHistory(listingUrl || "bookmarklet", parsed);
+    saveToHistory(listingUrl || "contenu-colle", parsed);
     clearTimeout(timeoutId);
+
+    // Mettre l'URL dans le champ
+    const annonce = document.getElementById("annonce");
+    if (annonce && listingUrl) annonce.value = listingUrl;
+
     afficherResultats(parsed);
 
   } catch (err) {
@@ -146,30 +275,11 @@ async function lancerAnalyse({ listingUrl, listingContent, listingImages }) {
   }
 }
 
-// ── Reception des donnees du bookmarklet ─────────────────────────────────────
-window.addEventListener("message", function(event) {
-  // Accepter les messages du bookmarklet
-  if (event.data && event.data.type === "ANIMO_BOOKMARKLET") {
-    const { url, text, images } = event.data;
-
-    // Afficher l'URL dans le champ
-    const annonce = document.getElementById("annonce");
-    if (annonce) annonce.value = url || "";
-
-    lancerAnalyse({
-      listingUrl: url,
-      listingContent: text,
-      listingImages: images || [],
-    });
-  }
-});
-
 // ── Affichage des resultats ──────────────────────────────────────────────────
 function afficherResultats(parsed) {
   const loading = document.getElementById("loadingState");
   const results = document.getElementById("results");
 
-  // Score annonce
   if (parsed.score_annonce) {
     const s = parsed.score_annonce;
     document.getElementById("scoreAnnonceVal").textContent = s.valeur + "/100";
@@ -177,7 +287,6 @@ function afficherResultats(parsed) {
     document.getElementById("scoreAnnonceExpl").textContent = s.explication || "";
   }
 
-  // Radar vendeur
   if (parsed.radar_vendeur) {
     const r = parsed.radar_vendeur;
     document.getElementById("radarVal").textContent = r.opportunite_score + "/100";
@@ -185,7 +294,6 @@ function afficherResultats(parsed) {
     document.getElementById("radarExpl").textContent = r.explication || "";
   }
 
-  // Diagnostic
   const grid = document.getElementById("diagGrid");
   grid.innerHTML = "";
   if (parsed.diagnostic && Array.isArray(parsed.diagnostic)) {
@@ -201,10 +309,8 @@ function afficherResultats(parsed) {
     });
   }
 
-  // Comparaison marche
   document.getElementById("comparaisonBody").textContent = parsed.comparaison_marche || parsed.comparaison || "";
 
-  // Recommandations
   const recList = document.getElementById("recommandationsList");
   recList.innerHTML = "";
   if (parsed.recommandations && Array.isArray(parsed.recommandations)) {
@@ -216,7 +322,6 @@ function afficherResultats(parsed) {
     });
   }
 
-  // Messages
   document.getElementById("message1Body").textContent = parsed.message1 || "";
   document.getElementById("message2Body").textContent = parsed.message2 || "";
 
@@ -341,7 +446,7 @@ function genererPDF() {
   const element = document.getElementById("pdf-report");
   const opt = {
     margin: 10,
-    filename: 'Analyse-Anibis.pdf',
+    filename: 'Analyse-Immobilier.pdf',
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -349,52 +454,4 @@ function genererPDF() {
   html2pdf().set(opt).from(element).save();
 }
 
-// ── Bookmarklet URL generation ───────────────────────────────────────────────
-function getBookmarkletCode() {
-  // Le bookmarklet extrait le texte + images de la page courante
-  // puis ouvre Animo et envoie les donnees via postMessage
-  const animoUrl = window.location.origin;
-
-  const code = `javascript:void(function(){
-    var text='';
-    var imgs=[];
-    var url=location.href;
-
-    /* Extraire le texte visible */
-    var body=document.body.cloneNode(true);
-    var kill=body.querySelectorAll('script,style,nav,header,footer,iframe,noscript');
-    for(var i=0;i<kill.length;i++)kill[i].remove();
-    text=body.innerText.replace(/\\s+/g,' ').trim().substring(0,4000);
-
-    /* Extraire les images du bien (pas logos/icons) */
-    var allImgs=document.querySelectorAll('img[src]');
-    for(var j=0;j<allImgs.length;j++){
-      var s=allImgs[j].src;
-      var w=allImgs[j].naturalWidth||allImgs[j].width||0;
-      if(s.startsWith('https://')&&w>200&&s.indexOf('logo')<0&&s.indexOf('icon')<0&&s.indexOf('avatar')<0&&s.indexOf('favicon')<0){
-        imgs.push(s);
-      }
-      if(imgs.length>=5)break;
-    }
-
-    /* Ouvrir Animo et envoyer les donnees */
-    var w2=window.open('${animoUrl}','_blank');
-    setTimeout(function(){
-      w2.postMessage({type:'ANIMO_BOOKMARKLET',url:url,text:text,images:imgs},'*');
-    },2000);
-  }())`;
-
-  return code.replace(/\n\s*/g, '');
-}
-
-function initBookmarklet() {
-  const link = document.getElementById("bookmarkletLink");
-  if (link) {
-    link.href = getBookmarkletCode();
-  }
-}
-
-window.onload = () => {
-  loadHistory();
-  initBookmarklet();
-};
+window.onload = () => loadHistory();

@@ -122,56 +122,72 @@
       </div>
     </div>
 
-    <!-- ── TAB: Agences (Bookmarklet) ────────────────────────────────── -->
+    <!-- ── TAB: Agences ────────────────────────────────────────────────── -->
     <div id="pageAgences" class="tab-page">
 
       <div class="agences-intro">
         <div class="section-label">Analyser les annonces d'agences immobilières</div>
         <p class="agences-desc">
-          Analysez n'importe quelle annonce sur les sites d'agences immobilières en un clic,
-          directement depuis votre navigateur. Le bookmarklet extrait automatiquement le texte
-          et les photos de la page, puis lance l'analyse.
+          Collez le lien d'une annonce sur le site d'une agence immobilière.
+          Animo tente d'extraire le contenu automatiquement. Si le site bloque l'accès,
+          la page s'ouvrira et vous pourrez copier le contenu en un clic.
         </p>
       </div>
 
-      <!-- Installation -->
-      <div class="bookmarklet-install">
-        <div class="bookmarklet-step">
-          <div class="step-num">1</div>
-          <div class="step-content">
-            <h3>Installer le bookmarklet</h3>
-            <p>Glissez-déposez ce bouton dans votre <strong>barre de favoris</strong> :</p>
-            <div class="bookmarklet-drag-zone">
-              <a href="#" id="bookmarkletLink" class="bookmarklet-btn" title="Glissez-moi dans vos favoris !">
-                Analyser avec Animo
-              </a>
-              <span class="drag-hint">Glissez vers vos favoris</span>
+      <!-- Saisie URL agence -->
+      <div class="agence-input-zone">
+        <div class="section-label">Lien de l'annonce (site d'agence)</div>
+        <textarea id="agenceUrl"
+          placeholder="Collez ici le lien de l'annonce (ex: https://www.naef.ch/bien/appartement-lausanne-...)"></textarea>
+
+        <button class="btn-analyser" id="btnAgence" onclick="analyserAgence()">
+          <div class="spinner"></div>
+          <span class="btn-text">Analyser l'annonce</span>
+        </button>
+
+        <div class="error-box" id="agenceErrorBox"></div>
+
+        <div class="loading-state" id="agenceLoading">
+          <div class="loading-bars">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="loading-text">Tentative d'extraction automatique...</div>
+        </div>
+
+        <!-- Zone d'extraction manuelle (visible si scraping bloqué) -->
+        <div class="extract-zone" id="extractZone">
+          <div class="extract-info">
+            <div class="extract-icon">&#9432;</div>
+            <div>
+              <p><strong>Le site bloque l'accès automatique.</strong></p>
+              <p>La page s'est ouverte dans un nouvel onglet. Copiez tout son contenu :</p>
             </div>
           </div>
-        </div>
-
-        <div class="bookmarklet-step">
-          <div class="step-num">2</div>
-          <div class="step-content">
-            <h3>Naviguer vers une annonce</h3>
-            <p>Allez sur le site d'une agence immobilière et ouvrez la page d'un bien en vente.</p>
+          <div class="extract-steps">
+            <div class="extract-step">
+              <span class="step-num">1</span>
+              <span>Cliquez sur la page ouverte</span>
+            </div>
+            <div class="extract-step">
+              <span class="step-num">2</span>
+              <span>Faites <kbd>Ctrl+A</kbd> (tout sélectionner) puis <kbd>Ctrl+C</kbd> (copier)</span>
+            </div>
+            <div class="extract-step">
+              <span class="step-num">3</span>
+              <span>Revenez ici et cliquez sur le bouton ci-dessous</span>
+            </div>
           </div>
-        </div>
-
-        <div class="bookmarklet-step">
-          <div class="step-num">3</div>
-          <div class="step-content">
-            <h3>Cliquer sur le bookmarklet</h3>
-            <p>Cliquez sur « Analyser avec Animo » dans vos favoris. L'outil s'ouvre et l'analyse démarre automatiquement avec le texte et les photos de la page.</p>
-          </div>
+          <button class="btn-analyser accent" id="btnClipboard" onclick="analyserDepuisClipboard()">
+            J'ai copié le contenu — Analyser
+          </button>
         </div>
       </div>
 
       <!-- Sites compatibles -->
       <div class="section-label" style="margin-top:40px; margin-bottom:16px">Sites compatibles</div>
       <p class="agences-desc" style="margin-bottom:16px">
-        Le bookmarklet fonctionne sur <strong>tous les sites</strong> — il extrait le contenu visible de la page.
-        Particulièrement optimisé pour les agences immobilières du canton de Vaud :
+        Fonctionne sur <strong>tous les sites</strong> d'agences immobilières.
+        Particulièrement optimisé pour le canton de Vaud :
       </p>
       <div class="sites-grid">
         <span class="site-tag">Naef</span>

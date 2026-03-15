@@ -1021,10 +1021,6 @@ const AGENCIES = {
     name: "Valhome",
     listingsUrl: "http://valhome.ch/",
   },
-  procimmo: {
-    name: "Procimmo",
-    listingsUrl: "http://www.procimmo.ch/",
-  },
   monnierImmo: {
     name: "Monnier Immo",
     listingsUrl: "https://monnier-immo.ch/",
@@ -1167,10 +1163,21 @@ const SCRAPER_DEFAULTS = {
 };
 
 
+let buyersCurrentPage = 0;
+
 async function scannerAcheteurs() {
+  buyersCurrentPage = 0;
+  matchBuyers = [];
+  await scannerAcheteursPage(1);
+}
+
+async function scannerAcheteursPageSuivante() {
+  await scannerAcheteursPage(buyersCurrentPage + 1);
+}
+
+async function scannerAcheteursPage(page) {
   const urlEl = document.getElementById("matchBuyersUrl");
   const input = urlEl ? urlEl.value.trim() : "";
-  const maxPages = parseInt(document.getElementById("matchBuyersPages")?.value || "2", 10);
 
   if (!input) {
     showMatchError("matchBuyersError", "Veuillez coller l'URL d'une rubrique.");
@@ -1184,49 +1191,49 @@ async function scannerAcheteurs() {
   }
 
   const btn = document.getElementById("btnScanBuyers");
+  const btnNext = document.getElementById("btnNextPageBuyers");
   const loading = document.getElementById("matchBuyersLoading");
   const loadingText = document.getElementById("matchBuyersLoadingText");
   const errBox = document.getElementById("matchBuyersError");
 
   if (errBox) errBox.classList.remove("visible");
   if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (btnNext) { btnNext.disabled = true; btnNext.classList.add("loading"); }
   if (loading) loading.classList.add("visible");
 
-  matchBuyers = [];
-
   try {
-    for (let page = 1; page <= maxPages; page++) {
-      if (loadingText) loadingText.textContent = `Scan acheteurs page ${page}/${maxPages}...`;
-      const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`;
+    if (loadingText) loadingText.textContent = `Scan acheteurs page ${page}...`;
+    const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`;
 
-      const response = await fetch("/api/scrape-listings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
-        body: JSON.stringify({ url: pageUrl }),
-      });
+    const response = await fetch("/api/scrape-listings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+      body: JSON.stringify({ url: pageUrl }),
+    });
 
-      if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
-      const data = await response.json();
+    if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
+    const data = await response.json();
 
-      if (data.annonces && data.annonces.length > 0) {
-        matchBuyers.push(...data.annonces);
-      }
-
-      if (!data.annonces || data.annonces.length === 0 || !data.hasMore) break;
-      if (page < maxPages) await new Promise(r => setTimeout(r, 1500));
+    let newCount = 0;
+    if (data.annonces && data.annonces.length > 0) {
+      const filtered = data.annonces.filter(a => !isSellerAd(a) && isSwissListing(a));
+      matchBuyers.push(...filtered);
+      newCount = filtered.length;
     }
 
-    // Filtrer les vendeurs et les annonces hors Suisse
-    const beforeFilter = matchBuyers.length;
-    matchBuyers = matchBuyers.filter(a => !isSellerAd(a) && isSwissListing(a));
-    const filtered = beforeFilter - matchBuyers.length;
+    buyersCurrentPage = page;
 
     if (loading) loading.classList.remove("visible");
     if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    if (btnNext) { btnNext.disabled = false; btnNext.classList.remove("loading"); }
+
+    // Afficher le bouton "Page suivante" s'il y a potentiellement plus de resultats
+    const hasMore = data.annonces && data.annonces.length > 0 && data.hasMore !== false;
+    if (btnNext) btnNext.style.display = hasMore ? '' : 'none';
 
     const badge = document.getElementById("buyersCountBadge");
     if (badge) {
-      badge.textContent = `${matchBuyers.length} acheteur(s) trouve(s)` + (filtered > 0 ? ` (${filtered} exclus)` : '');
+      badge.textContent = `${matchBuyers.length} acheteur(s) trouve(s) (page ${buyersCurrentPage})`;
       badge.classList.add("visible");
     }
 
@@ -1237,6 +1244,7 @@ async function scannerAcheteurs() {
   } catch (err) {
     if (loading) loading.classList.remove("visible");
     if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    if (btnNext) { btnNext.disabled = false; btnNext.classList.remove("loading"); }
     showMatchError("matchBuyersError", "Erreur : " + err.message);
   }
 }

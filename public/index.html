@@ -215,18 +215,28 @@
     <div id="pageScraper" class="tab-page">
 
       <div class="agences-intro">
-        <div class="section-label">Scanner les petites annonces</div>
-        <p class="agences-desc">
+        <div class="section-label" id="scraperIntroLabel">Scanner les petites annonces</div>
+        <p class="agences-desc" id="scraperIntroDesc">
           Scannez automatiquement toutes les annonces d'une rubrique sur
-          <strong>petitesannonces.ch</strong>. Le scanner extrait le prix, le nombre de pièces,
+          <strong>petitesannonces.ch</strong> ou <strong>anibis.ch</strong>. Le scanner extrait le prix, le nombre de pièces,
           la surface, la localisation et la photo de chaque annonce.
         </p>
+      </div>
+
+      <div class="category-toggle">
+        <button class="category-btn active" id="scraperCatImmobilier" onclick="switchScraperCategory('immobilier')">Immobilier</button>
+        <button class="category-btn" id="scraperCatObjets" onclick="switchScraperCategory('objets')">Objets à vendre</button>
+      </div>
+
+      <div class="source-toggle" id="scraperSourceToggle" style="display:none">
+        <label><input type="radio" name="scraperSource" value="petitesannonces" checked> petitesannonces.ch</label>
+        <label><input type="radio" name="scraperSource" value="anibis"> anibis.ch</label>
       </div>
 
       <div class="agence-input-zone">
         <div class="section-label">URL de la rubrique</div>
         <textarea id="scraperUrl"
-          placeholder="Collez l'URL de la rubrique (ex: https://www.petitesannonces.ch/r/270724)">https://www.petitesannonces.ch/r/270724</textarea>
+          placeholder="Collez l'URL de la rubrique (ex: https://www.petitesannonces.ch/r/2707)">https://www.petitesannonces.ch/r/2707</textarea>
 
         <div class="scraper-options">
           <label class="scraper-option">
@@ -268,9 +278,14 @@
         <div class="section-label">Matching Acheteur / Bien</div>
         <p class="agences-desc">
           Croisez les <strong>recherches d'acheteurs</strong> sur petitesannonces.ch avec les
-          <strong>biens d'agences</strong>. Identifiez les correspondances et contactez
+          <strong>biens d'agences</strong> ou les <strong>objets à vendre</strong>. Identifiez les correspondances et contactez
           les acheteurs avec le bon bien.
         </p>
+      </div>
+
+      <div class="category-toggle">
+        <button class="category-btn active" id="matchCatImmobilier" onclick="switchMatchCategory('immobilier')">Immobilier</button>
+        <button class="category-btn" id="matchCatObjets" onclick="switchMatchCategory('objets')">Objets à vendre</button>
       </div>
 
       <!-- Etape 1 : Scanner les acheteurs -->
@@ -278,12 +293,12 @@
         <div class="matching-step-header">
           <span class="matching-step-num">1</span>
           <div>
-            <div class="section-label">Scanner les acheteurs</div>
-            <p class="agences-desc">URL de la rubrique « Recherche » sur petitesannonces.ch</p>
+            <div class="section-label" id="matchStep1Label">Scanner les acheteurs</div>
+            <p class="agences-desc" id="matchStep1Desc">URL de la rubrique « Recherche » sur petitesannonces.ch</p>
           </div>
         </div>
         <textarea id="matchBuyersUrl"
-          placeholder="Ex: https://www.petitesannonces.ch/r/270724">https://www.petitesannonces.ch/r/270724</textarea>
+          placeholder="Ex: https://www.petitesannonces.ch/r/2707">https://www.petitesannonces.ch/r/2707</textarea>
         <div class="scraper-options">
           <label class="scraper-option">
             <span>Pages :</span>
@@ -302,16 +317,28 @@
         <div class="match-count-badge" id="buyersCountBadge"></div>
       </div>
 
-      <!-- Etape 2 : Scanner les agences automatiquement -->
+      <!-- Etape 2 : Scanner les biens -->
       <div class="matching-section">
         <div class="matching-step-header">
           <span class="matching-step-num">2</span>
           <div>
-            <div class="section-label">Scanner les biens d'agences</div>
-            <p class="agences-desc">Selectionnez les agences a scanner. Les biens en vente seront extraits automatiquement.</p>
+            <div class="section-label" id="matchStep2Label">Scanner les biens d'agences</div>
+            <p class="agences-desc" id="matchStep2Desc">Selectionnez les agences a scanner. Les biens en vente seront extraits automatiquement.</p>
           </div>
         </div>
 
+        <!-- Panel Immobilier : sources en ligne + agences -->
+        <div id="matchAgencesPanel">
+
+        <div class="matching-online-sources">
+          <div class="section-label" style="font-size:0.82rem; margin-bottom:8px">Sources en ligne</div>
+          <div class="agency-checklist">
+            <label class="agency-check"><input type="checkbox" id="matchSourcePA" checked> petitesannonces.ch vendeurs</label>
+            <label class="agency-check"><input type="checkbox" id="matchSourceAnibis" checked> anibis.ch immobilier</label>
+          </div>
+        </div>
+
+        <div class="section-label" style="font-size:0.82rem; margin-bottom:8px; margin-top:16px">Agences immobilières</div>
         <div class="agency-checklist" id="agencyChecklist">
           <label class="agency-check"><input type="checkbox" value="naef" checked> Naef</label>
           <label class="agency-check"><input type="checkbox" value="bernardnicod" checked> Bernard Nicod</label>
@@ -344,6 +371,31 @@
         </div>
         <div class="match-count-badge" id="biensCountBadge"></div>
         <div class="agency-status-list" id="agencyStatusList"></div>
+        </div>
+
+        <!-- Panel Objets a vendre -->
+        <div id="matchObjetsPanel" style="display:none">
+          <div class="source-toggle">
+            <label><input type="radio" name="matchObjetsSource" value="petitesannonces" checked> petitesannonces.ch</label>
+            <label><input type="radio" name="matchObjetsSource" value="anibis"> anibis.ch</label>
+          </div>
+          <textarea id="matchObjetsUrl"
+            placeholder="URL de la rubrique objets (ex: https://www.petitesannonces.ch/r/p/32)">https://www.petitesannonces.ch/r/p/32</textarea>
+          <div class="scraper-options">
+            <label class="scraper-option">
+              <span>Pages :</span>
+              <input type="number" id="matchObjetsPages" value="2" min="1" max="10" />
+            </label>
+          </div>
+          <button class="btn-analyser" id="btnScanObjets" onclick="scannerObjetsAVendre()">
+            <div class="spinner"></div>
+            <span class="btn-text">Scanner les objets</span>
+          </button>
+          <div class="loading-state" id="matchObjetsLoading">
+            <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
+            <div class="loading-text" id="matchObjetsLoadingText">Scan des objets...</div>
+          </div>
+        </div>
       </div>
 
       <!-- Etape 3 : Lancer le matching -->

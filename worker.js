@@ -300,8 +300,13 @@ async function handleScrapeListings(request, env) {
 
         const html = await response.text();
 
-        // Extraire les liens vers les fiches individuelles (/a/XXXXXXX)
-        const adLinkPattern = /href=["']([^"']*\/a\/\d+[^"']*)["']/gi;
+        // Detecter la source (anibis vs petitesannonces)
+        const isAnibis = pageUrl.includes('anibis.ch');
+
+        // Extraire les liens vers les fiches individuelles
+        const adLinkPattern = isAnibis
+            ? /href=["']([^"']*\/fr\/d\/[^"']+)["']/gi
+            : /href=["']([^"']*\/a\/\d+[^"']*)["']/gi;
         const adLinks = new Set();
         let match;
         while ((match = adLinkPattern.exec(html)) !== null) {
@@ -372,7 +377,10 @@ async function scrapeAdDetail(adUrl) {
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
         || html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
     if (titleMatch) {
-        titre = titleMatch[1].trim().replace(/ - Petitesannonces\.ch.*$/i, '').trim();
+        titre = titleMatch[1].trim()
+            .replace(/ - Petitesannonces\.ch.*$/i, '')
+            .replace(/ [-|] [Aa]nibis.*$/i, '')
+            .trim();
     }
 
     // Prix : CHF xxx'xxx ou Fr. xxx'xxx
@@ -428,7 +436,7 @@ async function scrapeAdDetail(adUrl) {
         surface_m2,
         localisation,
         image_url,
-        source: "petitesannonces.ch",
+        source: adUrl.includes('anibis.ch') ? 'anibis.ch' : 'petitesannonces.ch',
     };
 }
 

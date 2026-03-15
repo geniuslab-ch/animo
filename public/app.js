@@ -617,63 +617,51 @@ let matchResults = [];
 const AGENCIES = {
   naef: {
     name: "Naef",
-    listingsUrl: "https://www.naef.ch/recherche/acheter?localisation=vaud",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://www.naef.ch/acheter/appartements-maisons/",
   },
   bernardnicod: {
     name: "Bernard Nicod",
-    listingsUrl: "https://www.bernardnicod.ch/acheter?canton=vaud",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property|achat)[^"']*)["']/gi,
+    listingsUrl: "https://www.bernard-nicod.ch/acheter?action=acheter&transaction=buy",
   },
   cogestim: {
     name: "Cogestim",
-    listingsUrl: "https://www.cogestim.ch/acheter",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://www.cogestim.ch/fr/acheter/",
   },
   maillard: {
     name: "Maillard Immo",
-    listingsUrl: "https://www.maillardimmo.ch/acheter",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://www.maillard-immo.ch/acheter/",
   },
   barnes: {
     name: "Barnes Suisse",
-    listingsUrl: "https://www.barnes-suisse.ch/vente/vaud",
-    linkPattern: /href=["']([^"']*\/(?:annonce|bien|property|detail|vente\/vaud)[^"']*)["']/gi,
+    listingsUrl: "https://www.barnes-suisse.ch/p2777-acheter.html",
   },
   domicim: {
     name: "Domicim",
-    listingsUrl: "https://www.domicim.ch/acheter",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://immobilier.domicim.ch/suisse/vaud/acheter/",
   },
   gerofinance: {
     name: "Gerofinance",
-    listingsUrl: "https://www.gfrsd.ch/acheter?canton=vaud",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://www.gerofinance-dunand.ch/a-vendre",
   },
   comptoirimmo: {
     name: "Comptoir Immo",
-    listingsUrl: "https://www.comptoirimmo.ch/acheter",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://comptoir-immo.ch/vente/all/Vaud/all/",
   },
   neho: {
     name: "Neho",
-    listingsUrl: "https://www.neho.ch/acheter?canton=vaud",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://neho.ch/fr/a-vendre/proprietes/canton/vaud",
   },
   spg: {
     name: "SPG Rytz",
-    listingsUrl: "https://www.spg-rytz.ch/acheter?region=vaud",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://www.spg-rytz.ch/vente",
   },
   galland: {
     name: "Galland & Cie",
-    listingsUrl: "https://www.galland.ch/acheter",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://www.galland.ch/a-vendre/",
   },
   burnier: {
     name: "Burnier",
-    listingsUrl: "https://www.burnier.ch/acheter",
-    linkPattern: /href=["']([^"']*\/(?:bien|annonce|detail|property)[^"']*)["']/gi,
+    listingsUrl: "https://www.burnier.ch/vente",
   },
 };
 

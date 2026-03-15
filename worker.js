@@ -485,11 +485,15 @@ async function handleScrapeAgency(request, env) {
         }
 
         const html = await response.text();
+        const isSPA = detectSPAShell(html);
 
         // Strategie generique : extraire les annonces directement depuis le HTML de la page de liste
-        const annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
+        const annonces = isSPA ? [] : extractAgencyListings(html, baseDomain, agencyName || "Agence");
 
-        return new Response(JSON.stringify({ annonces, total: annonces.length }), {
+        const status = annonces.length > 0 ? 'ok' : (isSPA ? 'spa_empty' : 'empty');
+        const message = isSPA ? 'Site SPA - contenu rendu cote client, extraction limitee' : null;
+
+        return new Response(JSON.stringify({ annonces, total: annonces.length, status, message }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
 
@@ -498,6 +502,16 @@ async function handleScrapeAgency(request, env) {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
     }
+}
+
+function detectSPAShell(html) {
+    const textContent = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return textContent.length < 200;
 }
 
 // ── Extraction generique des listings depuis une page d'agence ──────────────
@@ -579,7 +593,7 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         if (prixM) {
             prix = parseInt(prixM[1].replace(/[''\u2019.,\s]/g, ''), 10) || null;
             // Ignorer les prix trop petits (probablement loyer mensuel) ou aberrants
-            if (prix && prix < 50000) prix = null;
+            if (prix && prix < 5000) prix = null;
         }
 
         // Extraire les pieces
@@ -608,6 +622,16 @@ function extractAgencyListings(html, baseDomain, agencyName) {
             image_url = imgM[1];
         }
 
+        // Extraire le type de bien
+        const typeText = (linkContent + ' ' + contextText).toLowerCase();
+        let type = 'unknown';
+        if (/maison|villa|chalet/i.test(typeText)) type = 'house';
+        else if (/appartement|appart\b/i.test(typeText)) type = 'apartment';
+        else if (/terrain|parcelle/i.test(typeText)) type = 'land';
+        else if (/commercial|bureau|local\b/i.test(typeText)) type = 'commercial';
+        else if (/parking|garage|box/i.test(typeText)) type = 'parking';
+        else if (/immeuble/i.test(typeText)) type = 'building';
+
         annonces.push({
             url: href,
             titre: linkContent.substring(0, 100),
@@ -616,6 +640,7 @@ function extractAgencyListings(html, baseDomain, agencyName) {
             surface_m2,
             localisation,
             image_url,
+            type,
             source: agencyName,
         });
 
@@ -658,6 +683,17 @@ function extractFromJsonLd(item, baseDomain, agencyName) {
 
     if (!prix && !pieces && !surface_m2 && !localisation) return null;
 
+    // Type de bien depuis schema.org @type ou le nom
+    let type = 'unknown';
+    const schemaType = (item["@type"] || '').toLowerCase();
+    const nameText = (name || '').toLowerCase();
+    if (schemaType === 'apartment' || /appartement|appart\b/i.test(nameText)) type = 'apartment';
+    else if (schemaType === 'house' || /maison|villa|chalet/i.test(nameText)) type = 'house';
+    else if (/terrain|parcelle/i.test(nameText)) type = 'land';
+    else if (/parking|garage|box/i.test(nameText)) type = 'parking';
+    else if (/commercial|bureau|local\b/i.test(nameText)) type = 'commercial';
+    else if (/immeuble/i.test(nameText)) type = 'building';
+
     return {
         url,
         titre: name,
@@ -666,6 +702,7 @@ function extractFromJsonLd(item, baseDomain, agencyName) {
         surface_m2,
         localisation,
         image_url,
+        type,
         source: agencyName,
     };
 }

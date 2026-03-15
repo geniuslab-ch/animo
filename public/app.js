@@ -691,7 +691,7 @@ function afficherErreurScraper(msg) {
 
 // ── Filtres de qualite ───────────────────────────────────────────────────────
 function isSellerAd(annonce) {
-  const text = ((annonce.titre || '') + ' ' + (annonce.description || '')).toLowerCase();
+  const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.fullText || '')).toLowerCase();
   const sellerPatterns = /\b(a vendre|à vendre|vends|je vends|nous vendons|mise en vente|en vente|vente directe|prix de vente|vente de|nouveau prix|offre[s]? [àa] partir)\b/;
   const buyerPatterns = /\b(cherche|recherche|acheter|souhaite acqu[eé]rir|je cherche|nous cherchons|looking for|acqu[eé]rir|int[eé]ress[eé])\b/;
   // Si patterns acheteur détectés, ce n'est pas un vendeur
@@ -1068,6 +1068,9 @@ function lancerMatching() {
 
   for (const buyer of matchBuyers) {
     for (const bien of matchBiens) {
+      // Ignorer les auto-matchs (même annonce dans les deux listes)
+      if (buyer.url && bien.url && buyer.url === bien.url) continue;
+
       // Etape 2 : Filtres d'exclusion STOP/GO
       const exclusion = checkExclusions(buyer, bien);
       if (!exclusion.compatible) {

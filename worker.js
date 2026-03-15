@@ -445,6 +445,7 @@ async function scrapeAdDetail(adUrl) {
         url: adUrl,
         titre,
         description,
+        fullText: text.substring(0, 2000),
         prix,
         pieces,
         surface_m2,

@@ -284,16 +284,16 @@
         </div>
         <textarea id="matchBuyersUrl"
           placeholder="Ex: https://www.petitesannonces.ch/r/2707">https://www.petitesannonces.ch/r/2707</textarea>
-        <div class="scraper-options">
-          <label class="scraper-option">
-            <span>Pages :</span>
-            <input type="number" id="matchBuyersPages" value="2" min="1" max="10" />
-          </label>
+        <div class="scraper-options" style="display:flex; gap:8px; align-items:center;">
+          <button class="btn-analyser" id="btnScanBuyers" onclick="scannerAcheteurs()">
+            <div class="spinner"></div>
+            <span class="btn-text">Scanner les acheteurs</span>
+          </button>
+          <button class="btn-analyser" id="btnNextPageBuyers" onclick="scannerAcheteursPageSuivante()" style="display:none;">
+            <div class="spinner"></div>
+            <span class="btn-text">Page suivante</span>
+          </button>
         </div>
-        <button class="btn-analyser" id="btnScanBuyers" onclick="scannerAcheteurs()">
-          <div class="spinner"></div>
-          <span class="btn-text">Scanner les acheteurs</span>
-        </button>
         <div class="error-box" id="matchBuyersError"></div>
         <div class="loading-state" id="matchBuyersLoading">
           <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
@@ -417,7 +417,6 @@
           <label class="agency-check"><input type="checkbox" value="votreCourtier"> Votre Courtier</label>
           <label class="agency-check"><input type="checkbox" value="realtaImmo"> Realta Immo</label>
           <label class="agency-check"><input type="checkbox" value="valhome"> Valhome</label>
-          <label class="agency-check"><input type="checkbox" value="procimmo"> Procimmo</label>
           <label class="agency-check"><input type="checkbox" value="monnierImmo"> Monnier Immo</label>
           <label class="agency-check"><input type="checkbox" value="regiePrivee"> Regie Privee</label>
           <label class="agency-check"><input type="checkbox" value="immoConsulting"> Immo Consulting</label>

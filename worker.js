@@ -511,10 +511,16 @@ async function handleScrapeAgency(request, env) {
         const isSPA = detectSPAShell(html);
 
         // Strategie generique : extraire les annonces directement depuis le HTML de la page de liste
-        const annonces = isSPA ? [] : extractAgencyListings(html, baseDomain, agencyName || "Agence");
+        let annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
+
+        // Pour les sites SPA, tenter d'extraire au moins les meta tags og: de la page
+        if (annonces.length === 0 && isSPA) {
+            const spaAd = extractMetaTagsAd(html, pageUrl, agencyName || "Agence");
+            if (spaAd) annonces.push(spaAd);
+        }
 
         const status = annonces.length > 0 ? 'ok' : (isSPA ? 'spa_empty' : 'empty');
-        const message = isSPA ? 'Site SPA - contenu rendu cote client, extraction limitee' : null;
+        const message = isSPA && annonces.length === 0 ? 'Site SPA - contenu rendu cote client, extraction limitee' : null;
 
         return new Response(JSON.stringify({ annonces, total: annonces.length, status, message }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -635,6 +641,55 @@ Pour la localisation, utilise le format "NPA Ville" suisse (4 chiffres + nom de 
             status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
     }
+}
+
+// Extraire un minimum d'infos depuis les meta tags d'un site SPA
+function extractMetaTagsAd(html, pageUrl, agencyName) {
+    let titre = null;
+    const titleMatch = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)
+        || html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    if (titleMatch) titre = titleMatch[1].trim();
+
+    let description = null;
+    const descMatch = html.match(/<meta[^>]+property=["']og:description["'][^>]+content=["']([^"']+)["']/i)
+        || html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+    if (descMatch) description = descMatch[1].trim();
+
+    const text = ((titre || '') + ' ' + (description || '')).trim();
+    if (!text || text.length < 20) return null;
+
+    let prix = null;
+    const prixM = text.match(/(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/i);
+    if (prixM) prix = parseInt(prixM[1].replace(/[''\u2019.,\s]/g, ''), 10) || null;
+
+    let pieces = null;
+    const pcsM = text.match(/(\d+(?:[.,]\d)?)\s*(?:pi[eè]ces?|pcs?\.?|rooms?|Zimmer)/i);
+    if (pcsM) pieces = parseFloat(pcsM[1].replace(',', '.'));
+
+    let surface_m2 = null;
+    const surfM = text.match(/(\d+)\s*m[²2]/i);
+    if (surfM) surface_m2 = parseInt(surfM[1], 10);
+
+    let localisation = null;
+    const locM = text.match(/\b(\d{4}\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/);
+    if (locM) localisation = locM[1].trim();
+
+    let image_url = null;
+    const ogImg = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+    if (ogImg) image_url = ogImg[1];
+
+    return {
+        url: pageUrl,
+        titre,
+        description,
+        fullText: text.substring(0, 2000),
+        prix,
+        pieces,
+        surface_m2,
+        localisation,
+        image_url,
+        source: agencyName,
+    };
 }
 
 function detectSPAShell(html) {
@@ -768,6 +823,8 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         annonces.push({
             url: href,
             titre: linkContent.substring(0, 100),
+            description: contextText.substring(0, 300),
+            fullText: contextText.substring(0, 2000),
             prix,
             pieces,
             surface_m2,
@@ -827,9 +884,12 @@ function extractFromJsonLd(item, baseDomain, agencyName) {
     else if (/commercial|bureau|local\b/i.test(nameText)) type = 'commercial';
     else if (/immeuble/i.test(nameText)) type = 'building';
 
+    const desc = item.description || '';
     return {
         url,
         titre: name,
+        description: desc.substring(0, 300),
+        fullText: ((name || '') + ' ' + desc + ' ' + (localisation || '')).substring(0, 2000),
         prix,
         pieces,
         surface_m2,

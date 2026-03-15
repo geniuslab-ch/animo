@@ -1453,7 +1453,7 @@ function lancerMatching() {
 
       // Etape 3 : Score de pertinence
       const { score, breakdown } = calculerMatchScore(buyer, bien);
-      if (score >= 70) {
+      if (score >= 40) {
         matchResults.push({ buyer, bien, score, breakdown });
       }
     }

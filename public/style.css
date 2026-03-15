@@ -1762,6 +1762,38 @@ footer p {
   box-shadow: 0 6px 20px rgba(201, 168, 76, 0.45);
 }
 
+.btn-analyser.btn-secondary {
+  background: linear-gradient(135deg, #2a2a2a 0%, #3a3a3a 100%);
+  border: 1px solid rgba(200, 168, 76, 0.3);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+.btn-analyser.btn-secondary:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(200, 168, 76, 0.3);
+  border-color: rgba(200, 168, 76, 0.5);
+}
+
+.pdf-import-separator {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+  color: var(--txt-dim, #888);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.pdf-import-separator::before,
+.pdf-import-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pdf-import-section {
+  padding: 16px 0 0;
+}
+
 /* ── Sites Grid ──────────────────────────────────────────────────────────*/
 .sites-grid {
   display: flex;

@@ -22,6 +22,11 @@ export default {
             return handleParseBuyerPDF(request, env);
         }
 
+        // ── Route : parse-seller-pdf (matching inversé — bien vendeur) ──────
+        if (url.pathname === "/api/parse-seller-pdf") {
+            return handleParseSellerPDF(request, env);
+        }
+
         if (url.pathname !== "/api/analyze") {
             return new Response("Not found", { status: 404 });
         }
@@ -667,6 +672,116 @@ Pour la localisation, utilise le format "NPA Ville" suisse (4 chiffres + nom de 
         }
 
         return new Response(JSON.stringify({ buyer, filename }), {
+            status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+
+    } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+            status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+}
+
+// ── Parse Seller PDF (matching inversé — bien vendeur) ──────────────────────
+async function handleParseSellerPDF(request, env) {
+    const corsHeaders = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, x-secret-token",
+    };
+
+    if (request.method === "OPTIONS") {
+        return new Response(null, { headers: corsHeaders });
+    }
+    if (request.method !== "POST") {
+        return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+    }
+
+    const token = request.headers.get("x-secret-token");
+    if (!token || token !== env.SECRET_TOKEN) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+        });
+    }
+
+    try {
+        const { pdf_base64, filename } = await request.json();
+        if (!pdf_base64) {
+            return new Response(JSON.stringify({ error: "pdf_base64 manquant" }), {
+                status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+        }
+
+        const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": env.animo_anthropic,
+                "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 1000,
+                messages: [{
+                    role: "user",
+                    content: [
+                        {
+                            type: "document",
+                            source: {
+                                type: "base64",
+                                media_type: "application/pdf",
+                                data: pdf_base64,
+                            },
+                        },
+                        {
+                            type: "text",
+                            text: `Analyse ce document PDF d'un bien immobilier en vente et extrais ses caracteristiques.
+
+Reponds UNIQUEMENT avec un objet JSON valide (sans markdown, sans backticks) avec ces champs :
+{
+  "titre": "description courte du bien (ex: Villa 5 pieces Lausanne)",
+  "prix": nombre ou null (prix de vente en CHF, sans decimales),
+  "pieces": nombre ou null (nombre de pieces),
+  "surface_m2": nombre ou null (surface habitable en m2),
+  "localisation": "NPA Ville" ou null (ex: "1000 Lausanne"),
+  "description": "resume du bien en une phrase",
+  "type": "apartment" ou "house" ou "land" ou "commercial" ou "building" ou "unknown"
+}
+
+Si un champ n'est pas mentionne dans le document, mets null.
+Pour le prix, convertis toujours en CHF.
+Pour la localisation, utilise le format "NPA Ville" suisse (4 chiffres + nom de ville).`,
+                        },
+                    ],
+                }],
+            }),
+        });
+
+        if (!anthropicResponse.ok) {
+            const errData = await anthropicResponse.text();
+            return new Response(JSON.stringify({ error: "Erreur API Claude: " + errData }), {
+                status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
+            });
+        }
+
+        const data = await anthropicResponse.json();
+        const responseText = data.content?.[0]?.text || '';
+
+        let bien;
+        try {
+            bien = JSON.parse(responseText);
+        } catch {
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                bien = JSON.parse(jsonMatch[0]);
+            } else {
+                return new Response(JSON.stringify({ error: "Impossible de parser la reponse Claude", raw: responseText }), {
+                    status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+                });
+            }
+        }
+
+        return new Response(JSON.stringify({ bien, filename }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
 

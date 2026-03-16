@@ -85,16 +85,20 @@ function checkExclusions(buyer, bien) {
 
 // ── Tab Navigation ───────────────────────────────────────────────────────────
 function switchTab(tab) {
-  const tabs = ["analyse", "agences", "scraper", "matching", "historique"];
-  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matching: "pageMatching", historique: "pageHistorique" };
-  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matching: "tabMatching", historique: "tabHistorique" };
+  const tabs = ["analyse", "agences", "scraper", "matchingVD", "matchingVS", "historique"];
+  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matchingVD: "pageMatchingVD", matchingVS: "pageMatchingVD", historique: "pageHistorique" };
+  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matchingVD: "tabMatchingVD", matchingVS: "tabMatchingVS", historique: "tabHistorique" };
   for (const t of tabs) {
     const page = document.getElementById(pageIds[t]);
     const btn = document.getElementById(tabIds[t]);
-    if (page) page.classList.toggle("active", t === tab);
+    // matchingVD and matchingVS share the same page — show it for either
+    if (page) page.classList.toggle("active", pageIds[t] === pageIds[tab]);
     if (btn) btn.classList.toggle("active", t === tab);
   }
   if (tab === "historique") loadHistory();
+  // Canton switching
+  if (tab === "matchingVD") switchCanton('vaud');
+  if (tab === "matchingVS") switchCanton('valais');
 }
 
 // ── Mode de saisie (URL ou contenu colle) ────────────────────────────────────
@@ -706,6 +710,15 @@ function isSellerAd(annonce) {
   return false;
 }
 
+function isRentalListing(annonce) {
+  const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.fullText || '')).toLowerCase();
+  const rentalPatterns = /\b(à louer|a louer|location|louer|en location|bail|sous-location|sous location|mois de loyer|loyer mensuel|loyer|charges comprises|charges en sus|dès le|disponible dès|à remettre)\b/;
+  const salePatterns = /\b(à vendre|a vendre|vente|acheter|achat|prix de vente|offre d'achat)\b/;
+  // Si patterns de location détectés et aucun pattern de vente => c'est une location
+  if (rentalPatterns.test(text) && !salePatterns.test(text)) return true;
+  return false;
+}
+
 function isSwissListing(annonce) {
   const loc = (annonce.localisation || '').trim();
   const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + loc).toLowerCase();
@@ -723,8 +736,27 @@ let matchBuyers = [];
 let matchBiens = [];
 let matchResults = [];
 
-// URLs sources en ligne pour le matching immobilier
-const PA_ACHETEURS_URL = 'https://www.petitesannonces.ch/r/2707';
+// URLs sources en ligne pour le matching immobilier — par canton
+const CANTON_CONFIG = {
+  vaud: {
+    label: 'Vaud',
+    acheteurs_url: 'https://www.petitesannonces.ch/r/270724',
+    anibis_url: 'https://www.anibis.ch/fr/q/immobilier-appartements-maisons-terrains-objets-commerciaux-acheter/Ak8CqcmVhbEVzdGF0ZZSTkqljb21wYW55QWSncHJpdmF0ZZKrbGlzdGluZ1R5cGWUqWFwYXJ0bWVudKVob3VzZa5idWlsZGluZ0dyb3VuZLJjb21tZXJjaWFsUHJvcGVydHmSqXByaWNlVHlwZaNCVVnAwMA?sorting=newest&page=1',
+  },
+  valais: {
+    label: 'Valais',
+    acheteurs_url: 'https://www.petitesannonces.ch/r/270723',
+    anibis_url: null,
+  },
+};
+let currentCanton = 'vaud';
+
+function getCantonConfig() {
+  return CANTON_CONFIG[currentCanton] || CANTON_CONFIG.vaud;
+}
+
+// Legacy alias
+const PA_ACHETEURS_URL = 'https://www.petitesannonces.ch/r/270724';
 const ANIBIS_IMMOBILIER_URL = 'https://www.anibis.ch/fr/q/immobilier-appartements-maisons-terrains-objets-commerciaux-acheter/Ak8CqcmVhbEVzdGF0ZZSTkqljb21wYW55QWSncHJpdmF0ZZKrbGlzdGluZ1R5cGWUqWFwYXJ0bWVudKVob3VzZa5idWlsZGluZ0dyb3VuZLJjb21tZXJjaWFsUHJvcGVydHmSqXByaWNlVHlwZaNCVVnAwMA?sorting=newest&page=1';
 
 // Configuration des agences avec leurs URLs de listings
@@ -1148,19 +1180,370 @@ const AGENCIES = {
   homequest: {
     name: "Homequest",
     listingsUrl: "https://homequest.ch/",
+    canton: "vaud",
+  },
+  // ── Agences Valais ───────────────────────────────────────────────────
+  vsValimmobilier: {
+    name: "Valimmobilier",
+    listingsUrl: "https://www.valimmobilier.ch/",
+    canton: "valais",
+  },
+  vsComptoirImmo: {
+    name: "Comptoir Immo (VS)",
+    listingsUrl: "https://comptoir-immo.ch/",
+    canton: "valais",
+  },
+  vsTwixy: {
+    name: "Twixy",
+    listingsUrl: "https://twixy.ch/",
+    canton: "valais",
+  },
+  vsHermes: {
+    name: "Hermes Immobilier",
+    listingsUrl: "https://hermes-immobilier.ch/",
+    canton: "valais",
+  },
+  vsAllegro: {
+    name: "Agence Allegro",
+    listingsUrl: "https://www.agence-allegro.ch/",
+    canton: "valais",
+  },
+  vsBarnes: {
+    name: "Barnes Suisse (VS)",
+    listingsUrl: "https://www.barnes-suisse.ch/",
+    canton: "valais",
+  },
+  vsSzImmo: {
+    name: "SZ Immo",
+    listingsUrl: "https://www.sz-immo.ch/fr",
+    canton: "valais",
+  },
+  vsEden: {
+    name: "Eden Immobilier",
+    listingsUrl: "https://eden-immobilier.ch/",
+    canton: "valais",
+  },
+  vsBerra: {
+    name: "Berra Immobilier",
+    listingsUrl: "https://www.berra-immobilier.ch/",
+    canton: "valais",
+  },
+  vsImvista: {
+    name: "Imvista",
+    listingsUrl: "https://www.imvista.ch/",
+    canton: "valais",
+  },
+  vsSummum: {
+    name: "Summum Immo",
+    listingsUrl: "https://www.summum-immo.ch/",
+    canton: "valais",
+  },
+  vsOmnia: {
+    name: "Omnia (VS)",
+    listingsUrl: "https://www.omnia.ch/",
+    canton: "valais",
+  },
+  vsFontannaz: {
+    name: "Fontannaz Immobilier",
+    listingsUrl: "https://www.fontannaz-immobilier.ch/fr",
+    canton: "valais",
+  },
+  vsProgestimmo: {
+    name: "Progestimmo",
+    listingsUrl: "https://www.progestimmo.ch/",
+    canton: "valais",
+  },
+  vsImmoValais: {
+    name: "Immo Valais",
+    listingsUrl: "https://www.immo-valais.ch/",
+    canton: "valais",
+  },
+  vsMuzimmo: {
+    name: "Muzimmo",
+    listingsUrl: "https://www.muzimmo.ch/",
+    canton: "valais",
+  },
+  vsBfr: {
+    name: "BFR Immobilier",
+    listingsUrl: "https://www.bfr-immobilier.ch/",
+    canton: "valais",
+  },
+  vsValcity: {
+    name: "Valcity",
+    listingsUrl: "https://valcity.ch/",
+    canton: "valais",
+  },
+  vs123Immo: {
+    name: "123 Immo",
+    listingsUrl: "https://www.123immo.ch/",
+    canton: "valais",
+  },
+  vsAcor: {
+    name: "Acor Immo",
+    listingsUrl: "https://www.acor-immo.ch/",
+    canton: "valais",
+  },
+  vsResidence2b: {
+    name: "Residence 2B",
+    listingsUrl: "https://residence2b.ch/",
+    canton: "valais",
+  },
+  vsFidaval: {
+    name: "Fidaval",
+    listingsUrl: "https://www.fidaval.ch/",
+    canton: "valais",
+  },
+  vsSchmidt: {
+    name: "Schmidt Immobilier",
+    listingsUrl: "https://www.schmidt-immobilier.ch/",
+    canton: "valais",
+  },
+  vsDmImmo: {
+    name: "DM Immo",
+    listingsUrl: "https://dm-immo.ch/",
+    canton: "valais",
+  },
+  vsGefimmo: {
+    name: "Gefimmo",
+    listingsUrl: "https://www.gefimmo.ch/",
+    canton: "valais",
+  },
+  vsKlimmo: {
+    name: "Klimmo",
+    listingsUrl: "https://www.klimmo.ch/",
+    canton: "valais",
+  },
+  vsAmma: {
+    name: "Amma Immo (VS)",
+    listingsUrl: "https://www.amma.immo/",
+    canton: "valais",
+  },
+  vsLogipro: {
+    name: "Logipro Immo",
+    listingsUrl: "https://logipro-immo.ch/",
+    canton: "valais",
+  },
+  vsNaef: {
+    name: "Naef (VS)",
+    listingsUrl: "https://www.naef.ch/acheter/",
+    canton: "valais",
+  },
+  vsBernardNicod: {
+    name: "Bernard Nicod (VS)",
+    listingsUrl: "https://www.bernard-nicod.ch/fr/acheter",
+    canton: "valais",
+  },
+  vsAbimmo: {
+    name: "Abimmo",
+    listingsUrl: "https://www.abimmo.ch/",
+    canton: "valais",
+  },
+  vsStehlin: {
+    name: "Stehlin",
+    listingsUrl: "https://www.stehlin.ch/",
+    canton: "valais",
+  },
+  vsValgroup: {
+    name: "Valgroup",
+    listingsUrl: "https://valgroup.ch/",
+    canton: "valais",
+  },
+  vsAltrium: {
+    name: "Altrium",
+    listingsUrl: "https://altrium.ch/",
+    canton: "valais",
+  },
+  vsProviva: {
+    name: "Proviva",
+    listingsUrl: "https://www.proviva.ch/",
+    canton: "valais",
+  },
+  vsHeinz: {
+    name: "Heinz Immobilier",
+    listingsUrl: "https://heinz-immobilier.ch/",
+    canton: "valais",
+  },
+  vsAlpRealEstate: {
+    name: "Alp Real Estate",
+    listingsUrl: "https://www.alprealestate.ch/",
+    canton: "valais",
+  },
+  vsNendazVente: {
+    name: "Nendaz Vente",
+    listingsUrl: "https://www.nendaz-vente.ch/fr",
+    canton: "valais",
+  },
+  vsAltipik: {
+    name: "Altipik",
+    listingsUrl: "https://www.altipik.ch/",
+    canton: "valais",
+  },
+  vsInterAgence: {
+    name: "Inter Agence",
+    listingsUrl: "https://www.inter-agence.ch/",
+    canton: "valais",
+  },
+  vsLerezo: {
+    name: "Le Rezo",
+    listingsUrl: "https://www.lerezo.ch/",
+    canton: "valais",
+  },
+  vsDomicilia: {
+    name: "Domicilia",
+    listingsUrl: "https://domicilia.ch/",
+    canton: "valais",
+  },
+  vsVeya: {
+    name: "Veya Immobilier",
+    listingsUrl: "https://www.veya-immobilier.ch/",
+    canton: "valais",
+  },
+  vsMithieux: {
+    name: "Mithieux Immobilier",
+    listingsUrl: "https://mithieux-immobilier.ch/",
+    canton: "valais",
+  },
+  vsEren: {
+    name: "Eren Immobilier",
+    listingsUrl: "https://www.eren-immobilier.ch/",
+    canton: "valais",
+  },
+  vsHomepartner: {
+    name: "Home Partner",
+    listingsUrl: "https://homepartner.ch/",
+    canton: "valais",
+  },
+  vsLeValaisImmobilier: {
+    name: "Le Valais Immobilier",
+    listingsUrl: "https://www.levalaisimmobilier.ch/",
+    canton: "valais",
+  },
+  vsBenoitDorsaz: {
+    name: "Benoit Dorsaz Immobilier",
+    listingsUrl: "https://www.benoitdorsaz-immobilier.ch/",
+    canton: "valais",
+  },
+  vsAlberic: {
+    name: "Alberic Immobilier",
+    listingsUrl: "https://www.alberic-immobilier.ch/",
+    canton: "valais",
+  },
+  vsSilver: {
+    name: "Silver Immobilier",
+    listingsUrl: "https://silverimmobilier.ch/",
+    canton: "valais",
+  },
+  vsCbsImmo: {
+    name: "CBS Immo",
+    listingsUrl: "https://www.cbsimmo.ch/",
+    canton: "valais",
+  },
+  vsChbImmo: {
+    name: "CHB Immo",
+    listingsUrl: "https://www.chbimmo.ch/",
+    canton: "valais",
+  },
+  vsImmorare: {
+    name: "Immorare",
+    listingsUrl: "https://www.immorare.ch/",
+    canton: "valais",
+  },
+  vsTrustImmobilier: {
+    name: "Trust Immobilier",
+    listingsUrl: "https://trustimmobilier.ch/",
+    canton: "valais",
+  },
+  vsValorise: {
+    name: "Valorise Home",
+    listingsUrl: "https://www.valorise-home.ch/",
+    canton: "valais",
   },
 };
 
 function toggleAllAgencies(checked) {
-  const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]");
-  checkboxes.forEach(cb => cb.checked = checked);
+  // Ne toggler que les agences du canton actif (visibles)
+  const activeGroup = document.querySelector(`.agency-canton-group[data-canton="${currentCanton}"]`);
+  if (activeGroup) {
+    activeGroup.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = checked);
+  } else {
+    // Fallback
+    const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]");
+    checkboxes.forEach(cb => cb.checked = checked);
+  }
 }
 
 // ── Category Switching ─────────────────────────────────────────────────────
 
 const SCRAPER_DEFAULTS = {
-  immobilier: { url: 'https://www.petitesannonces.ch/r/2707', placeholder: 'Collez l\'URL de la rubrique (ex: https://www.petitesannonces.ch/r/2707)' },
+  immobilier: { url: 'https://www.petitesannonces.ch/r/270724', placeholder: 'Collez l\'URL de la rubrique achat (ex: https://www.petitesannonces.ch/r/270724)' },
 };
+
+// Per-canton state
+const cantonState = {
+  vaud: { buyers: [], biens: [], results: [], groups: [], currentGroupIdx: 0 },
+  valais: { buyers: [], biens: [], results: [], groups: [], currentGroupIdx: 0 },
+};
+
+function getState() { return cantonState[currentCanton]; }
+
+function switchCanton(canton) {
+  // Save current state
+  cantonState[currentCanton].buyers = matchBuyers;
+  cantonState[currentCanton].biens = matchBiens;
+  cantonState[currentCanton].results = matchResults;
+
+  currentCanton = canton;
+  const config = getCantonConfig();
+
+  // Restore state for this canton
+  matchBuyers = cantonState[canton].buyers;
+  matchBiens = cantonState[canton].biens;
+  matchResults = cantonState[canton].results;
+
+  // Update label
+  const label = document.getElementById("matchCantonLabel");
+  if (label) label.textContent = config.label;
+
+  // Update buyer URL
+  const buyerUrlEl = document.getElementById("matchBuyersUrl");
+  if (buyerUrlEl) buyerUrlEl.value = config.acheteurs_url;
+
+  // Show/hide agency groups
+  document.querySelectorAll('.agency-canton-group').forEach(g => {
+    g.style.display = g.dataset.canton === canton ? '' : 'none';
+  });
+
+  // Update badges
+  const buyersBadge = document.getElementById("buyersCountBadge");
+  const biensBadge = document.getElementById("biensCountBadge");
+  if (buyersBadge) {
+    if (matchBuyers.length > 0) {
+      buyersBadge.textContent = `${matchBuyers.length} acheteur(s) trouve(s)`;
+      buyersBadge.classList.add("visible");
+    } else {
+      buyersBadge.classList.remove("visible");
+    }
+  }
+  if (biensBadge) {
+    if (matchBiens.length > 0) {
+      biensBadge.textContent = `${matchBiens.length} bien(s) trouves`;
+      biensBadge.classList.add("visible");
+    } else {
+      biensBadge.classList.remove("visible");
+    }
+  }
+
+  // Re-display results if they exist, otherwise hide
+  const matchResultsDiv = document.getElementById("matchResults");
+  const matchNav = document.getElementById("matchNav");
+  if (matchResults.length > 0) {
+    afficherMatchResultsPaginated();
+    if (matchResultsDiv) matchResultsDiv.classList.add("visible");
+  } else {
+    if (matchResultsDiv) matchResultsDiv.classList.remove("visible");
+    if (matchNav) matchNav.style.display = 'none';
+  }
+}
 
 
 let buyersCurrentPage = 0;
@@ -1216,7 +1599,7 @@ async function scannerAcheteursPage(page) {
 
     let newCount = 0;
     if (data.annonces && data.annonces.length > 0) {
-      const filtered = data.annonces.filter(a => !isSellerAd(a) && isSwissListing(a));
+      const filtered = data.annonces.filter(a => !isSellerAd(a) && !isRentalListing(a) && isSwissListing(a));
       matchBuyers.push(...filtered);
       newCount = filtered.length;
     }
@@ -1308,7 +1691,11 @@ async function importerAcheteurPDF(fileInput) {
 }
 
 async function scannerAgences() {
-  const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
+  // Ne prendre que les agences cochees du canton actif
+  const activeGroup = document.querySelector(`.agency-canton-group[data-canton="${currentCanton}"]`);
+  const checkboxes = activeGroup
+    ? activeGroup.querySelectorAll('input[type=checkbox]:checked')
+    : document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
   const selectedAgencies = [...checkboxes].map(cb => cb.value);
   const scanAnibis = document.getElementById("matchSourceAnibis")?.checked;
 
@@ -1332,7 +1719,8 @@ async function scannerAgences() {
 
   // Scanner les sources en ligne d'abord
   const onlineSources = [];
-  if (scanAnibis) onlineSources.push({ name: 'anibis.ch', url: ANIBIS_IMMOBILIER_URL });
+  const cantonCfg = getCantonConfig();
+  if (scanAnibis && cantonCfg.anibis_url) onlineSources.push({ name: 'anibis.ch', url: cantonCfg.anibis_url });
 
   for (const source of onlineSources) {
     if (loadingText) loadingText.textContent = `Scan ${source.name}...`;
@@ -1399,8 +1787,8 @@ async function scannerAgences() {
     }
   }
 
-  // Filtrer les biens hors Suisse
-  matchBiens = matchBiens.filter(b => isSwissListing(b));
+  // Filtrer les biens hors Suisse et les annonces de location
+  matchBiens = matchBiens.filter(b => isSwissListing(b) && !isRentalListing(b));
 
   if (loading) loading.classList.remove("visible");
   if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
@@ -1445,21 +1833,17 @@ function lancerMatching() {
   }
 
   matchResults = [];
-  const incompatibles = [];
 
   for (const buyer of matchBuyers) {
     for (const bien of matchBiens) {
       // Ignorer les auto-matchs (même annonce dans les deux listes)
       if (buyer.url && bien.url && buyer.url === bien.url) continue;
 
-      // Etape 2 : Filtres d'exclusion STOP/GO
+      // Filtres d'exclusion STOP/GO
       const exclusion = checkExclusions(buyer, bien);
-      if (!exclusion.compatible) {
-        incompatibles.push({ buyer, bien, score: 0, breakdown: null, reason: exclusion.reason });
-        continue;
-      }
+      if (!exclusion.compatible) continue;
 
-      // Etape 3 : Score de pertinence
+      // Score de pertinence
       const { score, breakdown } = calculerMatchScore(buyer, bien);
       if (score >= 50) {
         matchResults.push({ buyer, bien, score, breakdown });
@@ -1470,7 +1854,148 @@ function lancerMatching() {
   // Trier par score decroissant
   matchResults.sort((a, b) => b.score - a.score);
 
-  afficherMatchResults(matchResults, incompatibles);
+  // Sauvegarder dans l'etat du canton
+  cantonState[currentCanton].results = matchResults;
+
+  // Grouper et afficher avec navigation
+  afficherMatchResultsPaginated();
+}
+
+// ── Navigation entre les groupes de matchs ────────────────────────────────
+function afficherMatchResultsPaginated() {
+  const state = cantonState[currentCanton];
+
+  // Regrouper par acheteur
+  const grouped = new Map();
+  for (const m of matchResults) {
+    const key = m.buyer.url || m.buyer.titre || JSON.stringify(m.buyer);
+    if (!grouped.has(key)) {
+      grouped.set(key, { buyer: m.buyer, biens: [] });
+    }
+    grouped.get(key).biens.push({ bien: m.bien, score: m.score, breakdown: m.breakdown });
+  }
+
+  // Trier les groupes par meilleur score
+  state.groups = [...grouped.values()].sort((a, b) => {
+    const bestA = Math.max(...a.biens.map(x => x.score));
+    const bestB = Math.max(...b.biens.map(x => x.score));
+    return bestB - bestA;
+  });
+
+  // Trier les biens dans chaque groupe
+  state.groups.forEach(g => g.biens.sort((a, b) => b.score - a.score));
+
+  const countEl = document.getElementById("matchCount");
+  if (countEl) countEl.textContent = matchResults.length;
+
+  const resultsDiv = document.getElementById("matchResults");
+  const nav = document.getElementById("matchNav");
+  const grid = document.getElementById("matchGrid");
+
+  if (state.groups.length === 0) {
+    if (grid) grid.innerHTML = '<div class="history-empty">Aucune correspondance trouvee avec les criteres actuels.</div>';
+    if (nav) nav.style.display = 'none';
+    if (resultsDiv) resultsDiv.classList.add("visible");
+    return;
+  }
+
+  // Afficher la navigation
+  if (nav) nav.style.display = 'flex';
+  state.currentGroupIdx = 0;
+  renderCurrentGroup();
+  if (resultsDiv) resultsDiv.classList.add("visible");
+}
+
+function navigateMatch(delta) {
+  const state = cantonState[currentCanton];
+  const newIdx = state.currentGroupIdx + delta;
+  if (newIdx < 0 || newIdx >= state.groups.length) return;
+  state.currentGroupIdx = newIdx;
+  renderCurrentGroup();
+  // Scroll to results
+  const nav = document.getElementById("matchNav");
+  if (nav) nav.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderCurrentGroup() {
+  const state = cantonState[currentCanton];
+  const idx = state.currentGroupIdx;
+  const total = state.groups.length;
+  const group = state.groups[idx];
+
+  // Update nav indicator
+  const indicator = document.getElementById("matchNavIndicator");
+  if (indicator) indicator.textContent = `${idx + 1} / ${total}`;
+
+  // Update buttons
+  const btnPrev = document.getElementById("btnMatchPrev");
+  const btnNext = document.getElementById("btnMatchNext");
+  if (btnPrev) btnPrev.disabled = idx === 0;
+  if (btnNext) btnNext.disabled = idx === total - 1;
+
+  // Render this group
+  const grid = document.getElementById("matchGrid");
+  if (!grid) return;
+
+  const buyer = group.buyer;
+  const bestScore = group.biens[0].score;
+  const groupClass = bestScore >= 70 ? "match-high" : bestScore >= 40 ? "match-medium" : "match-low";
+
+  const biensHtml = group.biens.map(({ bien, score, breakdown }) => {
+    const scoreClass = score >= 70 ? "match-high" : score >= 50 ? "match-medium" : "match-low";
+    const scoreLabel = score >= 70 ? "Excellent" : score >= 50 ? "Bon" : "Faible";
+    const b = breakdown || {};
+    return `
+    <div class="match-bien-item ${scoreClass}">
+      <div class="match-bien-row">
+        ${bien.image_url ? `<div class="match-thumb" style="background-image:url('${escapeHTML(bien.image_url)}')"></div>` : ''}
+        <div class="match-bien-info">
+          <div class="match-side-title">${escapeHTML(bien.titre || '')}</div>
+          <div class="match-side-details">
+            ${bien.prix ? formatPrix(bien.prix) : '\u2014'}
+            ${bien.pieces ? ` \u00b7 ${bien.pieces} pcs` : ''}
+            ${bien.surface_m2 ? ` \u00b7 ${bien.surface_m2} m\u00b2` : ''}
+          </div>
+          <div class="match-side-loc">${escapeHTML(bien.localisation || '\u2014')}</div>
+          ${bien.source ? `<div class="match-side-source">${escapeHTML(bien.source)}</div>` : ''}
+        </div>
+        <div class="match-score-badge-small ${scoreClass}">
+          <span class="match-score-value">${score}/100</span>
+          <span class="match-score-label">${scoreLabel}</span>
+        </div>
+      </div>
+      <div class="match-breakdown">
+        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/50">Lieu ${b.location}/50</span>
+        <span class="breakdown-pill ${b.type > 0 ? 'active' : ''}" title="Type: ${b.type}/20">Type ${b.type}/20</span>
+        <span class="breakdown-pill ${b.roomsSurface > 0 ? 'active' : ''}" title="Pieces/Surface: ${b.roomsSurface}/20">Pcs/m\u00b2 ${b.roomsSurface}/20</span>
+        <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/10">Prix ${b.price}/10</span>
+      </div>
+      <div class="match-actions">
+        <a href="${escapeHTML(bien.url || '#')}" target="_blank" class="match-link">Voir bien</a>
+      </div>
+    </div>`;
+  }).join("");
+
+  grid.innerHTML = `
+  <div class="match-group ${groupClass}">
+    <div class="match-group-header">
+      <div class="match-side match-buyer">
+        <div class="match-side-label">Acheteur recherche</div>
+        <div class="match-side-price">${buyer.prix ? formatPrix(buyer.prix) : '\u2014'}</div>
+        <div class="match-side-details">
+          ${buyer.pieces ? `${buyer.pieces} pcs` : ''}
+          ${buyer.surface_m2 ? ` \u00b7 ${buyer.surface_m2} m\u00b2` : ''}
+        </div>
+        <div class="match-side-loc">${escapeHTML(buyer.localisation || '\u2014')}</div>
+        <div class="match-side-title">${escapeHTML(buyer.titre || '')}</div>
+        <a href="${escapeHTML(buyer.url || '#')}" target="_blank" class="match-link">Voir annonce</a>
+      </div>
+      <div class="match-group-count">${group.biens.length} bien(s) correspondant(s)</div>
+    </div>
+    <div class="match-group-biens">
+      ${biensHtml}
+    </div>
+  </div>`;
 }
 
 // Villes courantes de Suisse romande avec leur NPA principal
@@ -1563,126 +2088,7 @@ function calculerMatchScore(buyer, bien) {
   return { score, breakdown };
 }
 
-function afficherMatchResults(results, incompatibles) {
-  const resultsDiv = document.getElementById("matchResults");
-  const grid = document.getElementById("matchGrid");
-  const countEl = document.getElementById("matchCount");
-
-  if (countEl) countEl.textContent = results.length;
-
-  if (results.length === 0 && (!incompatibles || incompatibles.length === 0)) {
-    grid.innerHTML = '<div class="history-empty">Aucune correspondance trouvee avec les criteres actuels.</div>';
-    if (resultsDiv) resultsDiv.classList.add("visible");
-    return;
-  }
-
-  // Regrouper par acheteur (par URL unique)
-  const grouped = new Map();
-  for (const m of results) {
-    const key = m.buyer.url || m.buyer.titre || JSON.stringify(m.buyer);
-    if (!grouped.has(key)) {
-      grouped.set(key, { buyer: m.buyer, biens: [] });
-    }
-    grouped.get(key).biens.push({ bien: m.bien, score: m.score, breakdown: m.breakdown });
-  }
-
-  // Trier les groupes par meilleur score
-  const groups = [...grouped.values()].sort((a, b) => {
-    const bestA = Math.max(...a.biens.map(x => x.score));
-    const bestB = Math.max(...b.biens.map(x => x.score));
-    return bestB - bestA;
-  });
-
-  let html = groups.map(group => {
-    const buyer = group.buyer;
-    // Trier les biens par score decroissant
-    group.biens.sort((a, b) => b.score - a.score);
-    const bestScore = group.biens[0].score;
-    const groupClass = bestScore >= 70 ? "match-high" : bestScore >= 40 ? "match-medium" : "match-low";
-
-    const biensHtml = group.biens.map(({ bien, score, breakdown }) => {
-      const scoreClass = score >= 70 ? "match-high" : score >= 50 ? "match-medium" : "match-low";
-      const scoreLabel = score >= 70 ? "Excellent" : score >= 50 ? "Bon" : "Faible";
-      const b = breakdown || {};
-      return `
-      <div class="match-bien-item ${scoreClass}">
-        <div class="match-bien-row">
-          ${bien.image_url ? `<div class="match-thumb" style="background-image:url('${escapeHTML(bien.image_url)}')"></div>` : ''}
-          <div class="match-bien-info">
-            <div class="match-side-title">${escapeHTML(bien.titre || '')}</div>
-            <div class="match-side-details">
-              ${bien.prix ? formatPrix(bien.prix) : '\u2014'}
-              ${bien.pieces ? ` \u00b7 ${bien.pieces} pcs` : ''}
-              ${bien.surface_m2 ? ` \u00b7 ${bien.surface_m2} m\u00b2` : ''}
-            </div>
-            <div class="match-side-loc">${escapeHTML(bien.localisation || '\u2014')}</div>
-            ${bien.source ? `<div class="match-side-source">${escapeHTML(bien.source)}</div>` : ''}
-          </div>
-          <div class="match-score-badge-small ${scoreClass}">
-            <span class="match-score-value">${score}/100</span>
-            <span class="match-score-label">${scoreLabel}</span>
-          </div>
-        </div>
-        <div class="match-breakdown">
-          <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/50">Lieu ${b.location}/50</span>
-          <span class="breakdown-pill ${b.type > 0 ? 'active' : ''}" title="Type: ${b.type}/20">Type ${b.type}/20</span>
-          <span class="breakdown-pill ${b.roomsSurface > 0 ? 'active' : ''}" title="Pieces/Surface: ${b.roomsSurface}/20">Pcs/m\u00b2 ${b.roomsSurface}/20</span>
-          <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/10">Prix ${b.price}/10</span>
-        </div>
-        <div class="match-actions">
-          <a href="${escapeHTML(bien.url || '#')}" target="_blank" class="match-link">Voir bien</a>
-        </div>
-      </div>`;
-    }).join("");
-
-    return `
-    <div class="match-group ${groupClass}">
-      <div class="match-group-header">
-        <div class="match-side match-buyer">
-          <div class="match-side-label">Acheteur recherche</div>
-          <div class="match-side-price">${buyer.prix ? formatPrix(buyer.prix) : '\u2014'}</div>
-          <div class="match-side-details">
-            ${buyer.pieces ? `${buyer.pieces} pcs` : ''}
-            ${buyer.surface_m2 ? ` \u00b7 ${buyer.surface_m2} m\u00b2` : ''}
-          </div>
-          <div class="match-side-loc">${escapeHTML(buyer.localisation || '\u2014')}</div>
-          <div class="match-side-title">${escapeHTML(buyer.titre || '')}</div>
-          <a href="${escapeHTML(buyer.url || '#')}" target="_blank" class="match-link">Voir annonce</a>
-        </div>
-        <div class="match-group-count">${group.biens.length} bien(s) correspondant(s)</div>
-      </div>
-      <div class="match-group-biens">
-        ${biensHtml}
-      </div>
-    </div>`;
-  }).join("");
-
-  // Afficher les incompatibles en grise
-  if (incompatibles && incompatibles.length > 0) {
-    html += `<div class="match-incompatible-header">INCOMPATIBLES (${incompatibles.length} exclus)</div>`;
-    html += incompatibles.slice(0, 10).map(m => `
-    <div class="match-card match-incompatible">
-      <div class="match-score-badge">STOP</div>
-      <div class="match-pair">
-        <div class="match-side match-buyer">
-          <div class="match-side-label">Acheteur</div>
-          <div class="match-side-price">${m.buyer.prix ? formatPrix(m.buyer.prix) : '\u2014'}</div>
-          <div class="match-side-loc">${escapeHTML(m.buyer.localisation || '\u2014')}</div>
-        </div>
-        <div class="match-arrow">&#10007;</div>
-        <div class="match-side match-bien">
-          <div class="match-side-label">Bien</div>
-          <div class="match-side-price">${m.bien.prix ? formatPrix(m.bien.prix) : '\u2014'}</div>
-          <div class="match-side-loc">${escapeHTML(m.bien.localisation || '\u2014')}</div>
-        </div>
-      </div>
-      <div class="match-exclusion-reason">${escapeHTML(m.reason)}</div>
-    </div>`).join("");
-  }
-
-  grid.innerHTML = html;
-  if (resultsDiv) resultsDiv.classList.add("visible");
-}
+// Old afficherMatchResults removed — replaced by afficherMatchResultsPaginated + renderCurrentGroup
 
 function exporterMatches() {
   if (matchResults.length === 0) return;

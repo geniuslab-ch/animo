@@ -18,17 +18,18 @@
         <div class="header-logo-mark">A</div>
         <div class="header-text">
           <div class="header-title">Analyste Immobilier</div>
-          <div class="header-sub">Marché vaudois · Intelligence immobilière</div>
+          <div class="header-sub">Marchés VD &amp; VS · Intelligence immobilière</div>
         </div>
       </div>
-      <div class="header-badge">CH · VD</div>
+      <div class="header-badge">CH · VD · VS</div>
     </div>
     <!-- Tabs -->
     <nav class="tab-nav">
       <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
       <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
       <button class="tab-btn" id="tabScraper" onclick="switchTab('scraper')">Petites Annonces</button>
-      <button class="tab-btn" id="tabMatching" onclick="switchTab('matching')">Matching</button>
+      <button class="tab-btn" id="tabMatchingVD" onclick="switchTab('matchingVD')">Matching VD</button>
+      <button class="tab-btn" id="tabMatchingVS" onclick="switchTab('matchingVS')">Matching VS</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
     </nav>
   </header>
@@ -226,7 +227,7 @@
       <div class="agence-input-zone">
         <div class="section-label">URL de la rubrique</div>
         <textarea id="scraperUrl"
-          placeholder="Collez l'URL de la rubrique (ex: https://www.petitesannonces.ch/r/2707)">https://www.petitesannonces.ch/r/2707</textarea>
+          placeholder="Collez l'URL de la rubrique achat (ex: https://www.petitesannonces.ch/r/270724)">https://www.petitesannonces.ch/r/270724</textarea>
 
         <div class="scraper-options">
           <label class="scraper-option">
@@ -261,11 +262,11 @@
 
     </div>
 
-    <!-- ── TAB: Matching Acheteur / Vendeur ─────────────────────────────── -->
-    <div id="pageMatching" class="tab-page">
+    <!-- ── TAB: Matching (shared by VD and VS tabs) ─────────────────────── -->
+    <div id="pageMatchingVD" class="tab-page">
 
       <div class="agences-intro">
-        <div class="section-label">Matching Acheteur / Bien</div>
+        <div class="section-label">Matching Acheteur / Bien — <span id="matchCantonLabel">Vaud</span></div>
         <p class="agences-desc">
           Croisez les <strong>recherches d'acheteurs</strong> sur petitesannonces.ch avec les
           <strong>biens d'agences</strong> et les annonces en ligne. Identifiez les correspondances et contactez
@@ -283,7 +284,7 @@
           </div>
         </div>
         <textarea id="matchBuyersUrl"
-          placeholder="Ex: https://www.petitesannonces.ch/r/2707">https://www.petitesannonces.ch/r/2707</textarea>
+          placeholder="Ex: https://www.petitesannonces.ch/r/270724">https://www.petitesannonces.ch/r/270724</textarea>
         <div class="scraper-options" style="display:flex; gap:8px; align-items:center;">
           <button class="btn-analyser" id="btnScanBuyers" onclick="scannerAcheteurs()">
             <div class="spinner"></div>
@@ -344,6 +345,8 @@
 
         <div class="section-label" style="font-size:0.82rem; margin-bottom:8px; margin-top:16px">Agences immobilières</div>
         <div class="agency-checklist" id="agencyChecklist">
+          <!-- Agences Vaud -->
+          <div class="agency-canton-group" data-canton="vaud">
           <label class="agency-check"><input type="checkbox" value="naef" checked> Naef</label>
           <label class="agency-check"><input type="checkbox" value="bernardnicod" checked> Bernard Nicod</label>
           <label class="agency-check"><input type="checkbox" value="cogestim"> Cogestim</label>
@@ -449,6 +452,65 @@
           <label class="agency-check"><input type="checkbox" value="nideal"> Nideal</label>
           <label class="agency-check"><input type="checkbox" value="remax"> RE/MAX</label>
           <label class="agency-check"><input type="checkbox" value="homequest"> Homequest</label>
+          </div>
+          <!-- Agences Valais -->
+          <div class="agency-canton-group" data-canton="valais" style="display:none">
+          <label class="agency-check"><input type="checkbox" value="vsValimmobilier" checked> Valimmobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsComptoirImmo" checked> Comptoir Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsTwixy" checked> Twixy</label>
+          <label class="agency-check"><input type="checkbox" value="vsHermes" checked> Hermes Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsAllegro"> Agence Allegro</label>
+          <label class="agency-check"><input type="checkbox" value="vsBarnes"> Barnes Suisse</label>
+          <label class="agency-check"><input type="checkbox" value="vsSzImmo"> SZ Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsEden"> Eden Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsBerra"> Berra Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsImvista"> Imvista</label>
+          <label class="agency-check"><input type="checkbox" value="vsSummum"> Summum Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsOmnia"> Omnia</label>
+          <label class="agency-check"><input type="checkbox" value="vsFontannaz"> Fontannaz Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsProgestimmo"> Progestimmo</label>
+          <label class="agency-check"><input type="checkbox" value="vsImmoValais"> Immo Valais</label>
+          <label class="agency-check"><input type="checkbox" value="vsMuzimmo"> Muzimmo</label>
+          <label class="agency-check"><input type="checkbox" value="vsBfr"> BFR Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsValcity"> Valcity</label>
+          <label class="agency-check"><input type="checkbox" value="vs123Immo"> 123 Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsAcor"> Acor Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsResidence2b"> Residence 2B</label>
+          <label class="agency-check"><input type="checkbox" value="vsFidaval"> Fidaval</label>
+          <label class="agency-check"><input type="checkbox" value="vsSchmidt"> Schmidt Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsDmImmo"> DM Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsGefimmo"> Gefimmo</label>
+          <label class="agency-check"><input type="checkbox" value="vsKlimmo"> Klimmo</label>
+          <label class="agency-check"><input type="checkbox" value="vsAmma"> Amma Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsLogipro"> Logipro Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsNaef"> Naef</label>
+          <label class="agency-check"><input type="checkbox" value="vsBernardNicod"> Bernard Nicod</label>
+          <label class="agency-check"><input type="checkbox" value="vsAbimmo"> Abimmo</label>
+          <label class="agency-check"><input type="checkbox" value="vsStehlin"> Stehlin</label>
+          <label class="agency-check"><input type="checkbox" value="vsValgroup"> Valgroup</label>
+          <label class="agency-check"><input type="checkbox" value="vsAltrium"> Altrium</label>
+          <label class="agency-check"><input type="checkbox" value="vsProviva"> Proviva</label>
+          <label class="agency-check"><input type="checkbox" value="vsHeinz"> Heinz Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsAlpRealEstate"> Alp Real Estate</label>
+          <label class="agency-check"><input type="checkbox" value="vsNendazVente"> Nendaz Vente</label>
+          <label class="agency-check"><input type="checkbox" value="vsAltipik"> Altipik</label>
+          <label class="agency-check"><input type="checkbox" value="vsInterAgence"> Inter Agence</label>
+          <label class="agency-check"><input type="checkbox" value="vsLerezo"> Le Rezo</label>
+          <label class="agency-check"><input type="checkbox" value="vsDomicilia"> Domicilia</label>
+          <label class="agency-check"><input type="checkbox" value="vsVeya"> Veya Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsMithieux"> Mithieux Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsEren"> Eren Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsHomepartner"> Home Partner</label>
+          <label class="agency-check"><input type="checkbox" value="vsLeValaisImmobilier"> Le Valais Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsBenoitDorsaz"> Benoit Dorsaz</label>
+          <label class="agency-check"><input type="checkbox" value="vsAlberic"> Alberic Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsSilver"> Silver Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsCbsImmo"> CBS Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsChbImmo"> CHB Immo</label>
+          <label class="agency-check"><input type="checkbox" value="vsImmorare"> Immorare</label>
+          <label class="agency-check"><input type="checkbox" value="vsTrustImmobilier"> Trust Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="vsValorise"> Valorise Home</label>
+          </div>
         </div>
 
         <div class="agency-select-actions">
@@ -493,6 +555,14 @@
           <div class="section-label">Correspondances · <span id="matchCount">0</span> matches</div>
           <button class="btn-pdf" onclick="exporterMatches()">Exporter JSON</button>
         </div>
+
+        <!-- Navigation bien par bien -->
+        <div id="matchNav" class="match-nav" style="display:none;">
+          <button class="match-nav-btn" id="btnMatchPrev" onclick="navigateMatch(-1)">&larr; Precedent</button>
+          <span class="match-nav-indicator" id="matchNavIndicator">1 / 1</span>
+          <button class="match-nav-btn" id="btnMatchNext" onclick="navigateMatch(1)">Suivant &rarr;</button>
+        </div>
+
         <div id="matchGrid" class="match-grid"></div>
       </div>
 
@@ -521,7 +591,7 @@
     <div class="footer-flag">
       <div class="ch-cross"></div>
     </div>
-    <p>Outil d'analyse pour le marché immobilier · Canton de Vaud · Suisse romande</p>
+    <p>Outil d'analyse pour le marché immobilier · Cantons de Vaud &amp; Valais · Suisse romande</p>
   </footer>
 
   <script src="app.js"></script>

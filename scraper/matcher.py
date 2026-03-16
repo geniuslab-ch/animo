@@ -4,30 +4,34 @@ Croise les annonces de petitesannonces.ch avec celles des agences
 pour detecter les doublons / correspondances.
 
 Usage :
-    python matcher.py
+    python matcher.py                  # tous les cantons actifs
+    python matcher.py vaud             # un canton specifique
+    python matcher.py vaud valais      # plusieurs cantons
 
-Prerequis : petitesannonces.json et agences.json doivent exister
+Prerequis : petitesannonces_{canton}.json et agences_{canton}.json doivent exister
 (generes par les spiders petitesannonces et agences).
 
-Sortie : matched_annonces.json
+Sortie : matched_annonces_{canton}.json par canton
 """
 
 import json
 import sys
 from pathlib import Path
 
+from cantons import DEFAULT_CANTONS
+
 # ── Seuils de correspondance ─────────────────────────────────────────────────
 PRICE_TOLERANCE = 0.05   # 5 % d'ecart tolere
 SURFACE_TOLERANCE = 5    # m² d'ecart tolere
 ROOMS_TOLERANCE = 0.5    # demi-piece d'ecart toleree
+MATCH_THRESHOLD = 0.50   # 50 % de correspondance minimum
 
 
 def load_json(path: str) -> list[dict]:
     p = Path(path)
     if not p.exists():
         print(f"Fichier introuvable : {path}")
-        print(f"Lancez d'abord : scrapy crawl petitesannonces && scrapy crawl agences")
-        sys.exit(1)
+        return []
     with open(p, encoding="utf-8") as f:
         return json.load(f)
 
@@ -96,10 +100,11 @@ def compute_score(pa: dict, ag: dict) -> float:
     return round(score, 2)
 
 
-def match_annonces(pa_data: list[dict], ag_data: list[dict], seuil: float = 0.50):
+def match_annonces(pa_data: list[dict], ag_data: list[dict], seuil: float = MATCH_THRESHOLD):
     """
     Pour chaque annonce petitesannonces.ch, trouve les meilleures
     correspondances parmi les annonces d'agences.
+    Seuil minimum : 50 % (localisation compte pour 35 %).
     """
     results = []
 
@@ -128,6 +133,7 @@ def match_annonces(pa_data: list[dict], ag_data: list[dict], seuil: float = 0.50
             "surface_m2": pa.get("surface_m2"),
             "localisation": pa.get("localisation"),
             "image_url": pa.get("image_url"),
+            "canton": pa.get("canton", ""),
             "nb_matches": len(matches),
             "matches": matches[:5],  # Top 5
         }
@@ -138,31 +144,46 @@ def match_annonces(pa_data: list[dict], ag_data: list[dict], seuil: float = 0.50
     return results
 
 
-def main():
-    print("Chargement des donnees...")
-    pa_data = load_json("petitesannonces.json")
-    ag_data = load_json("agences.json")
+def process_canton(canton: str):
+    """Traite le matching pour un canton donne."""
+    pa_file = f"petitesannonces_{canton}.json"
+    ag_file = f"agences_{canton}.json"
+    out_file = f"matched_annonces_{canton}.json"
+
+    print(f"\n{'=' * 60}")
+    print(f"Canton : {canton.upper()}")
+    print(f"{'=' * 60}")
+
+    pa_data = load_json(pa_file)
+    ag_data = load_json(ag_file)
+
+    if not pa_data:
+        print(f"  Aucune annonce petitesannonces pour {canton}, skipping.")
+        return
+    if not ag_data:
+        print(f"  Aucune annonce agence pour {canton}, skipping.")
+        return
 
     print(f"  petitesannonces.ch : {len(pa_data)} annonces")
     print(f"  agences            : {len(ag_data)} annonces")
 
-    print("\nRecherche des correspondances...")
+    print(f"\n  Recherche des correspondances (seuil >= {MATCH_THRESHOLD:.0%})...")
     results = match_annonces(pa_data, ag_data)
 
     matched = [r for r in results if r["nb_matches"] > 0]
     unmatched = [r for r in results if r["nb_matches"] == 0]
 
-    print(f"\nResultats :")
-    print(f"  {len(matched)} annonces avec correspondance(s) agence")
-    print(f"  {len(unmatched)} annonces sans correspondance")
+    print(f"\n  Resultats :")
+    print(f"    {len(matched)} annonces avec correspondance(s) agence")
+    print(f"    {len(unmatched)} annonces sans correspondance")
 
     # Afficher un resume des meilleurs matches
     if matched:
-        print("\nTop correspondances :")
+        print(f"\n  Top correspondances :")
         for r in matched[:10]:
             best = r["matches"][0]
             print(
-                f"  [{best['score']:.0%}] {r.get('localisation', '?')} "
+                f"    [{best['score']:.0%}] {r.get('localisation', '?')} "
                 f"| {r.get('prix', '?')} CHF "
                 f"| {r.get('pieces', '?')} pcs "
                 f"| {r.get('surface_m2', '?')} m2 "
@@ -170,11 +191,28 @@ def main():
             )
 
     # Sauvegarder
-    output = Path("matched_annonces.json")
+    output = Path(out_file)
     with open(output, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
-    print(f"\nFichier sauvegarde : {output}")
+    print(f"\n  Fichier sauvegarde : {output}")
+
+
+def main():
+    # Determiner les cantons a traiter
+    if len(sys.argv) > 1:
+        cantons = [c.lower().strip() for c in sys.argv[1:]]
+    else:
+        cantons = DEFAULT_CANTONS
+
+    print(f"Cantons a traiter : {', '.join(c.upper() for c in cantons)}")
+    print(f"Seuil de correspondance : {MATCH_THRESHOLD:.0%}")
+
+    for canton in cantons:
+        process_canton(canton)
+
+    print(f"\n{'=' * 60}")
+    print("Termine.")
 
 
 if __name__ == "__main__":

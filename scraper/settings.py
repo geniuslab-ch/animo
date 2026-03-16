@@ -27,13 +27,7 @@ USER_AGENT = (
 )
 
 # --- Sortie ---
-FEEDS = {
-    "petitesannonces.json": {
-        "format": "json",
-        "encoding": "utf-8",
-        "indent": 2,
-        "overwrite": True,
-    },
-}
+# Les FEEDS sont configures dynamiquement par chaque spider
+# via custom_settings en fonction du canton (ex: petitesannonces_vaud.json)
 
 LOG_LEVEL = "INFO"

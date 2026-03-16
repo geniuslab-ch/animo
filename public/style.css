@@ -1968,3 +1968,56 @@ footer p {
   color: #c8102e;
   background: rgba(200, 16, 46, 0.05);
 }
+
+/* ── Reverse Matching — Trouver Acheteurs ──────────────────────────────────*/
+.reverse-bien-recap {
+  background: var(--bg-card);
+  border: 1px solid var(--gris-clair);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.reverse-recap-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gris);
+  margin-bottom: 4px;
+}
+.reverse-recap-details {
+  font-size: 0.88rem;
+  color: var(--noir);
+}
+.reverse-buyer-card {
+  background: var(--bg-card);
+  border: 1px solid var(--gris-clair);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+.reverse-buyer-card:hover {
+  border-color: var(--gris-2);
+}
+.reverse-buyer-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.reverse-buyer-title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--noir);
+}
+.reverse-buyer-details {
+  font-size: 0.8rem;
+  color: var(--gris-2);
+  margin-bottom: 6px;
+}
+.reverse-buyer-desc {
+  font-size: 0.78rem;
+  color: var(--gris);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}

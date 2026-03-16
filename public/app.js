@@ -102,9 +102,9 @@ function checkExclusions(buyer, bien) {
 
 // ── Tab Navigation ───────────────────────────────────────────────────────────
 function switchTab(tab) {
-  const tabs = ["analyse", "agences", "scraper", "matching", "historique"];
-  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matching: "pageMatching", historique: "pageHistorique" };
-  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matching: "tabMatching", historique: "tabHistorique" };
+  const tabs = ["analyse", "agences", "scraper", "matching", "reverse", "historique"];
+  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matching: "pageMatching", reverse: "pageReverse", historique: "pageHistorique" };
+  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matching: "tabMatching", reverse: "tabReverse", historique: "tabHistorique" };
   for (const t of tabs) {
     const page = document.getElementById(pageIds[t]);
     const btn = document.getElementById(tabIds[t]);
@@ -2673,6 +2673,337 @@ function importerFacebookTexte() {
   if (textarea) textarea.value = '';
   const errBox = document.getElementById("fbImportError");
   if (errBox) errBox.classList.remove("visible");
+}
+
+// ── Matching Inversé — Trouver Acheteurs ────────────────────────────────────
+
+let reverseBien = null;
+let reverseAcheteurs = [];
+let reverseResults = [];
+let reverseCurrentPage = 0;
+let reverseInputMode = 'url';
+let reverseCurrentCanton = 'vaud';
+
+function switchReverseInputMode(mode) {
+  reverseInputMode = mode;
+  const modes = ['url', 'text', 'pdf'];
+  const btnMap = { url: 'btnRevModeUrl', text: 'btnRevModeText', pdf: 'btnRevModePdf' };
+  const divMap = { url: 'reverseInputUrl', text: 'reverseInputText', pdf: 'reverseInputPdf' };
+  for (const m of modes) {
+    const btn = document.getElementById(btnMap[m]);
+    const div = document.getElementById(divMap[m]);
+    if (btn) btn.classList.toggle('active', m === mode);
+    if (div) div.style.display = m === mode ? '' : 'none';
+  }
+}
+
+function switchReverseCanton(canton) {
+  reverseCurrentCanton = canton;
+  const suffixMap = { vaud: 'VD', valais: 'VS', neuchatel: 'NE' };
+  document.querySelectorAll('#reverseCantonTabs .canton-tab').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('revCantonTab' + suffixMap[canton]);
+  if (tab) tab.classList.add('active');
+  const cfg = CANTON_CONFIG[canton];
+  const urlEl = document.getElementById('reverseAcheteursUrl');
+  if (urlEl && cfg && cfg.acheteurs_url) urlEl.value = cfg.acheteurs_url;
+}
+
+async function validerBienReverse() {
+  const btn = document.getElementById('btnValiderBien');
+  const errBox = document.getElementById('reverseInputError');
+  const loading = document.getElementById('reverseInputLoading');
+  const badge = document.getElementById('reverseBienBadge');
+  if (errBox) errBox.classList.remove('visible');
+  if (badge) badge.classList.remove('visible');
+
+  if (reverseInputMode === 'url') {
+    const url = (document.getElementById('reverseUrlInput')?.value || '').trim();
+    if (!url) { showMatchError('reverseInputError', 'Collez un lien d\'annonce.'); return; }
+    try { new URL(url); } catch { showMatchError('reverseInputError', 'URL invalide.'); return; }
+
+    if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+    if (loading) loading.classList.add('visible');
+    try {
+      const resp = await fetch('/api/scrape-listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-secret-token': SECRET_TOKEN },
+        body: JSON.stringify({ url, singleAd: true }),
+      });
+      if (!resp.ok) throw new Error('Erreur HTTP ' + resp.status);
+      const data = await resp.json();
+      if (!data.annonces || data.annonces.length === 0) throw new Error('Aucune annonce trouvee a cette URL.');
+      reverseBien = data.annonces[0];
+      reverseBien.source = 'Lien vendeur';
+    } catch (e) {
+      showMatchError('reverseInputError', e.message); return;
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+      if (loading) loading.classList.remove('visible');
+    }
+
+  } else if (reverseInputMode === 'text') {
+    const text = (document.getElementById('reverseTextInput')?.value || '').trim();
+    if (!text) { showMatchError('reverseInputError', 'Collez le texte de l\'annonce.'); return; }
+    reverseBien = parseAdText(text);
+    reverseBien.source = 'Texte colle';
+    if (!reverseBien.prix && !reverseBien.pieces && !reverseBien.surface_m2 && !reverseBien.localisation) {
+      showMatchError('reverseInputError', 'Aucun critere extrait du texte. Verifiez le contenu.');
+      reverseBien = null;
+      return;
+    }
+
+  } else if (reverseInputMode === 'pdf') {
+    // PDF is handled by importerVendeurPDF() which sets reverseBien directly
+    if (!reverseBien) {
+      showMatchError('reverseInputError', 'Importez d\'abord un PDF.');
+      return;
+    }
+  }
+
+  // Show recap badge
+  if (reverseBien && badge) {
+    const parts = [];
+    if (reverseBien.titre) parts.push(reverseBien.titre);
+    if (reverseBien.prix) parts.push(formatPrix(reverseBien.prix));
+    if (reverseBien.pieces) parts.push(reverseBien.pieces + ' pcs');
+    if (reverseBien.surface_m2) parts.push(reverseBien.surface_m2 + ' m²');
+    if (reverseBien.localisation) parts.push(reverseBien.localisation);
+    badge.textContent = 'Bien valide : ' + parts.join(' · ');
+    badge.classList.add('visible');
+  }
+}
+
+async function importerVendeurPDF(fileInput) {
+  if (!fileInput.files || !fileInput.files[0]) return;
+  const file = fileInput.files[0];
+  const btn = document.getElementById('btnValiderBien');
+  const loading = document.getElementById('reverseInputLoading');
+  const loadingText = document.getElementById('reverseInputLoadingText');
+  const errBox = document.getElementById('reverseInputError');
+  const badge = document.getElementById('reverseBienBadge');
+
+  if (errBox) errBox.classList.remove('visible');
+  if (badge) badge.classList.remove('visible');
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+  if (loading) loading.classList.add('visible');
+  if (loadingText) loadingText.textContent = 'Analyse du PDF en cours...';
+
+  try {
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const resp = await fetch('/api/parse-seller-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-secret-token': SECRET_TOKEN },
+      body: JSON.stringify({ pdf_base64: base64, filename: file.name }),
+    });
+    if (!resp.ok) throw new Error('Erreur HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    if (!data.bien) throw new Error('Aucune donnee extraite du PDF.');
+
+    reverseBien = {
+      titre: data.bien.titre || file.name,
+      prix: data.bien.prix || null,
+      pieces: data.bien.pieces || null,
+      surface_m2: data.bien.surface_m2 || null,
+      localisation: data.bien.localisation || null,
+      type: data.bien.type || 'unknown',
+      description: data.bien.description || '',
+      url: '',
+      source: 'PDF vendeur',
+    };
+
+    const parts = [];
+    if (reverseBien.titre) parts.push(reverseBien.titre);
+    if (reverseBien.prix) parts.push(formatPrix(reverseBien.prix));
+    if (reverseBien.pieces) parts.push(reverseBien.pieces + ' pcs');
+    if (reverseBien.surface_m2) parts.push(reverseBien.surface_m2 + ' m²');
+    if (reverseBien.localisation) parts.push(reverseBien.localisation);
+    if (badge) {
+      badge.textContent = 'Bien importe : ' + parts.join(' · ');
+      badge.classList.add('visible');
+    }
+  } catch (e) {
+    showMatchError('reverseInputError', e.message);
+    reverseBien = null;
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+    if (loading) loading.classList.remove('visible');
+    fileInput.value = '';
+  }
+}
+
+async function scannerAcheteursReverse() {
+  reverseCurrentPage = 0;
+  reverseAcheteurs = [];
+  await scannerAcheteursReversePage(1);
+}
+
+async function scannerAcheteursReverseSuivante() {
+  await scannerAcheteursReversePage(reverseCurrentPage + 1);
+}
+
+async function scannerAcheteursReversePage(page) {
+  const urlEl = document.getElementById('reverseAcheteursUrl');
+  const input = urlEl ? urlEl.value.trim() : '';
+  if (!input) { showMatchError('reverseAcheteursError', 'Veuillez coller l\'URL d\'une rubrique.'); return; }
+
+  let baseUrl;
+  try { baseUrl = new URL(input).href; } catch { showMatchError('reverseAcheteursError', 'URL invalide.'); return; }
+
+  const btn = document.getElementById('btnRevScanBuyers');
+  const btnNext = document.getElementById('btnRevNextPage');
+  const loading = document.getElementById('reverseAcheteursLoading');
+  const loadingText = document.getElementById('reverseAcheteursLoadingText');
+  const errBox = document.getElementById('reverseAcheteursError');
+
+  if (errBox) errBox.classList.remove('visible');
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+  if (btnNext) { btnNext.disabled = true; btnNext.classList.add('loading'); }
+  if (loading) loading.classList.add('visible');
+
+  try {
+    if (loadingText) loadingText.textContent = 'Scan acheteurs page ' + page + '...';
+    const pageUrl = page === 1 ? baseUrl : baseUrl + '?page=' + page;
+
+    const response = await fetch('/api/scrape-listings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-secret-token': SECRET_TOKEN },
+      body: JSON.stringify({ url: pageUrl }),
+    });
+    if (!response.ok) throw new Error('Erreur HTTP ' + response.status);
+    const data = await response.json();
+
+    let newCount = 0;
+    if (data.annonces && data.annonces.length > 0) {
+      const filtered = data.annonces.filter(a => !isSellerAd(a) && !isRentalListing(a) && isSwissListing(a));
+      reverseAcheteurs.push(...filtered);
+      newCount = filtered.length;
+    }
+
+    reverseCurrentPage = page;
+
+    if (loading) loading.classList.remove('visible');
+    if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+    if (btnNext) {
+      btnNext.disabled = false;
+      btnNext.classList.remove('loading');
+      btnNext.style.display = (data.hasMore) ? '' : 'none';
+    }
+
+    const badge = document.getElementById('reverseAcheteursBadge');
+    if (badge) {
+      badge.textContent = reverseAcheteurs.length + ' acheteur(s) charges (page ' + page + ', +' + newCount + ' nouveaux)';
+      badge.classList.add('visible');
+    }
+  } catch (e) {
+    showMatchError('reverseAcheteursError', e.message);
+    if (loading) loading.classList.remove('visible');
+    if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+    if (btnNext) { btnNext.disabled = false; btnNext.classList.remove('loading'); }
+  }
+}
+
+function lancerMatchingReverse() {
+  if (!reverseBien) {
+    showMatchError('reverseInputError', 'Validez d\'abord un bien (etape 1).');
+    return;
+  }
+  if (reverseAcheteurs.length === 0) {
+    showMatchError('reverseAcheteursError', 'Scannez d\'abord des acheteurs (etape 2).');
+    return;
+  }
+
+  const searchMode = document.querySelector('input[name="reverseSearchMode"]:checked')?.value || 'restreinte';
+  const minScore = searchMode === 'elargie' ? 30 : 50;
+  reverseResults = [];
+
+  for (const buyer of reverseAcheteurs) {
+    const exclusion = checkExclusions(buyer, reverseBien, searchMode);
+    if (!exclusion.compatible) continue;
+    const { score, breakdown } = calculerMatchScore(buyer, reverseBien, searchMode);
+    if (score >= minScore) {
+      reverseResults.push({ buyer, score, breakdown });
+    }
+  }
+
+  reverseResults.sort((a, b) => b.score - a.score);
+  afficherResultatsReverse();
+}
+
+function afficherResultatsReverse() {
+  const countEl = document.getElementById('reverseMatchCount');
+  const grid = document.getElementById('reverseMatchGrid');
+  const recap = document.getElementById('reverseBienRecap');
+
+  if (countEl) countEl.textContent = reverseResults.length;
+
+  // Recap du bien
+  if (recap && reverseBien) {
+    const parts = [];
+    if (reverseBien.titre) parts.push('<strong>' + escapeHTML(reverseBien.titre) + '</strong>');
+    if (reverseBien.prix) parts.push(formatPrix(reverseBien.prix));
+    if (reverseBien.pieces) parts.push(reverseBien.pieces + ' pcs');
+    if (reverseBien.surface_m2) parts.push(reverseBien.surface_m2 + ' m²');
+    if (reverseBien.localisation) parts.push(escapeHTML(reverseBien.localisation));
+    recap.innerHTML = '<div class="reverse-recap-label">Bien recherche :</div><div class="reverse-recap-details">' + parts.join(' · ') + '</div>';
+    recap.style.display = '';
+  }
+
+  if (!grid) return;
+
+  if (reverseResults.length === 0) {
+    grid.innerHTML = '<div class="history-empty">Aucun acheteur correspondant trouve.</div>';
+    return;
+  }
+
+  let html = '';
+  for (const r of reverseResults) {
+    const b = r.buyer;
+    const scoreClass = r.score >= 70 ? 'excellent' : r.score >= 50 ? 'bon' : 'faible';
+    const scoreLabel = r.score >= 70 ? 'Excellent' : r.score >= 50 ? 'Bon' : 'Faible';
+
+    html += '<div class="reverse-buyer-card">';
+    html += '<div class="reverse-buyer-header">';
+    html += '<div class="score-badge ' + scoreClass + '">' + r.score + ' · ' + scoreLabel + '</div>';
+    html += '<div class="reverse-buyer-title">' + escapeHTML(b.titre || 'Acheteur') + '</div>';
+    html += '</div>';
+
+    // Breakdown pills
+    html += '<div class="match-breakdown-pills">';
+    html += '<span class="match-pill">Loc ' + r.breakdown.location + '/50</span>';
+    html += '<span class="match-pill">Type ' + r.breakdown.type + '/20</span>';
+    html += '<span class="match-pill">Pcs/Surf ' + r.breakdown.roomsSurface + '/20</span>';
+    html += '<span class="match-pill">Prix ' + r.breakdown.price + '/10</span>';
+    html += '</div>';
+
+    // Details
+    const details = [];
+    if (b.prix) details.push('Budget: ' + formatPrix(b.prix));
+    if (b.pieces) details.push(b.pieces + ' pcs');
+    if (b.surface_m2) details.push(b.surface_m2 + ' m²');
+    if (b.localisation) details.push(escapeHTML(b.localisation));
+    if (details.length) {
+      html += '<div class="reverse-buyer-details">' + details.join(' · ') + '</div>';
+    }
+
+    if (b.description) {
+      const desc = b.description.length > 200 ? b.description.substring(0, 200) + '...' : b.description;
+      html += '<div class="reverse-buyer-desc">' + escapeHTML(desc) + '</div>';
+    }
+
+    if (b.url) {
+      html += '<a href="' + escapeHTML(b.url) + '" target="_blank" class="match-link">Voir l\'annonce</a>';
+    }
+
+    html += '</div>';
+  }
+  grid.innerHTML = html;
 }
 
 window.onload = () => loadHistory();

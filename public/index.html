@@ -29,6 +29,7 @@
       <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
       <button class="tab-btn" id="tabScraper" onclick="switchTab('scraper')">Petites Annonces</button>
       <button class="tab-btn" id="tabMatching" onclick="switchTab('matching')">Matching</button>
+      <button class="tab-btn" id="tabReverse" onclick="switchTab('reverse')">Trouver Acheteurs</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
     </nav>
   </header>
@@ -681,6 +682,149 @@
         </div>
 
         <div id="matchGrid" class="match-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- ── TAB: Trouver Acheteurs (matching inversé) ────────────────────── -->
+    <div id="pageReverse" class="tab-page">
+
+      <div class="agences-intro">
+        <div class="section-label">Trouver des Acheteurs</div>
+        <p class="agences-desc">
+          Partez d'un <strong>bien en vente</strong> (lien, texte ou PDF) et trouvez les
+          <strong>acheteurs correspondants</strong> sur petitesannonces.ch.
+        </p>
+      </div>
+
+      <!-- Etape 1 : Saisir le bien vendeur -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">1</span>
+          <div>
+            <div class="section-label">Saisir le bien vendeur</div>
+            <p class="agences-desc">Collez le lien de l'annonce, le texte, ou importez un PDF du mandat.</p>
+          </div>
+        </div>
+
+        <div class="input-mode-toggle">
+          <button class="mode-btn active" id="btnRevModeUrl" onclick="switchReverseInputMode('url')">Lien URL</button>
+          <button class="mode-btn" id="btnRevModeText" onclick="switchReverseInputMode('text')">Coller le texte</button>
+          <button class="mode-btn" id="btnRevModePdf" onclick="switchReverseInputMode('pdf')">Importer PDF</button>
+        </div>
+
+        <!-- Mode URL -->
+        <div id="reverseInputUrl">
+          <textarea id="reverseUrlInput"
+            placeholder="Collez le lien de l'annonce (ex: https://www.anibis.ch/fr/d/maison-...)"
+            style="min-height:60px"></textarea>
+        </div>
+
+        <!-- Mode Texte -->
+        <div id="reverseInputText" style="display:none">
+          <textarea id="reverseTextInput"
+            placeholder="Collez le texte complet de l'annonce vendeur (ex: Villa 5 pièces, 1000 Lausanne, CHF 1'200'000, 180 m², jardin, garage...)"
+            style="min-height:140px"></textarea>
+        </div>
+
+        <!-- Mode PDF -->
+        <div id="reverseInputPdf" style="display:none">
+          <p class="agences-desc">Importez un PDF du mandat de vente ou de la fiche du bien.</p>
+          <input type="file" id="reversePdfInput" accept=".pdf" style="display:none" onchange="importerVendeurPDF(this)" />
+          <button class="btn-analyser btn-secondary" onclick="document.getElementById('reversePdfInput').click()">
+            <div class="spinner"></div>
+            <span class="btn-text">Choisir un PDF</span>
+          </button>
+        </div>
+
+        <button class="btn-analyser" id="btnValiderBien" onclick="validerBienReverse()" style="margin-top:12px">
+          <div class="spinner"></div>
+          <span class="btn-text">Valider ce bien</span>
+        </button>
+        <div class="error-box" id="reverseInputError"></div>
+        <div class="loading-state" id="reverseInputLoading">
+          <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="loading-text" id="reverseInputLoadingText">Analyse du bien...</div>
+        </div>
+        <div class="match-count-badge" id="reverseBienBadge"></div>
+      </div>
+
+      <!-- Etape 2 : Scanner les acheteurs -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">2</span>
+          <div>
+            <div class="section-label">Scanner les acheteurs</div>
+            <p class="agences-desc">Scannez les annonces de recherche sur petitesannonces.ch</p>
+          </div>
+        </div>
+
+        <div class="canton-sub-tabs" id="reverseCantonTabs">
+          <button class="canton-tab active" id="revCantonTabVD" onclick="switchReverseCanton('vaud')">Vaud</button>
+          <button class="canton-tab" id="revCantonTabVS" onclick="switchReverseCanton('valais')">Valais</button>
+          <button class="canton-tab" id="revCantonTabNE" onclick="switchReverseCanton('neuchatel')">Neuchâtel</button>
+        </div>
+
+        <textarea id="reverseAcheteursUrl"
+          placeholder="URL de la rubrique Recherche sur petitesannonces.ch"
+          style="min-height:60px">https://www.petitesannonces.ch/r/270724</textarea>
+
+        <div style="display:flex; gap:8px; align-items:center; margin-top:8px">
+          <button class="btn-analyser" id="btnRevScanBuyers" onclick="scannerAcheteursReverse()">
+            <div class="spinner"></div>
+            <span class="btn-text">Scanner les acheteurs</span>
+          </button>
+          <button class="btn-analyser" id="btnRevNextPage" onclick="scannerAcheteursReverseSuivante()" style="display:none">
+            <div class="spinner"></div>
+            <span class="btn-text">Page suivante</span>
+          </button>
+        </div>
+        <div class="error-box" id="reverseAcheteursError"></div>
+        <div class="loading-state" id="reverseAcheteursLoading">
+          <div class="loading-bars"><span></span><span></span><span></span><span></span></div>
+          <div class="loading-text" id="reverseAcheteursLoadingText">Scan des acheteurs...</div>
+        </div>
+        <div class="match-count-badge" id="reverseAcheteursBadge"></div>
+      </div>
+
+      <!-- Etape 3 : Resultats -->
+      <div class="matching-section">
+        <div class="matching-step-header">
+          <span class="matching-step-num">3</span>
+          <div>
+            <div class="section-label">Lancer le matching inversé</div>
+            <p class="agences-desc">Croisement automatique : votre bien vs les acheteurs scannés</p>
+          </div>
+        </div>
+        <div class="search-mode-options">
+          <label class="search-mode-option">
+            <input type="radio" name="reverseSearchMode" value="restreinte" checked>
+            <div>
+              <strong>Recherche restreinte</strong>
+              <span class="search-mode-desc">Même localisation ou région immédiate uniquement</span>
+            </div>
+          </label>
+          <label class="search-mode-option">
+            <input type="radio" name="reverseSearchMode" value="elargie">
+            <div>
+              <strong>Recherche élargie</strong>
+              <span class="search-mode-desc">Périmètre étendu : régions adjacentes et canton</span>
+            </div>
+          </label>
+        </div>
+        <button class="btn-analyser accent" id="btnReverseMatch" onclick="lancerMatchingReverse()">
+          <div class="spinner"></div>
+          <span class="btn-text">Trouver les acheteurs correspondants</span>
+        </button>
+      </div>
+
+      <!-- Resultats matching inversé -->
+      <div id="reverseResults" class="scraper-results">
+        <div class="scraper-results-header">
+          <div class="section-label">Acheteurs correspondants · <span id="reverseMatchCount">0</span> résultats</div>
+        </div>
+        <div id="reverseBienRecap" class="reverse-bien-recap" style="display:none"></div>
+        <div id="reverseMatchGrid" class="match-grid"></div>
       </div>
 
     </div>

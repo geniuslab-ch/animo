@@ -905,6 +905,44 @@ textarea::placeholder {
 .agency-status-empty { border-color: var(--gris-clair); color: var(--gris); }
 .agency-status-error { border-color: #e0b0b0; background: #fdf0f0; color: #8a1b1b; }
 
+/* ── Match Navigation ──────────────────────────────────────────────────────*/
+.match-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 14px 0;
+  margin-bottom: 12px;
+  border-bottom: 1.5px solid var(--gris-clair);
+}
+.match-nav-btn {
+  padding: 10px 24px;
+  background: var(--noir);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.match-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.match-nav-btn:not(:disabled):hover {
+  opacity: 0.8;
+}
+.match-nav-indicator {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--noir);
+  min-width: 60px;
+  text-align: center;
+}
+
 .match-grid {
   display: flex;
   flex-direction: column;

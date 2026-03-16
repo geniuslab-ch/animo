@@ -28,7 +28,8 @@
       <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
       <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
       <button class="tab-btn" id="tabScraper" onclick="switchTab('scraper')">Petites Annonces</button>
-      <button class="tab-btn" id="tabMatching" onclick="switchTab('matching')">Matching</button>
+      <button class="tab-btn" id="tabMatchingVD" onclick="switchTab('matchingVD')">Matching VD</button>
+      <button class="tab-btn" id="tabMatchingVS" onclick="switchTab('matchingVS')">Matching VS</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
     </nav>
   </header>
@@ -261,20 +262,16 @@
 
     </div>
 
-    <!-- ── TAB: Matching Acheteur / Vendeur ─────────────────────────────── -->
-    <div id="pageMatching" class="tab-page">
+    <!-- ── TAB: Matching (shared by VD and VS tabs) ─────────────────────── -->
+    <div id="pageMatchingVD" class="tab-page">
 
       <div class="agences-intro">
-        <div class="section-label">Matching Acheteur / Bien</div>
+        <div class="section-label">Matching Acheteur / Bien — <span id="matchCantonLabel">Vaud</span></div>
         <p class="agences-desc">
           Croisez les <strong>recherches d'acheteurs</strong> sur petitesannonces.ch avec les
           <strong>biens d'agences</strong> et les annonces en ligne. Identifiez les correspondances et contactez
           les acheteurs avec le bon bien.
         </p>
-        <div class="canton-selector" style="margin-top:12px; display:flex; gap:8px;">
-          <button class="canton-btn active" data-canton="vaud" onclick="switchCanton('vaud')">Vaud</button>
-          <button class="canton-btn" data-canton="valais" onclick="switchCanton('valais')">Valais</button>
-        </div>
       </div>
 
       <!-- Etape 1 : Scanner les acheteurs -->
@@ -558,6 +555,14 @@
           <div class="section-label">Correspondances · <span id="matchCount">0</span> matches</div>
           <button class="btn-pdf" onclick="exporterMatches()">Exporter JSON</button>
         </div>
+
+        <!-- Navigation bien par bien -->
+        <div id="matchNav" class="match-nav" style="display:none;">
+          <button class="match-nav-btn" id="btnMatchPrev" onclick="navigateMatch(-1)">&larr; Precedent</button>
+          <span class="match-nav-indicator" id="matchNavIndicator">1 / 1</span>
+          <button class="match-nav-btn" id="btnMatchNext" onclick="navigateMatch(1)">Suivant &rarr;</button>
+        </div>
+
         <div id="matchGrid" class="match-grid"></div>
       </div>
 

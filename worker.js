@@ -793,6 +793,10 @@ function extractAgencyListings(html, baseDomain, agencyName) {
     // Si JSON-LD a donne des resultats, on les retourne
     if (annonces.length > 0) return annonces;
 
+    // Strategie 1.5 : Donnees SSR embarquees (Next.js, Nuxt.js, etc.)
+    const ssrAnnonces = extractSSRData(html, baseDomain, agencyName);
+    if (ssrAnnonces.length > 0) return ssrAnnonces;
+
     // Strategie 2 : Extraction par patterns HTML generiques
     // Chercher les blocs qui ressemblent a des annonces (contenant prix + lien)
     const prixPattern = /(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/gi;
@@ -889,6 +893,163 @@ function extractAgencyListings(html, baseDomain, agencyName) {
     }
 
     return annonces;
+}
+
+// Extraire les donnees depuis les frameworks SSR (Next.js, Nuxt.js, etc.)
+function extractSSRData(html, baseDomain, agencyName) {
+    const annonces = [];
+
+    // Next.js : __NEXT_DATA__
+    const nextDataMatch = html.match(/<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+    if (nextDataMatch) {
+        try {
+            const nextData = JSON.parse(nextDataMatch[1]);
+            const listings = findListingsInObject(nextData, baseDomain);
+            for (const l of listings) {
+                annonces.push({ ...l, source: agencyName });
+            }
+            if (annonces.length > 0) return annonces;
+        } catch (e) { /* JSON invalide */ }
+    }
+
+    // Nuxt.js : window.__NUXT__
+    const nuxtMatch = html.match(/window\.__NUXT__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/i);
+    if (nuxtMatch) {
+        try {
+            // Nuxt data peut contenir des fonctions, on essaie quand meme
+            const nuxtStr = nuxtMatch[1].replace(/undefined/g, 'null').replace(/\bfunction\b[^}]*\}/g, 'null');
+            const nuxtData = JSON.parse(nuxtStr);
+            const listings = findListingsInObject(nuxtData, baseDomain);
+            for (const l of listings) {
+                annonces.push({ ...l, source: agencyName });
+            }
+            if (annonces.length > 0) return annonces;
+        } catch (e) { /* JSON invalide */ }
+    }
+
+    // Generique : gros blocs JSON dans les <script> contenant des donnees immobilieres
+    const scriptBlocks = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
+    for (const block of scriptBlocks) {
+        const content = block[1].trim();
+        // Chercher des objets JSON assignes a des variables (window.__DATA__ = {...}, var data = [...])
+        const jsonAssignments = content.matchAll(/(?:window\.[A-Z_]+|var\s+\w+|let\s+\w+|const\s+\w+)\s*=\s*(\[[\s\S]{100,}?\]);/gi);
+        for (const m of jsonAssignments) {
+            try {
+                const data = JSON.parse(m[1]);
+                if (Array.isArray(data) && data.length > 1) {
+                    const listings = findListingsInObject(data, baseDomain);
+                    for (const l of listings) {
+                        annonces.push({ ...l, source: agencyName });
+                    }
+                    if (annonces.length > 0) return annonces;
+                }
+            } catch (e) { /* pas du JSON valide */ }
+        }
+    }
+
+    return annonces;
+}
+
+// Parcourir un objet JSON recursif pour trouver des listings immobiliers
+function findListingsInObject(obj, baseDomain, depth = 0) {
+    if (depth > 8 || !obj) return [];
+    const results = [];
+
+    if (Array.isArray(obj)) {
+        // Si c'est un tableau d'objets avec des champs immobiliers
+        const validItems = obj.filter(item =>
+            item && typeof item === 'object' && !Array.isArray(item) &&
+            (item.price || item.prix || item.rooms || item.pieces || item.numberOfRooms ||
+             item.surface || item.area || item.floorSize || item.address || item.location || item.localisation)
+        );
+        if (validItems.length >= 2) {
+            for (const item of validItems) {
+                const ad = extractListingFromObject(item, baseDomain);
+                if (ad) results.push(ad);
+            }
+            return results;
+        }
+        // Sinon recurser dans chaque element
+        for (const item of obj.slice(0, 50)) {
+            results.push(...findListingsInObject(item, baseDomain, depth + 1));
+            if (results.length >= 30) return results;
+        }
+        return results;
+    }
+
+    if (typeof obj === 'object') {
+        for (const [key, value] of Object.entries(obj)) {
+            if (value && typeof value === 'object') {
+                results.push(...findListingsInObject(value, baseDomain, depth + 1));
+                if (results.length >= 30) return results;
+            }
+        }
+    }
+
+    return results;
+}
+
+// Extraire un listing depuis un objet JSON generique
+function extractListingFromObject(item, baseDomain) {
+    let prix = null;
+    const priceVal = item.price || item.prix || item.sellingPrice || item.salePrice ||
+        (item.offers && item.offers.price) || (item.pricing && item.pricing.price);
+    if (priceVal) prix = parseInt(String(priceVal).replace(/[^\d]/g, ''), 10) || null;
+
+    let pieces = null;
+    const roomsVal = item.rooms || item.pieces || item.numberOfRooms || item.nbRooms || item.nbPieces;
+    if (roomsVal) pieces = parseFloat(String(roomsVal).replace(',', '.'));
+
+    let surface_m2 = null;
+    const surfVal = item.surface || item.area || item.livingSpace || item.surfaceHabitable ||
+        (item.floorSize && (item.floorSize.value || item.floorSize));
+    if (surfVal) surface_m2 = parseInt(String(surfVal).replace(/[^\d]/g, ''), 10) || null;
+
+    let localisation = null;
+    if (item.address) {
+        const addr = typeof item.address === 'string' ? item.address :
+            [item.address.postalCode || item.address.zip, item.address.city || item.address.addressLocality].filter(Boolean).join(' ');
+        if (addr) localisation = addr;
+    } else if (item.location) {
+        localisation = typeof item.location === 'string' ? item.location :
+            (item.location.city || item.location.name || null);
+    } else if (item.city || item.ville) {
+        const zip = item.zip || item.postalCode || item.npa || '';
+        localisation = [zip, item.city || item.ville].filter(Boolean).join(' ');
+    }
+
+    if (!prix && !pieces && !surface_m2) return null;
+
+    let url = item.url || item.href || item.link || item.slug || null;
+    if (url && url.startsWith('/')) url = baseDomain + url;
+
+    let image_url = item.image || item.imageUrl || item.mainImage || item.photo || item.thumbnail || null;
+    if (image_url && typeof image_url === 'object') image_url = image_url.url || image_url.src || null;
+    if (Array.isArray(image_url)) image_url = image_url[0];
+
+    const titre = item.title || item.titre || item.name || item.headline || null;
+
+    let type = 'unknown';
+    const typeStr = (item.type || item.propertyType || item.category || titre || '').toString().toLowerCase();
+    if (/maison|villa|chalet|house/i.test(typeStr)) type = 'house';
+    else if (/appartement|apartment|appart\b/i.test(typeStr)) type = 'apartment';
+    else if (/terrain|land|parcelle/i.test(typeStr)) type = 'land';
+    else if (/commercial|bureau|office/i.test(typeStr)) type = 'commercial';
+
+    const desc = (item.description || item.desc || item.summary || '').toString();
+
+    return {
+        url,
+        titre,
+        description: desc.substring(0, 300),
+        fullText: ((titre || '') + ' ' + desc + ' ' + (localisation || '')).substring(0, 2000),
+        prix,
+        pieces,
+        surface_m2,
+        localisation,
+        image_url,
+        type,
+    };
 }
 
 function extractFromJsonLd(item, baseDomain, agencyName) {

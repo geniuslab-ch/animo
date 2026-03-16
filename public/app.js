@@ -74,8 +74,8 @@ function getSearchMode() {
   return document.querySelector('input[name="searchMode"]:checked')?.value || 'restreinte';
 }
 
-function checkExclusions(buyer, bien) {
-  const searchMode = getSearchMode();
+function checkExclusions(buyer, bien, searchMode) {
+  if (!searchMode) searchMode = getSearchMode();
   // Filtre 1 : Localisation hors zone
   const buyerNPA = extractNPAFromText(buyer);
   const bienNPA = extractNPAFromText(bien);
@@ -2520,9 +2520,9 @@ function getBienKey(bien) {
   return (bien.url || bien.titre || '').toLowerCase().trim();
 }
 
-function calculerMatchScore(buyer, bien) {
+function calculerMatchScore(buyer, bien, searchMode) {
   const breakdown = { location: 0, type: 0, roomsSurface: 0, price: 0 };
-  const searchMode = getSearchMode();
+  if (!searchMode) searchMode = getSearchMode();
 
   // Localisation : +50 pts max (priorite #1)
   const buyerNPA = extractNPAFromText(buyer);

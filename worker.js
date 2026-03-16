@@ -52,12 +52,13 @@ export default {
         }
 
         try {
-            const { listingUrl, listingContent, listingImages } = await request.json();
+            const { listingUrl, listingContent, listingImages, canton } = await request.json();
             if (!listingUrl && !listingContent) {
                 return new Response(JSON.stringify({ error: "listingUrl ou listingContent manquant" }), {
                     status: 400, headers: { "Content-Type": "application/json", ...corsHeaders },
                 });
             }
+            const cantonName = canton || "Vaud";
 
             // ── Scraping ou contenu collé / bookmarklet ──────────────────────────
             let text, images;
@@ -127,7 +128,7 @@ export default {
             // Ajout du prompt texte
             content.push({
                 type: "text",
-                text: buildPrompt(text, listingUrl || "contenu extrait par bookmarklet", images.length),
+                text: buildPrompt(text, listingUrl || "contenu extrait par bookmarklet", images.length, cantonName),
             });
 
             // ── Appel Anthropic ────────────────────────────────────────────────────
@@ -1152,20 +1153,20 @@ function extractFromJsonLd(item, baseDomain, agencyName) {
     };
 }
 
-function buildPrompt(text, url, imageCount) {
+function buildPrompt(text, url, imageCount, canton = "Vaud") {
     const isAgencySite = !url.includes('anibis.ch') && !url.includes('contenu');
     const sellerContext = isAgencySite
         ? "published by a real estate agency"
         : "published by a private seller";
 
-    return `You are a Swiss real estate market intelligence analyst specialized in the canton of Vaud.
+    return `You are a Swiss real estate market intelligence analyst specialized in the canton of ${canton}.
 
 Your role is to analyze a real estate listing ${sellerContext} and generate:
 1) a listing quality diagnostic
 2) a seller opportunity radar score (probability that the seller could be receptive to professional help)
 3) prospecting messages that a real estate professional could send.
 
-Your analysis must reflect how real estate listings are typically presented and perceived in the Vaud property market.
+Your analysis must reflect how real estate listings are typically presented and perceived in the ${canton} property market.
 
 Tone:
 Professional, neutral, constructive and respectful. Never judgmental.
@@ -1192,7 +1193,7 @@ ${text}
 
 Your analysis should follow these steps internally:
 
-1. Evaluate the attractiveness of the listing compared to common standards in the Vaud real estate market:
+1. Evaluate the attractiveness of the listing compared to common standards in the ${canton} real estate market:
    - photo quantity
    - clarity of description
    - technical information
@@ -1233,18 +1234,18 @@ Return the following JSON structure EXACTLY:
   "diagnostic": [
     {
       "titre": "Short issue title",
-      "texte": "Explain why this matters for buyers in the canton of Vaud."
+      "texte": "Explain why this matters for buyers in the canton of ${canton}."
     },
     {
       "titre": "Short issue title",
-      "texte": "Explain why this matters for buyers in the canton of Vaud."
+      "texte": "Explain why this matters for buyers in the canton of ${canton}."
     },
     {
       "titre": "Short issue title",
-      "texte": "Explain why this matters for buyers in the canton of Vaud."
+      "texte": "Explain why this matters for buyers in the canton of ${canton}."
     }
   ],
-  "comparaison_marche": "Explain briefly how comparable listings in the Vaud region are usually presented.",
+  "comparaison_marche": "Explain briefly how comparable listings in the ${canton} region are usually presented.",
   "recommandations": [
     "Concrete improvement recommendation",
     "Concrete improvement recommendation",

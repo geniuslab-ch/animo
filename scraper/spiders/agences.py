@@ -1,42 +1,40 @@
 """
-Spider generique pour extraire les annonces des sites d'agences immobilieres
-du canton de Vaud.
+Spider generique pour extraire les annonces des sites d'agences immobilieres.
 
 Usage :
     cd scraper
-    scrapy crawl agences
+    scrapy crawl agences                   # canton par defaut (vaud)
+    scrapy crawl agences -a canton=valais   # canton specifique
 
-Le resultat est ecrit dans agences.json.
+Le resultat est ecrit dans agences_{canton}.json.
 """
 
 import re
 import scrapy
+
+from cantons import get_canton_config
 
 
 class AgencesSpider(scrapy.Spider):
     name = "agences"
 
     custom_settings = {
-        "FEEDS": {
-            "agences.json": {
+        "PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT": 30_000,
+    }
+
+    def __init__(self, canton="vaud", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.canton = canton.lower().strip()
+        config = get_canton_config(self.canton)
+        self.start_urls = config["agences"]
+        self.custom_settings["FEEDS"] = {
+            f"agences_{self.canton}.json": {
                 "format": "json",
                 "encoding": "utf-8",
                 "indent": 2,
                 "overwrite": True,
             },
-        },
-        "PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT": 30_000,
-    }
-
-    # Liste des pages de vente des principales agences vaudoises
-    # Adaptez les URLs selon les pages reelles de chaque agence
-    start_urls = [
-        "https://www.naef.ch/acheter/",
-        "https://www.bernard-nicod.ch/fr/acheter",
-        "https://www.cogestim.ch/fr/acheter",
-        "https://www.domicim.ch/fr/acheter",
-        "https://www.gerofinance.ch/fr/acheter",
-    ]
+        }
 
     def start_requests(self):
         for url in self.start_urls:
@@ -67,7 +65,7 @@ class AgencesSpider(scrapy.Spider):
                 property_links.add(full)
 
         self.logger.info(
-            "Agence %s : %d biens trouves", domain, len(property_links)
+            "[%s] Agence %s : %d biens trouves", self.canton.upper(), domain, len(property_links)
         )
 
         for link in property_links:
@@ -105,6 +103,7 @@ class AgencesSpider(scrapy.Spider):
             "localisation": self._extract_location(response),
             "image_url": self._extract_image(response),
             "source": "agence",
+            "canton": self.canton,
         }
 
         if any(item[k] for k in ("prix", "pieces", "surface_m2", "localisation")):

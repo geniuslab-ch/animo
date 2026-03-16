@@ -2,25 +2,39 @@
 Spider pour extraire les annonces immobilieres de petitesannonces.ch
 Usage :
     cd scraper
-    scrapy crawl petitesannonces
+    scrapy crawl petitesannonces                   # canton par defaut (vaud)
+    scrapy crawl petitesannonces -a canton=valais   # canton specifique
 
-Le resultat est ecrit dans petitesannonces.json (cf. settings.py FEEDS).
+Le resultat est ecrit dans petitesannonces_{canton}.json (cf. settings.py FEEDS).
 """
 
 import re
 import scrapy
+
+from cantons import get_canton_config
 
 
 class PetitesAnnoncesSpider(scrapy.Spider):
     name = "petitesannonces"
     allowed_domains = ["www.petitesannonces.ch"]
 
-    # Rubrique 270724 = Immobilier > Vente > Vaud
-    start_urls = ["https://www.petitesannonces.ch/r/270724"]
-
     custom_settings = {
         "PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT": 30_000,
     }
+
+    def __init__(self, canton="vaud", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.canton = canton.lower().strip()
+        config = get_canton_config(self.canton)
+        self.start_urls = [config["petitesannonces_url"]]
+        self.custom_settings["FEEDS"] = {
+            f"petitesannonces_{self.canton}.json": {
+                "format": "json",
+                "encoding": "utf-8",
+                "indent": 2,
+                "overwrite": True,
+            },
+        }
 
     # ── Entrypoint : liste des annonces ──────────────────────────────────
     def start_requests(self):
@@ -55,7 +69,7 @@ class PetitesAnnoncesSpider(scrapy.Spider):
         ]
 
         self.logger.info(
-            "Page %s : %d annonces trouvees", response.url, len(ad_links)
+            "[%s] Page %s : %d annonces trouvees", self.canton.upper(), response.url, len(ad_links)
         )
 
         for link in ad_links:
@@ -97,6 +111,7 @@ class PetitesAnnoncesSpider(scrapy.Spider):
             "localisation": self._extract_location(response),
             "image_url": self._extract_image(response),
             "source": "petitesannonces.ch",
+            "canton": self.canton,
         }
 
         # Ne garder que les annonces avec au moins un champ utile
@@ -249,7 +264,7 @@ class PetitesAnnoncesSpider(scrapy.Spider):
                 if full != response.url:
                     return full
 
-        # Pattern URL : /r/270724?page=2 ou /r/270724/2
+        # Pattern URL : /r/XXXXX?page=2 ou /r/XXXXX/2
         current = response.url
         match = re.search(r"[?&]page=(\d+)", current)
         if match:

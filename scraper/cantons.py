@@ -1,0 +1,112 @@
+"""
+Configuration par canton : URLs de recherche et agences.
+"""
+
+CANTONS = {
+    "vaud": {
+        "label": "Vaud",
+        "petitesannonces_url": "https://www.petitesannonces.ch/r/270724",
+        "agences": [
+            "https://www.naef.ch/acheter/",
+            "https://www.bernard-nicod.ch/fr/acheter",
+            "https://www.cogestim.ch/fr/acheter",
+            "https://www.domicim.ch/fr/acheter",
+            "https://www.gerofinance.ch/fr/acheter",
+        ],
+    },
+    "valais": {
+        "label": "Valais",
+        "petitesannonces_url": "https://www.petitesannonces.ch/r/270723",
+        "agences": [
+            "https://www.valimmobilier.ch/",
+            "https://comptoir-immo.ch/",
+            "https://twixy.ch/",
+            "https://hermes-immobilier.ch/",
+            "https://www.agence-allegro.ch/",
+            "https://www.barnes-suisse.ch/",
+            "https://www.sz-immo.ch/fr",
+            "https://eden-immobilier.ch/",
+            "https://www.berra-immobilier.ch/",
+            "https://www.imvista.ch/",
+            "https://www.summum-immo.ch/",
+            "https://www.omnia.ch/",
+            "https://www.fontannaz-immobilier.ch/fr",
+            "https://www.naef.ch/acheter/",
+            "https://www.bernard-nicod.ch/fr/acheter",
+            "https://www.progestimmo.ch/",
+            "https://www.immo-valais.ch/",
+            "https://www.muzimmo.ch/",
+            "https://www.bfr-immobilier.ch/",
+            "https://valcity.ch/",
+            "https://www.123immo.ch/",
+            "https://www.acor-immo.ch/",
+            "https://www.lagenceimmo.ch/",
+            "https://residence2b.ch/",
+            "https://agence-immo.ch/",
+            "https://www.sovalco.ch/",
+            "https://www.fidaval.ch/",
+            "https://www.schmidt-immobilier.ch/",
+            "https://dm-immo.ch/",
+            "https://www.gefimmo.ch/",
+            "https://www.klimmo.ch/",
+            "https://www.amma.immo/",
+            "https://logipro-immo.ch/",
+            "https://www.abimmo.ch/",
+            "https://www.decordier-immobilier.mu/",
+            "https://www.stehlin.ch/",
+            "https://valgroup.ch/",
+            "https://altrium.ch/",
+            "https://www.proviva.ch/",
+            "https://heinz-immobilier.ch/",
+            "https://www.alprealestate.ch/",
+            "https://www.nendaz-vente.ch/fr",
+            "https://www.altipik.ch/",
+            "https://www.inter-agence.ch/",
+            "https://www.lerezo.ch/",
+            "https://domicilia.ch/",
+            "https://www.veya-immobilier.ch/",
+            "https://besson.ch/",
+            "https://www.agence-eugster.ch/",
+            "https://lignarius-immobilier.ch/",
+            "https://mithieux-immobilier.ch/",
+            "https://www.eren-immobilier.ch/",
+            "https://homepartner.ch/",
+            "https://immojordan.ch/",
+            "https://immo-lth.ch/",
+            "https://mawee.ch/",
+            "https://immoademi.com/",
+            "https://rsm-immobilier-sarl.com/",
+            "https://www.swiss-immobilier.ch/",
+            "https://resolve.ch/fr/",
+            "https://home2c.ch/",
+            "https://dpimmob.ch/",
+            "https://trustimmobilier.ch/",
+            "https://www.valorise-home.ch/",
+            "https://www.cbsimmo.ch/",
+            "https://alturacollection.ch/",
+            "https://www.chbimmo.ch/",
+            "https://www.immorare.ch/",
+            "https://www.levalaisimmobilier.ch/",
+            "https://www.benoitdorsaz-immobilier.ch/",
+            "https://www.alberic-immobilier.ch/",
+            "https://silverimmobilier.ch/",
+            "https://promotion-courtage-immobilier-monthey.com/",
+            "https://vimova.ch/",
+            "https://soron.ch/",
+            "https://www.immobilien-mazotti.ch/",
+            "https://www.agencecasalp.ch/",
+            "https://www.nicolereimmobilier.com/",
+        ],
+    },
+}
+
+# Cantons actifs par defaut
+DEFAULT_CANTONS = ["vaud", "valais"]
+
+
+def get_canton_config(canton: str) -> dict:
+    """Retourne la configuration d'un canton (leve KeyError si inconnu)."""
+    key = canton.lower().strip()
+    if key not in CANTONS:
+        raise KeyError(f"Canton inconnu : {canton}. Cantons disponibles : {list(CANTONS.keys())}")
+    return CANTONS[key]

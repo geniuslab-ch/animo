@@ -731,6 +731,28 @@ function isSwissListing(annonce) {
   return true;
 }
 
+function deduplicateBiens(biens) {
+  const seen = new Set();
+  return biens.filter(b => {
+    // Cle primaire : URL normalisee (sans query/hash/trailing slash)
+    const urlKey = b.url ? b.url.replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase() : null;
+    if (urlKey && seen.has(urlKey)) return false;
+
+    // Cle secondaire : titre+prix+localisation (meme bien sur differentes pages)
+    const contentKey = [
+      (b.titre || '').toLowerCase().trim(),
+      b.prix || '',
+      (b.localisation || '').toLowerCase().trim()
+    ].join('|');
+
+    if (contentKey !== '||' && seen.has(contentKey)) return false;
+
+    if (urlKey) seen.add(urlKey);
+    if (contentKey !== '||') seen.add(contentKey);
+    return true;
+  });
+}
+
 // ── Matching Acheteur / Bien ─────────────────────────────────────────────────
 let matchBuyers = [];
 let matchBiens = [];
@@ -1787,8 +1809,9 @@ async function scannerAgences() {
     }
   }
 
-  // Filtrer les biens hors Suisse et les annonces de location
+  // Filtrer les biens hors Suisse et les annonces de location, puis dedupliquer
   matchBiens = matchBiens.filter(b => isSwissListing(b) && !isRentalListing(b));
+  matchBiens = deduplicateBiens(matchBiens);
 
   if (loading) loading.classList.remove("visible");
   if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
@@ -1882,11 +1905,26 @@ function afficherMatchResultsPaginated() {
     return bestB - bestA;
   });
 
-  // Trier les biens dans chaque groupe
-  state.groups.forEach(g => g.biens.sort((a, b) => b.score - a.score));
+  // Trier les biens dans chaque groupe et dedupliquer par bien
+  state.groups.forEach(g => {
+    g.biens.sort((a, b) => b.score - a.score);
+    // Dedupliquer : meme URL ou meme titre+prix+localisation
+    const seen = new Set();
+    g.biens = g.biens.filter(({ bien }) => {
+      const urlKey = bien.url ? bien.url.replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase() : null;
+      if (urlKey && seen.has(urlKey)) return false;
+      const contentKey = [(bien.titre || '').toLowerCase().trim(), bien.prix || '', (bien.localisation || '').toLowerCase().trim()].join('|');
+      if (contentKey !== '||' && seen.has(contentKey)) return false;
+      if (urlKey) seen.add(urlKey);
+      if (contentKey !== '||') seen.add(contentKey);
+      return true;
+    });
+  });
 
+  // Compter le total de biens uniques (apres dedup)
+  const totalUniqueBiens = state.groups.reduce((sum, g) => sum + g.biens.length, 0);
   const countEl = document.getElementById("matchCount");
-  if (countEl) countEl.textContent = matchResults.length;
+  if (countEl) countEl.textContent = totalUniqueBiens;
 
   const resultsDiv = document.getElementById("matchResults");
   const nav = document.getElementById("matchNav");

@@ -313,6 +313,8 @@ async function handleScrapeListings(request, env) {
         const adLinkPattern = isAnibis
             ? /href=["']([^"']*\/fr\/d\/[^"']+)["']/gi
             : /href=["']([^"']*\/a\/\d+[^"']*)["']/gi;
+        // Patterns d'URLs de location a exclure (anibis et petitesannonces)
+        const rentalUrlPattern = /immobilier-(?:immobilier-)?locations?[-/]|\/louer\b|\/location\b|\/mieten\b/i;
         const adLinks = new Set();
         let match;
         while ((match = adLinkPattern.exec(html)) !== null) {
@@ -321,6 +323,8 @@ async function handleScrapeListings(request, env) {
                 const base = new URL(pageUrl);
                 href = base.origin + href;
             }
+            // Exclure les liens de location (louer)
+            if (rentalUrlPattern.test(href)) continue;
             adLinks.add(href);
         }
 
@@ -441,6 +445,12 @@ async function scrapeAdDetail(adUrl) {
 
     // Ne retourner que si au moins un champ utile
     if (!prix && !pieces && !surface_m2 && !localisation) return null;
+
+    // Detecter et exclure les annonces de location (louer)
+    const combined = ((titre || '') + ' ' + (description || '')).toLowerCase();
+    const isRental = /\b(à louer|a louer|en location|loyer|bail|sous-location|mois de loyer|charges comprises|charges en sus)\b/.test(combined)
+        && !/\b(à vendre|a vendre|vente|achat|acheter|prix de vente)\b/.test(combined);
+    if (isRental) return null;
 
     return {
         url: adUrl,

@@ -487,42 +487,56 @@ async function handleScrapeAgency(request, env) {
 
         const baseObj = new URL(pageUrl);
         const baseDomain = baseObj.origin;
+        const maxPages = 3;
+        let allAnnonces = [];
+        let currentUrl = pageUrl;
 
-        // Fetcher la page de listings de l'agence
-        const response = await fetch(pageUrl, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
-                "Referer": baseDomain + "/",
-            },
-        });
-
-        if (!response.ok) {
-            return new Response(JSON.stringify({
-                annonces: [],
-                error: `Site inaccessible (${response.status})`,
-            }), {
-                status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+        for (let page = 1; page <= maxPages; page++) {
+            const response = await fetch(currentUrl, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+                    "Referer": baseDomain + "/",
+                },
             });
+
+            if (!response.ok) {
+                if (page === 1) {
+                    return new Response(JSON.stringify({
+                        annonces: [],
+                        error: `Site inaccessible (${response.status})`,
+                    }), {
+                        status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
+                    });
+                }
+                break;
+            }
+
+            const html = await response.text();
+            const isSPA = detectSPAShell(html);
+
+            let annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
+
+            // Pour les sites SPA, tenter d'extraire au moins les meta tags og: de la page
+            if (annonces.length === 0 && isSPA) {
+                const spaAd = extractMetaTagsAd(html, currentUrl, agencyName || "Agence");
+                if (spaAd) annonces.push(spaAd);
+            }
+
+            if (annonces.length === 0) break;
+            allAnnonces.push(...annonces);
+
+            // Chercher un lien de page suivante
+            const nextUrl = findNextPageUrl(html, currentUrl, baseDomain);
+            if (!nextUrl) break;
+            currentUrl = nextUrl;
         }
 
-        const html = await response.text();
-        const isSPA = detectSPAShell(html);
+        const status = allAnnonces.length > 0 ? 'ok' : (detectSPAShell('' /* already checked */) ? 'spa_empty' : 'empty');
+        const message = allAnnonces.length === 0 ? 'Aucune annonce trouvee' : null;
 
-        // Strategie generique : extraire les annonces directement depuis le HTML de la page de liste
-        let annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
-
-        // Pour les sites SPA, tenter d'extraire au moins les meta tags og: de la page
-        if (annonces.length === 0 && isSPA) {
-            const spaAd = extractMetaTagsAd(html, pageUrl, agencyName || "Agence");
-            if (spaAd) annonces.push(spaAd);
-        }
-
-        const status = annonces.length > 0 ? 'ok' : (isSPA ? 'spa_empty' : 'empty');
-        const message = isSPA && annonces.length === 0 ? 'Site SPA - contenu rendu cote client, extraction limitee' : null;
-
-        return new Response(JSON.stringify({ annonces, total: annonces.length, status, message }), {
+        return new Response(JSON.stringify({ annonces: allAnnonces, total: allAnnonces.length, status, message }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
 
@@ -641,6 +655,43 @@ Pour la localisation, utilise le format "NPA Ville" suisse (4 chiffres + nom de 
             status: 500, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
     }
+}
+
+// Detecter le lien vers la page suivante dans le HTML
+function findNextPageUrl(html, currentUrl, baseDomain) {
+    // Patterns courants de pagination
+    const patterns = [
+        // rel="next"
+        /<a[^>]+rel=["']next["'][^>]+href=["']([^"']+)["']/i,
+        // class contenant "next"
+        /<a[^>]+class=["'][^"']*next[^"']*["'][^>]+href=["']([^"']+)["']/i,
+        // aria-label="next" ou "suivant"
+        /<a[^>]+aria-label=["'][^"']*(?:next|suivant)[^"']*["'][^>]+href=["']([^"']+)["']/i,
+        // Texte "Suivant", "Next", ">" dans le lien
+        /<a[^>]+href=["']([^"']+)["'][^>]*>\s*(?:Suivant|Next|Suivante|&gt;|›|»)\s*<\/a>/i,
+        /<a[^>]+href=["']([^"']+)["'][^>]*>[^<]*(?:Suivant|Next|Suivante)[^<]*<\/a>/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = html.match(pattern);
+        if (match && match[1]) {
+            let href = match[1].replace(/&amp;/g, '&');
+            if (href.startsWith('/')) href = baseDomain + href;
+            if (href.startsWith('http') && href !== currentUrl) return href;
+        }
+    }
+
+    // Chercher un parametre page= dans l'URL courante et incrementer
+    const urlObj = new URL(currentUrl);
+    const pageParam = urlObj.searchParams.get('page') || urlObj.searchParams.get('p');
+    if (pageParam) {
+        const nextPage = parseInt(pageParam, 10) + 1;
+        const param = urlObj.searchParams.has('page') ? 'page' : 'p';
+        urlObj.searchParams.set(param, nextPage);
+        return urlObj.href;
+    }
+
+    return null;
 }
 
 // Extraire un minimum d'infos depuis les meta tags d'un site SPA

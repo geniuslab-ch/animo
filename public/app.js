@@ -1461,7 +1461,7 @@ function lancerMatching() {
 
       // Etape 3 : Score de pertinence
       const { score, breakdown } = calculerMatchScore(buyer, bien);
-      if (score >= 40) {
+      if (score >= 50) {
         matchResults.push({ buyer, bien, score, breakdown });
       }
     }
@@ -1601,8 +1601,8 @@ function afficherMatchResults(results, incompatibles) {
     const groupClass = bestScore >= 70 ? "match-high" : bestScore >= 40 ? "match-medium" : "match-low";
 
     const biensHtml = group.biens.map(({ bien, score, breakdown }) => {
-      const scoreClass = score >= 70 ? "match-high" : score >= 40 ? "match-medium" : "match-low";
-      const scoreLabel = score >= 70 ? "Excellent" : score >= 40 ? "Bon" : "Faible";
+      const scoreClass = score >= 70 ? "match-high" : score >= 50 ? "match-medium" : "match-low";
+      const scoreLabel = score >= 70 ? "Excellent" : score >= 50 ? "Bon" : "Faible";
       const b = breakdown || {};
       return `
       <div class="match-bien-item ${scoreClass}">

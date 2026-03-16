@@ -44,7 +44,7 @@ function extractPropertyType(annonce) {
   if (/maison|villa|chalet/.test(text)) return 'house';
   if (/appartement|appart\b|apt\.?/.test(text)) return 'apartment';
   if (/terrain|parcelle/.test(text)) return 'land';
-  if (/commercial|bureau|local\b/.test(text)) return 'commercial';
+  if (/commercial|bureau|local\b|dépôt|depot|entrepôt|entrepot|hangar|atelier/.test(text)) return 'commercial';
   if (/parking|garage|box/.test(text)) return 'parking';
   if (/immeuble/.test(text)) return 'building';
   return 'unknown';
@@ -59,17 +59,23 @@ function extractBonus(annonce) {
   };
 }
 
+function getSearchMode() {
+  return document.querySelector('input[name="searchMode"]:checked')?.value || 'restreinte';
+}
+
 function checkExclusions(buyer, bien) {
+  const searchMode = getSearchMode();
   // Filtre 1 : Localisation hors zone
   const buyerNPA = extractNPAFromText(buyer);
   const bienNPA = extractNPAFromText(bien);
 
-  // Si les deux NPA sont identifiés, vérifier la proximité
-  // Si l'un des deux manque (lieu dans le descriptif sans NPA), on laisse passer
   if (buyerNPA && bienNPA) {
     const proximity = npaProximityScore(buyerNPA, bienNPA);
-    if (proximity === 0) {
-      return { compatible: false, reason: 'Localisation hors zone de recherche' };
+    if (searchMode === 'restreinte' && proximity < 0.7) {
+      return { compatible: false, reason: 'Localisation hors zone restreinte' };
+    }
+    if (searchMode === 'elargie' && proximity === 0) {
+      return { compatible: false, reason: 'Localisation hors zone elargie' };
     }
   }
 
@@ -1741,6 +1747,37 @@ function parseAdText(text) {
   if (locMatch) {
     localisation = locMatch[1].trim();
   }
+  // Fallback: chercher un nom de ville connu dans CITY_NPA_MAP
+  if (!localisation && typeof CITY_NPA_MAP !== 'undefined') {
+    const textLower = text.toLowerCase();
+    for (const [city, npa] of Object.entries(CITY_NPA_MAP)) {
+      if (textLower.includes(city)) {
+        localisation = npa + ' ' + city.charAt(0).toUpperCase() + city.slice(1);
+        break;
+      }
+    }
+  }
+  // Fallback: chercher un nom de region/canton
+  if (!localisation) {
+    const regionPatterns = [
+      { pattern: /\bvalais\s+central\b/i, loc: '1950 Sion' },
+      { pattern: /\brégion\s+(?:de\s+)?sion\b/i, loc: '1950 Sion' },
+      { pattern: /\brégion\s+(?:de\s+)?sierre\b/i, loc: '3960 Sierre' },
+      { pattern: /\brégion\s+(?:de\s+)?martigny\b/i, loc: '1920 Martigny' },
+      { pattern: /\brégion\s+(?:de\s+)?monthey\b/i, loc: '1870 Monthey' },
+      { pattern: /\bvalais\b/i, loc: '1950 Sion' },
+      { pattern: /\bvaud\b/i, loc: '1000 Lausanne' },
+      { pattern: /\bchablais\b/i, loc: '1870 Monthey' },
+      { pattern: /\briviera\b/i, loc: '1820 Montreux' },
+      { pattern: /\blavaux\b/i, loc: '1095 Lutry' },
+    ];
+    for (const { pattern, loc } of regionPatterns) {
+      if (pattern.test(text)) {
+        localisation = loc;
+        break;
+      }
+    }
+  }
 
   // Titre (premiere ligne, max 80 car.)
   const firstLine = text.split('\n')[0].trim();
@@ -1763,7 +1800,7 @@ function ajouterAnnonceCollee() {
 
   const buyer = parseAdText(text);
 
-  if (!buyer.prix && !buyer.pieces && !buyer.surface_m2 && !buyer.localisation) {
+  if (!buyer.prix && !buyer.pieces && !buyer.surface_m2 && !buyer.localisation && (!buyer.type || buyer.type === 'unknown')) {
     showMatchError("pasteAdError", "Impossible d'extraire des criteres. Verifiez le texte colle.");
     return;
   }
@@ -2086,7 +2123,7 @@ function renderCurrentGroup() {
         </div>
       </div>
       <div class="match-breakdown">
-        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/50">Lieu ${b.location}/50</span>
+        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/50">Localisation ${b.location}/50</span>
         <span class="breakdown-pill ${b.type > 0 ? 'active' : ''}" title="Type: ${b.type}/20">Type ${b.type}/20</span>
         <span class="breakdown-pill ${b.roomsSurface > 0 ? 'active' : ''}" title="Pieces/Surface: ${b.roomsSurface}/20">Pcs/m\u00b2 ${b.roomsSurface}/20</span>
         <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/10">Prix ${b.price}/10</span>
@@ -2159,6 +2196,7 @@ function extractNPAFromText(annonce) {
 
 function calculerMatchScore(buyer, bien) {
   const breakdown = { location: 0, type: 0, roomsSurface: 0, price: 0 };
+  const searchMode = getSearchMode();
 
   // Localisation : +50 pts max (priorite #1)
   const buyerNPA = extractNPAFromText(buyer);
@@ -2168,7 +2206,7 @@ function calculerMatchScore(buyer, bien) {
     else {
       const proximity = npaProximityScore(buyerNPA, bienNPA);
       if (proximity >= 0.7) breakdown.location = 35;
-      else if (proximity >= 0.3) breakdown.location = 15;
+      else if (proximity >= 0.3) breakdown.location = searchMode === 'elargie' ? 25 : 15;
     }
   }
 

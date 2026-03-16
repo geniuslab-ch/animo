@@ -321,6 +321,24 @@
           </div>
           <div class="match-count-badge" id="pdfImportBadge"></div>
         </div>
+
+        <div class="pdf-import-separator">
+          <span>ou</span>
+        </div>
+
+        <div class="paste-ad-section">
+          <div class="section-label">Coller une annonce</div>
+          <p class="agences-desc">Collez le texte d'une annonce de recherche. Les critères seront extraits automatiquement.</p>
+          <textarea id="pasteAdText"
+            placeholder="Collez ici le texte complet de l'annonce (ex: Recherche appartement 3.5 pièces à Sion, budget 500'000 CHF, 80 m²...)"
+            style="min-height:120px"></textarea>
+          <button class="btn-analyser btn-secondary" id="btnPasteAd" onclick="ajouterAnnonceCollee()">
+            <div class="spinner"></div>
+            <span class="btn-text">Ajouter cet acheteur</span>
+          </button>
+          <div class="error-box" id="pasteAdError"></div>
+          <div class="match-count-badge" id="pasteAdBadge"></div>
+        </div>
       </div>
 
       <!-- Etape 2 : Scanner les biens -->

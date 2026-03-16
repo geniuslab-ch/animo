@@ -1712,6 +1712,89 @@ async function importerAcheteurPDF(fileInput) {
   }
 }
 
+function parseAdText(text) {
+  // Prix
+  let prix = null;
+  const prixMatch = text.match(/(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/i)
+      || text.match(/([\d''\u2019.,]+)\s*(?:CHF|Fr\.?|SFr\.?)/i);
+  if (prixMatch) {
+    prix = parseInt(prixMatch[1].replace(/[''\u2019.,\s]/g, ''), 10) || null;
+  }
+
+  // Pieces
+  let pieces = null;
+  const piecesMatch = text.match(/(\d+(?:[.,]\d)?)\s*(?:pi[eè]ces?|pcs?\.?|rooms?|Zimmer)/i);
+  if (piecesMatch) {
+    pieces = parseFloat(piecesMatch[1].replace(',', '.'));
+  }
+
+  // Surface
+  let surface_m2 = null;
+  const surfaceMatch = text.match(/(\d+)\s*m[²2]/i);
+  if (surfaceMatch) {
+    surface_m2 = parseInt(surfaceMatch[1], 10);
+  }
+
+  // Localisation (NPA + ville)
+  let localisation = null;
+  const locMatch = text.match(/\b(\d{4}\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/);
+  if (locMatch) {
+    localisation = locMatch[1].trim();
+  }
+
+  // Titre (premiere ligne, max 80 car.)
+  const firstLine = text.split('\n')[0].trim();
+  const titre = firstLine.length > 80 ? firstLine.substring(0, 80) + '...' : firstLine;
+
+  // Type via extractPropertyType existant
+  const fakeAnnonce = { titre, description: text, localisation, fullText: text };
+  const type = extractPropertyType(fakeAnnonce);
+
+  return { titre, description: text.substring(0, 500), fullText: text, prix, pieces, surface_m2, localisation, type, url: '', source: 'Annonce collee' };
+}
+
+function ajouterAnnonceCollee() {
+  const textarea = document.getElementById("pasteAdText");
+  const text = (textarea ? textarea.value : '').trim();
+  if (!text) {
+    showMatchError("pasteAdError", "Collez d'abord le texte d'une annonce.");
+    return;
+  }
+
+  const buyer = parseAdText(text);
+
+  if (!buyer.prix && !buyer.pieces && !buyer.surface_m2 && !buyer.localisation) {
+    showMatchError("pasteAdError", "Impossible d'extraire des criteres. Verifiez le texte colle.");
+    return;
+  }
+
+  matchBuyers.push(buyer);
+
+  // MAJ badges
+  const badge = document.getElementById("pasteAdBadge");
+  if (badge) {
+    const summary = [
+      buyer.localisation,
+      buyer.prix ? formatPrix(buyer.prix) : null,
+      buyer.pieces ? `${buyer.pieces} pcs` : null,
+      buyer.surface_m2 ? `${buyer.surface_m2} m²` : null,
+    ].filter(Boolean).join(' · ');
+    badge.textContent = `Acheteur ajoute : ${summary || buyer.titre} — ${matchBuyers.length} acheteur(s) au total`;
+    badge.classList.add("visible");
+  }
+  const mainBadge = document.getElementById("buyersCountBadge");
+  if (mainBadge) {
+    mainBadge.textContent = `${matchBuyers.length} acheteur(s) au total`;
+    mainBadge.classList.add("visible");
+  }
+
+  // Vider le textarea
+  if (textarea) textarea.value = '';
+  // Masquer l'erreur
+  const errBox = document.getElementById("pasteAdError");
+  if (errBox) errBox.classList.remove("visible");
+}
+
 async function scannerAgences() {
   // Ne prendre que les agences cochees du canton actif
   const activeGroup = document.querySelector(`.agency-canton-group[data-canton="${currentCanton}"]`);

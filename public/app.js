@@ -30,10 +30,20 @@ function getNPARegion(npa) {
 
 function npaProximityScore(npa1, npa2) {
   if (npa1 === npa2) return 1.0;
+  const n1 = parseInt(npa1, 10);
+  const n2 = parseInt(npa2, 10);
+  const diff = Math.abs(n1 - n2);
+
+  // Distance numerique NPA (les NPA proches sont geographiquement proches)
+  if (diff <= 30) return 0.85;   // Tres proche (meme district, ~5-10km)
+
+  // Meme region (2 premiers chiffres identiques)
   const r1 = getNPARegion(npa1);
   const r2 = getNPARegion(npa2);
   if (!r1 || !r2) return 0;
   if (r1 === r2) return 0.7;
+
+  // Regions adjacentes
   const adj = ADJACENT_REGIONS[r1];
   if (adj && adj.includes(r2)) return 0.3;
   return 0;
@@ -2024,43 +2034,35 @@ function lancerMatching() {
 function afficherMatchResultsPaginated() {
   const state = cantonState[currentCanton];
 
-  // Regrouper par acheteur
+  // Regrouper par BIEN unique (evite de voir les memes biens pour chaque acheteur)
   const grouped = new Map();
   for (const m of matchResults) {
-    const key = m.buyer.url || m.buyer.titre || JSON.stringify(m.buyer);
+    const urlKey = m.bien.url ? m.bien.url.replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase() : null;
+    const contentKey = [(m.bien.titre || '').toLowerCase().trim(), m.bien.prix || '', (m.bien.localisation || '').toLowerCase().trim()].join('|');
+    const key = urlKey || (contentKey !== '||' ? contentKey : JSON.stringify(m.bien));
+
     if (!grouped.has(key)) {
-      grouped.set(key, { buyer: m.buyer, biens: [] });
+      grouped.set(key, { bien: m.bien, buyers: [], bestScore: 0, bestBreakdown: null });
     }
-    grouped.get(key).biens.push({ bien: m.bien, score: m.score, breakdown: m.breakdown });
+    const g = grouped.get(key);
+    // Garder le meilleur score parmi tous les acheteurs
+    if (m.score > g.bestScore) {
+      g.bestScore = m.score;
+      g.bestBreakdown = m.breakdown;
+    }
+    // Ajouter l'acheteur s'il n'est pas deja present
+    const buyerKey = m.buyer.url || m.buyer.titre || '';
+    if (!g.buyers.some(b => (b.url || b.titre || '') === buyerKey)) {
+      g.buyers.push(m.buyer);
+    }
   }
 
-  // Trier les groupes par meilleur score
-  state.groups = [...grouped.values()].sort((a, b) => {
-    const bestA = Math.max(...a.biens.map(x => x.score));
-    const bestB = Math.max(...b.biens.map(x => x.score));
-    return bestB - bestA;
-  });
+  // Trier par meilleur score decroissant
+  state.groups = [...grouped.values()].sort((a, b) => b.bestScore - a.bestScore);
 
-  // Trier les biens dans chaque groupe et dedupliquer par bien
-  state.groups.forEach(g => {
-    g.biens.sort((a, b) => b.score - a.score);
-    // Dedupliquer : meme URL ou meme titre+prix+localisation
-    const seen = new Set();
-    g.biens = g.biens.filter(({ bien }) => {
-      const urlKey = bien.url ? bien.url.replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase() : null;
-      if (urlKey && seen.has(urlKey)) return false;
-      const contentKey = [(bien.titre || '').toLowerCase().trim(), bien.prix || '', (bien.localisation || '').toLowerCase().trim()].join('|');
-      if (contentKey !== '||' && seen.has(contentKey)) return false;
-      if (urlKey) seen.add(urlKey);
-      if (contentKey !== '||') seen.add(contentKey);
-      return true;
-    });
-  });
-
-  // Compter le total de biens uniques (apres dedup)
-  const totalUniqueBiens = state.groups.reduce((sum, g) => sum + g.biens.length, 0);
+  // Compter le total de biens uniques
   const countEl = document.getElementById("matchCount");
-  if (countEl) countEl.textContent = totalUniqueBiens;
+  if (countEl) countEl.textContent = state.groups.length;
 
   const resultsDiv = document.getElementById("matchResults");
   const nav = document.getElementById("matchNav");
@@ -2107,23 +2109,36 @@ function renderCurrentGroup() {
   if (btnPrev) btnPrev.disabled = idx === 0;
   if (btnNext) btnNext.disabled = idx === total - 1;
 
-  // Render this group
+  // Render this group (maintenant groupe par bien unique)
   const grid = document.getElementById("matchGrid");
   if (!grid) return;
 
-  const buyer = group.buyer;
-  const bestScore = group.biens[0].score;
-  const groupClass = bestScore >= 70 ? "match-high" : bestScore >= 40 ? "match-medium" : "match-low";
+  const bien = group.bien;
+  const score = group.bestScore;
+  const b = group.bestBreakdown || {};
+  const scoreClass = score >= 70 ? "match-high" : score >= 50 ? "match-medium" : "match-low";
+  const scoreLabel = score >= 70 ? "Excellent" : score >= 50 ? "Bon" : "Faible";
 
-  const biensHtml = group.biens.map(({ bien, score, breakdown }) => {
-    const scoreClass = score >= 70 ? "match-high" : score >= 50 ? "match-medium" : "match-low";
-    const scoreLabel = score >= 70 ? "Excellent" : score >= 50 ? "Bon" : "Faible";
-    const b = breakdown || {};
-    return `
-    <div class="match-bien-item ${scoreClass}">
-      <div class="match-bien-row">
+  // Liste des acheteurs interesses
+  const buyersHtml = group.buyers.map(buyer => `
+    <div class="match-buyer-item">
+      <div class="match-side-title">${escapeHTML(buyer.titre || '')}</div>
+      <div class="match-side-details">
+        ${buyer.prix ? formatPrix(buyer.prix) : ''}
+        ${buyer.pieces ? ` · ${buyer.pieces} pcs` : ''}
+        ${buyer.surface_m2 ? ` · ${buyer.surface_m2} m²` : ''}
+      </div>
+      <div class="match-side-loc">${escapeHTML(buyer.localisation || '')}</div>
+      ${buyer.url ? `<a href="${escapeHTML(buyer.url)}" target="_blank" class="match-link">Voir annonce</a>` : ''}
+    </div>
+  `).join('');
+
+  grid.innerHTML = `
+  <div class="match-group ${scoreClass}">
+    <div class="match-group-header">
+      <div class="match-side match-bien-main">
         ${bien.image_url ? `<div class="match-thumb" style="background-image:url('${escapeHTML(bien.image_url)}')"></div>` : ''}
-        <div class="match-bien-info">
+        <div>
           <div class="match-side-title">${escapeHTML(bien.titre || '')}</div>
           <div class="match-side-details">
             ${bien.prix ? formatPrix(bien.prix) : '\u2014'}
@@ -2138,37 +2153,21 @@ function renderCurrentGroup() {
           <span class="match-score-label">${scoreLabel}</span>
         </div>
       </div>
-      <div class="match-breakdown">
-        <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/50">Localisation ${b.location}/50</span>
-        <span class="breakdown-pill ${b.type > 0 ? 'active' : ''}" title="Type: ${b.type}/20">Type ${b.type}/20</span>
-        <span class="breakdown-pill ${b.roomsSurface > 0 ? 'active' : ''}" title="Pieces/Surface: ${b.roomsSurface}/20">Pcs/m\u00b2 ${b.roomsSurface}/20</span>
-        <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/10">Prix ${b.price}/10</span>
-      </div>
-      <div class="match-actions">
-        <a href="${escapeHTML(bien.url || '#')}" target="_blank" class="match-link">Voir bien</a>
-      </div>
-    </div>`;
-  }).join("");
-
-  grid.innerHTML = `
-  <div class="match-group ${groupClass}">
-    <div class="match-group-header">
-      <div class="match-side match-buyer">
-        <div class="match-side-label">Acheteur recherche</div>
-        <div class="match-side-price">${buyer.prix ? formatPrix(buyer.prix) : '\u2014'}</div>
-        <div class="match-side-details">
-          ${buyer.pieces ? `${buyer.pieces} pcs` : ''}
-          ${buyer.surface_m2 ? ` \u00b7 ${buyer.surface_m2} m\u00b2` : ''}
-        </div>
-        <div class="match-side-loc">${escapeHTML(buyer.localisation || '\u2014')}</div>
-        <div class="match-side-title">${escapeHTML(buyer.titre || '')}</div>
-        <a href="${escapeHTML(buyer.url || '#')}" target="_blank" class="match-link">Voir annonce</a>
-      </div>
-      <div class="match-group-count">${group.biens.length} bien(s) correspondant(s)</div>
     </div>
-    <div class="match-group-biens">
-      ${biensHtml}
+    <div class="match-breakdown">
+      <span class="breakdown-pill ${b.location > 0 ? 'active' : ''}" title="Localisation: ${b.location}/50">Localisation ${b.location}/50</span>
+      <span class="breakdown-pill ${b.type > 0 ? 'active' : ''}" title="Type: ${b.type}/20">Type ${b.type}/20</span>
+      <span class="breakdown-pill ${b.roomsSurface > 0 ? 'active' : ''}" title="Pieces/Surface: ${b.roomsSurface}/20">Pcs/m\u00b2 ${b.roomsSurface}/20</span>
+      <span class="breakdown-pill ${b.price > 0 ? 'active' : ''}" title="Prix: ${b.price}/10">Prix ${b.price}/10</span>
     </div>
+    <div class="match-actions">
+      <a href="${escapeHTML(bien.url || '#')}" target="_blank" class="match-link">Voir le bien</a>
+    </div>
+    ${group.buyers.length > 0 ? `
+    <div class="match-group-buyers">
+      <div class="match-group-count">${group.buyers.length} acheteur(s) intéressé(s)</div>
+      ${buyersHtml}
+    </div>` : ''}
   </div>`;
 }
 
@@ -2181,25 +2180,43 @@ const CITY_NPA_MAP = {
   'montreux': '1820', 'vevey': '1800', 'la tour-de-peilz': '1814',
   'clarens': '1815', 'villeneuve': '1844',
   'sion': '1950', 'sierre': '3960', 'martigny': '1920', 'monthey': '1870',
-  'geneve': '1200', 'gen\u00e8ve': '1200', 'carouge': '1227', 'lancy': '1212',
+  // Geneve
+  'geneve': '1200', 'genève': '1200', 'carouge': '1227', 'lancy': '1212',
   'vernier': '1214', 'meyrin': '1217', 'onex': '1213', 'thonex': '1226',
+  'versoix': '1290', 'bellevue': '1293', 'pregny': '1292',
+  'cologny': '1223', 'vandoeuvres': '1253', 'chene-bourg': '1224',
+  // La Cote
+  'gland': '1196', 'prangins': '1197', 'coppet': '1296', 'founex': '1297',
+  'begnins': '1268', 'aubonne': '1170', 'etoy': '1163', 'allaman': '1165',
+  'st-prex': '1162', 'saint-prex': '1162',
+  // Vaud autres
+  'grandson': '1422', 'orbe': '1350', 'chavornay': '1373',
+  'echallens': '1040', 'cossonay': '1148',
+  'villars-sur-ollon': '1884', 'bex': '1880', 'ollon': '1867',
+  // Fribourg
   'fribourg': '1700', 'bulle': '1630', 'villars-sur-glane': '1752',
-  'neuchatel': '2000', 'neuch\u00e2tel': '2000', 'la chaux-de-fonds': '2300',
-  'bienne': '2500', 'biel': '2500', 'delemont': '2800', 'del\u00e9mont': '2800',
+  'romont': '1680', 'estavayer': '1470',
+  // Neuchatel / Jura / Berne
+  'neuchatel': '2000', 'neuchâtel': '2000', 'la chaux-de-fonds': '2300',
+  'bienne': '2500', 'biel': '2500', 'delemont': '2800', 'delémont': '2800',
   'bern': '3000', 'berne': '3000', 'thun': '3600', 'thoune': '3600',
-  'zurich': '8000', 'z\u00fcrich': '8000', 'bale': '4000', 'b\u00e2le': '4000', 'basel': '4000',
+  // Valais
+  'visp': '3930', 'brig': '3900', 'naters': '3904', 'zermatt': '3920',
+  'crans-montana': '3963', 'verbier': '1936', 'saxon': '1907',
+  'fully': '1926', 'conthey': '1964', 'savièse': '1965',
+  'zurich': '8000', 'zürich': '8000', 'bale': '4000', 'bâle': '4000', 'basel': '4000',
 };
 
 function extractNPAFromText(annonce) {
   // D'abord essayer depuis localisation
   const loc = annonce.localisation || '';
-  const npaMatch = loc.match(/\d{4}/);
-  if (npaMatch) return npaMatch[0];
+  const npaMatch = loc.match(/\b(\d{4})\b/);
+  if (npaMatch && !isYearNotNPA(npaMatch[1])) return npaMatch[1];
 
-  // Chercher un NPA (4 chiffres) dans le texte complet de l'annonce
+  // Chercher un NPA (4 chiffres suivi d'un nom de lieu) dans le texte complet
   if (annonce.fullText) {
     const fullNpaMatch = annonce.fullText.match(/\b(\d{4})\s+[A-ZÀ-Ÿ][a-zà-ÿ]/);
-    if (fullNpaMatch) return fullNpaMatch[1];
+    if (fullNpaMatch && !isYearNotNPA(fullNpaMatch[1])) return fullNpaMatch[1];
   }
 
   // Sinon chercher un nom de ville dans titre + description + fullText + localisation
@@ -2208,6 +2225,12 @@ function extractNPAFromText(annonce) {
     if (text.includes(city)) return npa;
   }
   return null;
+}
+
+// Exclure les annees courantes qui ne sont pas des NPA
+function isYearNotNPA(val) {
+  const n = parseInt(val, 10);
+  return n >= 2020 && n <= 2035;
 }
 
 function calculerMatchScore(buyer, bien) {

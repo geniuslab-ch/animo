@@ -28,8 +28,7 @@
       <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
       <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
       <button class="tab-btn" id="tabScraper" onclick="switchTab('scraper')">Petites Annonces</button>
-      <button class="tab-btn" id="tabMatchingVD" onclick="switchTab('matchingVD')">Matching VD</button>
-      <button class="tab-btn" id="tabMatchingVS" onclick="switchTab('matchingVS')">Matching VS</button>
+      <button class="tab-btn" id="tabMatching" onclick="switchTab('matching')">Matching</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
     </nav>
   </header>
@@ -263,7 +262,14 @@
     </div>
 
     <!-- ── TAB: Matching (shared by VD and VS tabs) ─────────────────────── -->
-    <div id="pageMatchingVD" class="tab-page">
+    <div id="pageMatching" class="tab-page">
+
+      <!-- Sous-onglets cantonaux -->
+      <div class="canton-sub-tabs">
+        <button class="canton-tab active" id="cantonTabVD" onclick="switchCanton('vaud')">Vaud</button>
+        <button class="canton-tab" id="cantonTabVS" onclick="switchCanton('valais')">Valais</button>
+        <button class="canton-tab" id="cantonTabNE" onclick="switchCanton('neuchatel')">Neuchâtel</button>
+      </div>
 
       <div class="agences-intro">
         <div class="section-label">Matching Acheteur / Bien — <span id="matchCantonLabel">Vaud</span></div>
@@ -470,6 +476,12 @@
           <label class="agency-check"><input type="checkbox" value="nideal"> Nideal</label>
           <label class="agency-check"><input type="checkbox" value="remax"> RE/MAX</label>
           <label class="agency-check"><input type="checkbox" value="homequest"> Homequest</label>
+          <label class="agency-check"><input type="checkbox" value="denaliImmo"> Denali Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="tissotImmo"> TissoT Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="swissPatrimoine"> Swiss Patrimoine</label>
+          <label class="agency-check"><input type="checkbox" value="agenceLeman"> Agence du Léman</label>
+          <label class="agency-check"><input type="checkbox" value="vaudburo"> Vaudburo</label>
+          <label class="agency-check"><input type="checkbox" value="cardisSothebys"> Cardis Sotheby's</label>
           </div>
           <!-- Agences Valais -->
           <div class="agency-canton-group" data-canton="valais" style="display:none">
@@ -529,6 +541,54 @@
           <label class="agency-check"><input type="checkbox" value="vsTrustImmobilier"> Trust Immobilier</label>
           <label class="agency-check"><input type="checkbox" value="vsValorise"> Valorise Home</label>
           </div>
+          <!-- Agences Neuchatel -->
+          <div class="agency-canton-group" data-canton="neuchatel" style="display:none">
+          <label class="agency-check"><input type="checkbox" value="neNaef" checked> Naef</label>
+          <label class="agency-check"><input type="checkbox" value="neBarnes" checked> Barnes</label>
+          <label class="agency-check"><input type="checkbox" value="neImmobilierNe" checked> Immobilier Neuchatel</label>
+          <label class="agency-check"><input type="checkbox" value="nePalombo"> Palombo Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="neWayne"> Wayne Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="neLittoral"> Littoral Gerance</label>
+          <label class="agency-check"><input type="checkbox" value="neRvk"> RVK SA</label>
+          <label class="agency-check"><input type="checkbox" value="neJouval"> Jouval</label>
+          <label class="agency-check"><input type="checkbox" value="neOmnia"> Omnia NE</label>
+          <label class="agency-check"><input type="checkbox" value="neCastoldi"> Castoldi Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="neFidimmobil"> Fidimmobil</label>
+          <label class="agency-check"><input type="checkbox" value="neGpc"> GPC</label>
+          <label class="agency-check"><input type="checkbox" value="neReysus"> Reysus</label>
+          <label class="agency-check"><input type="checkbox" value="neProcite"> Procite</label>
+          <label class="agency-check"><input type="checkbox" value="neCirGroup"> CIR Group</label>
+          <label class="agency-check"><input type="checkbox" value="neMichelWolf"> Michel Wolf SA</label>
+          <label class="agency-check"><input type="checkbox" value="neMullerChriste"> Muller &amp; Christe</label>
+          <label class="agency-check"><input type="checkbox" value="neDiatimis"> Diatimis</label>
+          <label class="agency-check"><input type="checkbox" value="neRtImmo"> RT Immo</label>
+          <label class="agency-check"><input type="checkbox" value="neLaFidu"> La Fidu</label>
+          <label class="agency-check"><input type="checkbox" value="neBolliger"> Bolliger Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="neEllipsis"> Ellipsis SA</label>
+          <label class="agency-check"><input type="checkbox" value="neProimmob"> Proimmob</label>
+          <label class="agency-check"><input type="checkbox" value="neEspaceHabitat"> Espace et Habitat</label>
+          <label class="agency-check"><input type="checkbox" value="neGeranceMetropole"> Gerance Metropole</label>
+          <label class="agency-check"><input type="checkbox" value="neRooslimmo"> Rooslimmo</label>
+          <label class="agency-check"><input type="checkbox" value="neHypoImmo"> Hypo Immo</label>
+          <label class="agency-check"><input type="checkbox" value="neMmImmobilier"> MM Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="neApacheImmo"> Apache Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="nePerezImmo"> Perez Immo</label>
+          <label class="agency-check"><input type="checkbox" value="neImmoHestia"> Immo Hestia</label>
+          <label class="agency-check"><input type="checkbox" value="neSebImmo"> Seb Immo</label>
+          <label class="agency-check"><input type="checkbox" value="neMerseImmo"> Merse Immo</label>
+          <label class="agency-check"><input type="checkbox" value="neCgcImmo"> CGC Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="nePatrimoineGerance"> Patrimoine Gerance</label>
+          <label class="agency-check"><input type="checkbox" value="neAmmetis"> Ammetis</label>
+          <label class="agency-check"><input type="checkbox" value="neImmoglobe"> Immoglobe</label>
+          <label class="agency-check"><input type="checkbox" value="neTrImmo"> TR Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="neViaterra"> Viaterra</label>
+          <label class="agency-check"><input type="checkbox" value="neLombard"> Lombard SA</label>
+          <label class="agency-check"><input type="checkbox" value="neCabanelImmo"> Cabanel Immo</label>
+          <label class="agency-check"><input type="checkbox" value="neWardah"> Wardah Immobilier</label>
+          <label class="agency-check"><input type="checkbox" value="neSothebys"> Sotheby's NE</label>
+          <label class="agency-check"><input type="checkbox" value="neGerofinance"> Gerofinance NE</label>
+          <label class="agency-check"><input type="checkbox" value="neMaillard"> Maillard Immo NE</label>
+          </div>
         </div>
 
         <div class="agency-select-actions">
@@ -548,6 +608,29 @@
         </div>
         <div class="match-count-badge" id="biensCountBadge"></div>
         <div class="agency-status-list" id="agencyStatusList"></div>
+        </div>
+
+        <div class="pdf-import-separator"><span>ou</span></div>
+        <div class="facebook-import-section">
+          <div class="section-label" style="font-size:0.82rem">Facebook Marketplace</div>
+          <p class="agences-desc">Collez le texte d'annonces Facebook ou importez un fichier JSON.</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap">
+            <input type="file" id="fbJsonInput" accept=".json" style="display:none" onchange="importerFacebookJSON(this)" />
+            <button class="btn-analyser btn-secondary" onclick="document.getElementById('fbJsonInput').click()">
+              <span class="btn-text">Importer JSON</span>
+            </button>
+            <button class="btn-analyser btn-secondary" onclick="toggleFbPasteArea()">
+              <span class="btn-text">Coller des annonces</span>
+            </button>
+          </div>
+          <textarea id="fbPasteArea" style="display:none; min-height:120px; margin-top:8px"
+            placeholder="Collez les annonces Facebook (separees par une ligne vide). Ex:&#10;Villa 5 pieces Lausanne CHF 1'200'000&#10;&#10;Appartement 3.5 pcs Morges 650'000 CHF"></textarea>
+          <button id="btnFbPasteImport" class="btn-analyser btn-secondary" style="display:none; margin-top:8px"
+            onclick="importerFacebookTexte()">
+            <span class="btn-text">Ajouter ces biens</span>
+          </button>
+          <div class="error-box" id="fbImportError"></div>
+          <div class="match-count-badge" id="fbImportBadge"></div>
         </div>
 
       </div>

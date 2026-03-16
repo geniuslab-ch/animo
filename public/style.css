@@ -1922,3 +1922,49 @@ footer p {
   color: var(--rouge);
   box-shadow: var(--shadow-md);
 }
+
+/* ── Canton Sub-Tabs ────────────────────────────────────────────────────────*/
+.canton-sub-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--gris-clair);
+}
+.canton-tab {
+  padding: 8px 20px;
+  background: none;
+  border: none;
+  color: var(--gris);
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+.canton-tab.active {
+  color: var(--noir);
+  border-bottom-color: var(--noir);
+}
+.canton-tab:hover:not(.active) {
+  color: var(--gris-2);
+}
+
+/* ── Exclude Button ─────────────────────────────────────────────────────────*/
+.match-exclude-btn {
+  padding: 4px 12px;
+  background: none;
+  border: 1px solid var(--gris-clair);
+  border-radius: 4px;
+  color: var(--gris);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.match-exclude-btn:hover {
+  border-color: #c8102e;
+  color: #c8102e;
+  background: rgba(200, 16, 46, 0.05);
+}

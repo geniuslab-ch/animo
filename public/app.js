@@ -21,6 +21,7 @@ const ADJACENT_REGIONS = {
   '16': ['18'],
   '17': ['18'],
   '18': ['10', '15', '16', '17'],
+  '20': ['21', '23', '13'],
 };
 
 function getNPARegion(npa) {
@@ -101,20 +102,18 @@ function checkExclusions(buyer, bien) {
 
 // ── Tab Navigation ───────────────────────────────────────────────────────────
 function switchTab(tab) {
-  const tabs = ["analyse", "agences", "scraper", "matchingVD", "matchingVS", "historique"];
-  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matchingVD: "pageMatchingVD", matchingVS: "pageMatchingVD", historique: "pageHistorique" };
-  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matchingVD: "tabMatchingVD", matchingVS: "tabMatchingVS", historique: "tabHistorique" };
+  const tabs = ["analyse", "agences", "scraper", "matching", "historique"];
+  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matching: "pageMatching", historique: "pageHistorique" };
+  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matching: "tabMatching", historique: "tabHistorique" };
   for (const t of tabs) {
     const page = document.getElementById(pageIds[t]);
     const btn = document.getElementById(tabIds[t]);
-    // matchingVD and matchingVS share the same page — show it for either
     if (page) page.classList.toggle("active", pageIds[t] === pageIds[tab]);
     if (btn) btn.classList.toggle("active", t === tab);
   }
   if (tab === "historique") loadHistory();
   // Canton switching
-  if (tab === "matchingVD") switchCanton('vaud');
-  if (tab === "matchingVS") switchCanton('valais');
+  if (tab === "matching") switchCanton(currentCanton);
 }
 
 // ── Mode de saisie (URL ou contenu colle) ────────────────────────────────────
@@ -786,6 +785,11 @@ const CANTON_CONFIG = {
     acheteurs_url: 'https://www.petitesannonces.ch/r/270723',
     anibis_url: null,
   },
+  neuchatel: {
+    label: 'Neuch\u00e2tel',
+    acheteurs_url: null,
+    anibis_url: null,
+  },
 };
 let currentCanton = 'vaud';
 
@@ -1220,6 +1224,31 @@ const AGENCIES = {
     listingsUrl: "https://homequest.ch/",
     canton: "vaud",
   },
+  // ── Agences VD supplementaires ────────────────────────────────────────
+  denaliImmo: {
+    name: "Denali Immobilier",
+    listingsUrl: "https://www.denali-sa.ch/",
+  },
+  tissotImmo: {
+    name: "TissoT Immobilier",
+    listingsUrl: "https://www.tissot-immobilier.ch/",
+  },
+  swissPatrimoine: {
+    name: "Swiss Patrimoine Immobilier",
+    listingsUrl: "https://www.swiss-patrimoine-immobilier.ch/",
+  },
+  agenceLeman: {
+    name: "Agence Immobilière du Léman",
+    listingsUrl: "https://www.agence-leman.ch/",
+  },
+  vaudburo: {
+    name: "Vaudburo",
+    listingsUrl: "https://www.vaudburo.ch/",
+  },
+  cardisSothebys: {
+    name: "Cardis Sotheby's",
+    listingsUrl: "https://www.cardis.ch/",
+  },
   // ── Agences Valais ───────────────────────────────────────────────────
   vsValimmobilier: {
     name: "Valimmobilier",
@@ -1496,6 +1525,232 @@ const AGENCIES = {
     listingsUrl: "https://www.valorise-home.ch/",
     canton: "valais",
   },
+  // ── Agences Neuchâtel ─────────────────────────────────────────────────
+  neImmobilierNe: {
+    name: "Immobilier Neuchâtel",
+    listingsUrl: "https://www.immobilier-neuchatel.ch/",
+    canton: "neuchatel",
+  },
+  neNaef: {
+    name: "Naef",
+    listingsUrl: "https://www.naef.ch/acheter/?canton=neuchatel",
+    canton: "neuchatel",
+  },
+  neBarnes: {
+    name: "Barnes",
+    listingsUrl: "https://www.barnes-suisse.ch/acheter/neuchatel",
+    canton: "neuchatel",
+  },
+  nePalombo: {
+    name: "Palombo Immobilier",
+    listingsUrl: "https://www.palombo-immobilier.ch/",
+    canton: "neuchatel",
+  },
+  neWayne: {
+    name: "Wayne",
+    listingsUrl: "https://www.wayne.ch/",
+    canton: "neuchatel",
+  },
+  neLittoral: {
+    name: "Littoral Gérance",
+    listingsUrl: "https://www.littoralgerance.ch/",
+    canton: "neuchatel",
+  },
+  neRvk: {
+    name: "RVK SA",
+    listingsUrl: "https://www.rvksa.ch/",
+    canton: "neuchatel",
+  },
+  neJouval: {
+    name: "Jouval",
+    listingsUrl: "https://www.jouval.ch/",
+    canton: "neuchatel",
+  },
+  neOmnia: {
+    name: "Omnia",
+    listingsUrl: "https://www.omnia.ch/",
+    canton: "neuchatel",
+  },
+  neCastoldi: {
+    name: "Castoldi Immobilier",
+    listingsUrl: "https://www.castoldi-immobilier.ch/",
+    canton: "neuchatel",
+  },
+  neFidimmobil: {
+    name: "Fidimmobil",
+    listingsUrl: "https://www.fidimmobil.ch/",
+    canton: "neuchatel",
+  },
+  neGpc: {
+    name: "GPC",
+    listingsUrl: "https://www.gpc.ch/",
+    canton: "neuchatel",
+  },
+  neReysus: {
+    name: "Reysus",
+    listingsUrl: "https://www.reysus.ch/",
+    canton: "neuchatel",
+  },
+  neProcite: {
+    name: "Procité",
+    listingsUrl: "https://www.procite.ch/",
+    canton: "neuchatel",
+  },
+  neCirGroup: {
+    name: "CIR Group",
+    listingsUrl: "https://www.cirgroup.ch/",
+    canton: "neuchatel",
+  },
+  neMichelWolf: {
+    name: "Michel Wolf SA",
+    listingsUrl: "https://www.michelwolfsa.ch/",
+    canton: "neuchatel",
+  },
+  neMullerChriste: {
+    name: "Muller & Christe",
+    listingsUrl: "https://www.mulleretchriste.ch/",
+    canton: "neuchatel",
+  },
+  neDiatimis: {
+    name: "Diatimis",
+    listingsUrl: "https://www.diatimis.ch/",
+    canton: "neuchatel",
+  },
+  neRtImmo: {
+    name: "RT Immo",
+    listingsUrl: "https://www.rt-immo.ch/",
+    canton: "neuchatel",
+  },
+  neLaFidu: {
+    name: "La Fidu",
+    listingsUrl: "https://www.lafidu.ch/",
+    canton: "neuchatel",
+  },
+  neBolliger: {
+    name: "Bolliger Immobilier",
+    listingsUrl: "https://www.bolliger-immobilier.ch/",
+    canton: "neuchatel",
+  },
+  neEllipsis: {
+    name: "Ellipsis SA",
+    listingsUrl: "https://www.ellipsis-sa.ch/",
+    canton: "neuchatel",
+  },
+  neProimmob: {
+    name: "Proimmob",
+    listingsUrl: "https://www.proimmob.ch/",
+    canton: "neuchatel",
+  },
+  neEspaceHabitat: {
+    name: "Espace et Habitat",
+    listingsUrl: "https://www.espace-et-habitat.ch/",
+    canton: "neuchatel",
+  },
+  neGeranceMetropole: {
+    name: "Gérance Métropole",
+    listingsUrl: "https://www.gerance-metropole.ch/",
+    canton: "neuchatel",
+  },
+  neRooslimmo: {
+    name: "Rooslimmo",
+    listingsUrl: "https://www.rooslimmo.ch/",
+    canton: "neuchatel",
+  },
+  neHypoImmo: {
+    name: "Hypo Immo",
+    listingsUrl: "https://www.hypoimmo.ch/",
+    canton: "neuchatel",
+  },
+  neMmImmobilier: {
+    name: "MM Immobilier",
+    listingsUrl: "https://www.mm-immobilier.ch/",
+    canton: "neuchatel",
+  },
+  neApacheImmo: {
+    name: "Apache Immobilier",
+    listingsUrl: "https://www.apacheimmobilier.ch/",
+    canton: "neuchatel",
+  },
+  nePerezImmo: {
+    name: "Perez Immo",
+    listingsUrl: "https://www.perezimmo.com/",
+    canton: "neuchatel",
+  },
+  neImmoHestia: {
+    name: "Immo Hestia",
+    listingsUrl: "https://www.immo-hestia.ch/",
+    canton: "neuchatel",
+  },
+  neSebImmo: {
+    name: "Seb Immo",
+    listingsUrl: "https://www.sebimmo.ch/",
+    canton: "neuchatel",
+  },
+  neMerseImmo: {
+    name: "Merse Immo",
+    listingsUrl: "https://www.merseimmo.ch/",
+    canton: "neuchatel",
+  },
+  neCgcImmo: {
+    name: "CGC Immobilier",
+    listingsUrl: "https://www.cgc-immobilier.ch/",
+    canton: "neuchatel",
+  },
+  nePatrimoineGerance: {
+    name: "Patrimoine Gérance",
+    listingsUrl: "https://www.patrimoinegerance.ch/",
+    canton: "neuchatel",
+  },
+  neAmmetis: {
+    name: "Ammetis",
+    listingsUrl: "https://www.ammetis.ch/",
+    canton: "neuchatel",
+  },
+  neImmoglobe: {
+    name: "Immoglobe",
+    listingsUrl: "https://www.agence-immobiliere-immoglobe.ch/",
+    canton: "neuchatel",
+  },
+  neTrImmo: {
+    name: "TR Immobilier",
+    listingsUrl: "https://www.tr-immobilier.ch/",
+    canton: "neuchatel",
+  },
+  neViaterra: {
+    name: "Viaterra",
+    listingsUrl: "https://www.viaterra.ch/",
+    canton: "neuchatel",
+  },
+  neLombard: {
+    name: "Lombard SA",
+    listingsUrl: "https://www.lombard-sa.ch/",
+    canton: "neuchatel",
+  },
+  neCabanelImmo: {
+    name: "Cabanel Immo",
+    listingsUrl: "https://www.cabanelimmo.ch/",
+    canton: "neuchatel",
+  },
+  neWardah: {
+    name: "Wardah Immobilier",
+    listingsUrl: "https://www.wardahimmobilier.com/",
+    canton: "neuchatel",
+  },
+  neSothebys: {
+    name: "Sotheby's NE",
+    listingsUrl: "https://www.switzerland-sothebysrealty.ch/",
+    canton: "neuchatel",
+  },
+  neGerofinance: {
+    name: "Gerofinance NE",
+    listingsUrl: "https://www.gerofinance.ch/neuchatel",
+    canton: "neuchatel",
+  },
+  neMaillard: {
+    name: "Maillard Immo NE",
+    listingsUrl: "https://www.maillard-immo.ch/",
+    canton: "neuchatel",
+  },
 };
 
 function toggleAllAgencies(checked) {
@@ -1520,6 +1775,7 @@ const SCRAPER_DEFAULTS = {
 const cantonState = {
   vaud: { buyers: [], biens: [], results: [], groups: [], currentGroupIdx: 0 },
   valais: { buyers: [], biens: [], results: [], groups: [], currentGroupIdx: 0 },
+  neuchatel: { buyers: [], biens: [], results: [], groups: [], currentGroupIdx: 0 },
 };
 
 function getState() { return cantonState[currentCanton]; }
@@ -1531,6 +1787,12 @@ function switchCanton(canton) {
   cantonState[currentCanton].results = matchResults;
 
   currentCanton = canton;
+  // Update canton sub-tab highlights
+  const suffixMap = { vaud: 'VD', valais: 'VS', neuchatel: 'NE' };
+  document.querySelectorAll('.canton-tab').forEach(t => t.classList.remove('active'));
+  const activeTab = document.getElementById('cantonTab' + suffixMap[canton]);
+  if (activeTab) activeTab.classList.add('active');
+
   const config = getCantonConfig();
 
   // Restore state for this canton
@@ -2162,6 +2424,7 @@ function renderCurrentGroup() {
     </div>
     <div class="match-actions">
       <a href="${escapeHTML(bien.url || '#')}" target="_blank" class="match-link">Voir le bien</a>
+      <button class="match-exclude-btn" onclick="exclureBien('${escapeHTML(getBienKey(bien))}')">Exclure</button>
     </div>
     ${group.buyers.length > 0 ? `
     <div class="match-group-buyers">
@@ -2231,6 +2494,30 @@ function extractNPAFromText(annonce) {
 function isYearNotNPA(val) {
   const n = parseInt(val, 10);
   return n >= 2020 && n <= 2035;
+}
+
+const excludedBiens = new Set();
+
+function exclureBien(bienKey) {
+  excludedBiens.add(bienKey);
+  const state = cantonState[currentCanton];
+  state.groups = state.groups.filter(g => {
+    const key = getBienKey(g.bien);
+    return !excludedBiens.has(key);
+  });
+  if (state.groups.length === 0) {
+    document.getElementById("matchGrid").innerHTML = '<div class="history-empty">Aucune correspondance restante.</div>';
+    document.getElementById("matchCount").textContent = '0';
+    document.getElementById("matchNav").style.display = 'none';
+    return;
+  }
+  if (state.currentGroupIdx >= state.groups.length) state.currentGroupIdx = state.groups.length - 1;
+  renderCurrentGroup();
+  document.getElementById("matchCount").textContent = state.groups.length;
+}
+
+function getBienKey(bien) {
+  return (bien.url || bien.titre || '').toLowerCase().trim();
 }
 
 function calculerMatchScore(buyer, bien) {
@@ -2308,6 +2595,84 @@ function showMatchError(id, msg) {
     box.textContent = msg;
     box.classList.add("visible");
   }
+}
+
+function toggleFbPasteArea() {
+  const area = document.getElementById("fbPasteArea");
+  const btn = document.getElementById("btnFbPasteImport");
+  if (area) {
+    const show = area.style.display === 'none';
+    area.style.display = show ? '' : 'none';
+    if (btn) btn.style.display = show ? '' : 'none';
+  }
+}
+
+async function importerFacebookJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    let annonces = [];
+    if (Array.isArray(data)) annonces = data;
+    else if (data.annonces) annonces = data.annonces;
+    else if (data.results) annonces = data.results;
+    else if (data.data) annonces = Array.isArray(data.data) ? data.data : [data.data];
+
+    let count = 0;
+    for (const a of annonces) {
+      const bien = {
+        titre: a.titre || a.title || a.name || a.headline || '',
+        prix: parseInt(String(a.prix || a.price || a.amount || '0').replace(/[^\d]/g, ''), 10) || null,
+        localisation: a.localisation || a.location || a.city || a.address || null,
+        pieces: parseFloat(a.pieces || a.rooms || a.numberOfRooms || 0) || null,
+        surface_m2: parseInt(a.surface_m2 || a.surface || a.area || a.livingSpace || 0, 10) || null,
+        image_url: a.image_url || a.image || a.photo || a.thumbnail || null,
+        url: a.url || a.link || a.href || '',
+        type: a.type || 'unknown',
+        source: 'Facebook Marketplace',
+      };
+      if (bien.titre || bien.prix || bien.localisation) {
+        matchBiens.push(bien);
+        count++;
+      }
+    }
+    const badge = document.getElementById("fbImportBadge");
+    if (badge) {
+      badge.textContent = count + ' bien(s) importes depuis JSON — ' + matchBiens.length + ' bien(s) au total';
+      badge.classList.add("visible");
+    }
+    input.value = '';
+  } catch (err) {
+    showMatchError("fbImportError", "Erreur JSON : " + err.message);
+  }
+}
+
+function importerFacebookTexte() {
+  const textarea = document.getElementById("fbPasteArea");
+  const text = (textarea ? textarea.value : '').trim();
+  if (!text) {
+    showMatchError("fbImportError", "Collez d'abord le texte d'annonces.");
+    return;
+  }
+  const blocks = text.split(/\n\s*\n/).filter(b => b.trim());
+  let count = 0;
+  for (const block of blocks) {
+    const parsed = parseAdText(block.trim());
+    parsed.source = 'Facebook Marketplace';
+    if (parsed.titre || parsed.prix || parsed.localisation || (parsed.type && parsed.type !== 'unknown')) {
+      matchBiens.push(parsed);
+      count++;
+    }
+  }
+  const badge = document.getElementById("fbImportBadge");
+  if (badge) {
+    badge.textContent = count + ' bien(s) ajoutes — ' + matchBiens.length + ' bien(s) au total';
+    badge.classList.add("visible");
+  }
+  if (textarea) textarea.value = '';
+  const errBox = document.getElementById("fbImportError");
+  if (errBox) errBox.classList.remove("visible");
 }
 
 window.onload = () => loadHistory();

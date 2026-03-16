@@ -2937,6 +2937,9 @@ function lancerMatchingReverse() {
 }
 
 function afficherResultatsReverse() {
+  const resultsDiv = document.getElementById('reverseResults');
+  if (resultsDiv) resultsDiv.classList.add('visible');
+
   const countEl = document.getElementById('reverseMatchCount');
   const grid = document.getElementById('reverseMatchGrid');
   const recap = document.getElementById('reverseBienRecap');

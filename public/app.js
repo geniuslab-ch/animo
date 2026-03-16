@@ -706,6 +706,15 @@ function isSellerAd(annonce) {
   return false;
 }
 
+function isRentalListing(annonce) {
+  const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.fullText || '')).toLowerCase();
+  const rentalPatterns = /\b(à louer|a louer|location|louer|en location|bail|sous-location|sous location|mois de loyer|loyer mensuel|loyer|charges comprises|charges en sus|dès le|disponible dès|à remettre)\b/;
+  const salePatterns = /\b(à vendre|a vendre|vente|acheter|achat|prix de vente|offre d'achat)\b/;
+  // Si patterns de location détectés et aucun pattern de vente => c'est une location
+  if (rentalPatterns.test(text) && !salePatterns.test(text)) return true;
+  return false;
+}
+
 function isSwissListing(annonce) {
   const loc = (annonce.localisation || '').trim();
   const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + loc).toLowerCase();
@@ -723,8 +732,27 @@ let matchBuyers = [];
 let matchBiens = [];
 let matchResults = [];
 
-// URLs sources en ligne pour le matching immobilier
-const PA_ACHETEURS_URL = 'https://www.petitesannonces.ch/r/2707';
+// URLs sources en ligne pour le matching immobilier — par canton
+const CANTON_CONFIG = {
+  vaud: {
+    label: 'Vaud',
+    acheteurs_url: 'https://www.petitesannonces.ch/r/270724',
+    anibis_url: 'https://www.anibis.ch/fr/q/immobilier-appartements-maisons-terrains-objets-commerciaux-acheter/Ak8CqcmVhbEVzdGF0ZZSTkqljb21wYW55QWSncHJpdmF0ZZKrbGlzdGluZ1R5cGWUqWFwYXJ0bWVudKVob3VzZa5idWlsZGluZ0dyb3VuZLJjb21tZXJjaWFsUHJvcGVydHmSqXByaWNlVHlwZaNCVVnAwMA?sorting=newest&page=1',
+  },
+  valais: {
+    label: 'Valais',
+    acheteurs_url: 'https://www.petitesannonces.ch/r/270723',
+    anibis_url: null,
+  },
+};
+let currentCanton = 'vaud';
+
+function getCantonConfig() {
+  return CANTON_CONFIG[currentCanton] || CANTON_CONFIG.vaud;
+}
+
+// Legacy alias
+const PA_ACHETEURS_URL = 'https://www.petitesannonces.ch/r/270724';
 const ANIBIS_IMMOBILIER_URL = 'https://www.anibis.ch/fr/q/immobilier-appartements-maisons-terrains-objets-commerciaux-acheter/Ak8CqcmVhbEVzdGF0ZZSTkqljb21wYW55QWSncHJpdmF0ZZKrbGlzdGluZ1R5cGWUqWFwYXJ0bWVudKVob3VzZa5idWlsZGluZ0dyb3VuZLJjb21tZXJjaWFsUHJvcGVydHmSqXByaWNlVHlwZaNCVVnAwMA?sorting=newest&page=1';
 
 // Configuration des agences avec leurs URLs de listings
@@ -1148,19 +1176,329 @@ const AGENCIES = {
   homequest: {
     name: "Homequest",
     listingsUrl: "https://homequest.ch/",
+    canton: "vaud",
+  },
+  // ── Agences Valais ───────────────────────────────────────────────────
+  vsValimmobilier: {
+    name: "Valimmobilier",
+    listingsUrl: "https://www.valimmobilier.ch/",
+    canton: "valais",
+  },
+  vsComptoirImmo: {
+    name: "Comptoir Immo (VS)",
+    listingsUrl: "https://comptoir-immo.ch/",
+    canton: "valais",
+  },
+  vsTwixy: {
+    name: "Twixy",
+    listingsUrl: "https://twixy.ch/",
+    canton: "valais",
+  },
+  vsHermes: {
+    name: "Hermes Immobilier",
+    listingsUrl: "https://hermes-immobilier.ch/",
+    canton: "valais",
+  },
+  vsAllegro: {
+    name: "Agence Allegro",
+    listingsUrl: "https://www.agence-allegro.ch/",
+    canton: "valais",
+  },
+  vsBarnes: {
+    name: "Barnes Suisse (VS)",
+    listingsUrl: "https://www.barnes-suisse.ch/",
+    canton: "valais",
+  },
+  vsSzImmo: {
+    name: "SZ Immo",
+    listingsUrl: "https://www.sz-immo.ch/fr",
+    canton: "valais",
+  },
+  vsEden: {
+    name: "Eden Immobilier",
+    listingsUrl: "https://eden-immobilier.ch/",
+    canton: "valais",
+  },
+  vsBerra: {
+    name: "Berra Immobilier",
+    listingsUrl: "https://www.berra-immobilier.ch/",
+    canton: "valais",
+  },
+  vsImvista: {
+    name: "Imvista",
+    listingsUrl: "https://www.imvista.ch/",
+    canton: "valais",
+  },
+  vsSummum: {
+    name: "Summum Immo",
+    listingsUrl: "https://www.summum-immo.ch/",
+    canton: "valais",
+  },
+  vsOmnia: {
+    name: "Omnia (VS)",
+    listingsUrl: "https://www.omnia.ch/",
+    canton: "valais",
+  },
+  vsFontannaz: {
+    name: "Fontannaz Immobilier",
+    listingsUrl: "https://www.fontannaz-immobilier.ch/fr",
+    canton: "valais",
+  },
+  vsProgestimmo: {
+    name: "Progestimmo",
+    listingsUrl: "https://www.progestimmo.ch/",
+    canton: "valais",
+  },
+  vsImmoValais: {
+    name: "Immo Valais",
+    listingsUrl: "https://www.immo-valais.ch/",
+    canton: "valais",
+  },
+  vsMuzimmo: {
+    name: "Muzimmo",
+    listingsUrl: "https://www.muzimmo.ch/",
+    canton: "valais",
+  },
+  vsBfr: {
+    name: "BFR Immobilier",
+    listingsUrl: "https://www.bfr-immobilier.ch/",
+    canton: "valais",
+  },
+  vsValcity: {
+    name: "Valcity",
+    listingsUrl: "https://valcity.ch/",
+    canton: "valais",
+  },
+  vs123Immo: {
+    name: "123 Immo",
+    listingsUrl: "https://www.123immo.ch/",
+    canton: "valais",
+  },
+  vsAcor: {
+    name: "Acor Immo",
+    listingsUrl: "https://www.acor-immo.ch/",
+    canton: "valais",
+  },
+  vsResidence2b: {
+    name: "Residence 2B",
+    listingsUrl: "https://residence2b.ch/",
+    canton: "valais",
+  },
+  vsFidaval: {
+    name: "Fidaval",
+    listingsUrl: "https://www.fidaval.ch/",
+    canton: "valais",
+  },
+  vsSchmidt: {
+    name: "Schmidt Immobilier",
+    listingsUrl: "https://www.schmidt-immobilier.ch/",
+    canton: "valais",
+  },
+  vsDmImmo: {
+    name: "DM Immo",
+    listingsUrl: "https://dm-immo.ch/",
+    canton: "valais",
+  },
+  vsGefimmo: {
+    name: "Gefimmo",
+    listingsUrl: "https://www.gefimmo.ch/",
+    canton: "valais",
+  },
+  vsKlimmo: {
+    name: "Klimmo",
+    listingsUrl: "https://www.klimmo.ch/",
+    canton: "valais",
+  },
+  vsAmma: {
+    name: "Amma Immo (VS)",
+    listingsUrl: "https://www.amma.immo/",
+    canton: "valais",
+  },
+  vsLogipro: {
+    name: "Logipro Immo",
+    listingsUrl: "https://logipro-immo.ch/",
+    canton: "valais",
+  },
+  vsNaef: {
+    name: "Naef (VS)",
+    listingsUrl: "https://www.naef.ch/acheter/",
+    canton: "valais",
+  },
+  vsBernardNicod: {
+    name: "Bernard Nicod (VS)",
+    listingsUrl: "https://www.bernard-nicod.ch/fr/acheter",
+    canton: "valais",
+  },
+  vsAbimmo: {
+    name: "Abimmo",
+    listingsUrl: "https://www.abimmo.ch/",
+    canton: "valais",
+  },
+  vsStehlin: {
+    name: "Stehlin",
+    listingsUrl: "https://www.stehlin.ch/",
+    canton: "valais",
+  },
+  vsValgroup: {
+    name: "Valgroup",
+    listingsUrl: "https://valgroup.ch/",
+    canton: "valais",
+  },
+  vsAltrium: {
+    name: "Altrium",
+    listingsUrl: "https://altrium.ch/",
+    canton: "valais",
+  },
+  vsProviva: {
+    name: "Proviva",
+    listingsUrl: "https://www.proviva.ch/",
+    canton: "valais",
+  },
+  vsHeinz: {
+    name: "Heinz Immobilier",
+    listingsUrl: "https://heinz-immobilier.ch/",
+    canton: "valais",
+  },
+  vsAlpRealEstate: {
+    name: "Alp Real Estate",
+    listingsUrl: "https://www.alprealestate.ch/",
+    canton: "valais",
+  },
+  vsNendazVente: {
+    name: "Nendaz Vente",
+    listingsUrl: "https://www.nendaz-vente.ch/fr",
+    canton: "valais",
+  },
+  vsAltipik: {
+    name: "Altipik",
+    listingsUrl: "https://www.altipik.ch/",
+    canton: "valais",
+  },
+  vsInterAgence: {
+    name: "Inter Agence",
+    listingsUrl: "https://www.inter-agence.ch/",
+    canton: "valais",
+  },
+  vsLerezo: {
+    name: "Le Rezo",
+    listingsUrl: "https://www.lerezo.ch/",
+    canton: "valais",
+  },
+  vsDomicilia: {
+    name: "Domicilia",
+    listingsUrl: "https://domicilia.ch/",
+    canton: "valais",
+  },
+  vsVeya: {
+    name: "Veya Immobilier",
+    listingsUrl: "https://www.veya-immobilier.ch/",
+    canton: "valais",
+  },
+  vsMithieux: {
+    name: "Mithieux Immobilier",
+    listingsUrl: "https://mithieux-immobilier.ch/",
+    canton: "valais",
+  },
+  vsEren: {
+    name: "Eren Immobilier",
+    listingsUrl: "https://www.eren-immobilier.ch/",
+    canton: "valais",
+  },
+  vsHomepartner: {
+    name: "Home Partner",
+    listingsUrl: "https://homepartner.ch/",
+    canton: "valais",
+  },
+  vsLeValaisImmobilier: {
+    name: "Le Valais Immobilier",
+    listingsUrl: "https://www.levalaisimmobilier.ch/",
+    canton: "valais",
+  },
+  vsBenoitDorsaz: {
+    name: "Benoit Dorsaz Immobilier",
+    listingsUrl: "https://www.benoitdorsaz-immobilier.ch/",
+    canton: "valais",
+  },
+  vsAlberic: {
+    name: "Alberic Immobilier",
+    listingsUrl: "https://www.alberic-immobilier.ch/",
+    canton: "valais",
+  },
+  vsSilver: {
+    name: "Silver Immobilier",
+    listingsUrl: "https://silverimmobilier.ch/",
+    canton: "valais",
+  },
+  vsCbsImmo: {
+    name: "CBS Immo",
+    listingsUrl: "https://www.cbsimmo.ch/",
+    canton: "valais",
+  },
+  vsChbImmo: {
+    name: "CHB Immo",
+    listingsUrl: "https://www.chbimmo.ch/",
+    canton: "valais",
+  },
+  vsImmorare: {
+    name: "Immorare",
+    listingsUrl: "https://www.immorare.ch/",
+    canton: "valais",
+  },
+  vsTrustImmobilier: {
+    name: "Trust Immobilier",
+    listingsUrl: "https://trustimmobilier.ch/",
+    canton: "valais",
+  },
+  vsValorise: {
+    name: "Valorise Home",
+    listingsUrl: "https://www.valorise-home.ch/",
+    canton: "valais",
   },
 };
 
 function toggleAllAgencies(checked) {
-  const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]");
-  checkboxes.forEach(cb => cb.checked = checked);
+  // Ne toggler que les agences du canton actif (visibles)
+  const activeGroup = document.querySelector(`.agency-canton-group[data-canton="${currentCanton}"]`);
+  if (activeGroup) {
+    activeGroup.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = checked);
+  } else {
+    // Fallback
+    const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]");
+    checkboxes.forEach(cb => cb.checked = checked);
+  }
 }
 
 // ── Category Switching ─────────────────────────────────────────────────────
 
 const SCRAPER_DEFAULTS = {
-  immobilier: { url: 'https://www.petitesannonces.ch/r/2707', placeholder: 'Collez l\'URL de la rubrique (ex: https://www.petitesannonces.ch/r/2707)' },
+  immobilier: { url: 'https://www.petitesannonces.ch/r/270724', placeholder: 'Collez l\'URL de la rubrique achat (ex: https://www.petitesannonces.ch/r/270724)' },
 };
+
+function switchCanton(canton) {
+  currentCanton = canton;
+  const config = getCantonConfig();
+  // Mettre a jour l'URL des acheteurs
+  const buyerUrlEl = document.getElementById("matchBuyersUrl");
+  if (buyerUrlEl) buyerUrlEl.value = config.acheteurs_url;
+  // Mettre a jour le badge canton
+  document.querySelectorAll('.canton-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.canton === canton);
+  });
+  // Mettre a jour les agences visibles
+  document.querySelectorAll('.agency-canton-group').forEach(g => {
+    g.style.display = g.dataset.canton === canton ? '' : 'none';
+  });
+  // Reset les donnees
+  matchBuyers = [];
+  matchBiens = [];
+  matchResults = [];
+  const buyersBadge = document.getElementById("buyersCountBadge");
+  const biensBadge = document.getElementById("biensCountBadge");
+  const matchResultsDiv = document.getElementById("matchResults");
+  if (buyersBadge) buyersBadge.classList.remove("visible");
+  if (biensBadge) biensBadge.classList.remove("visible");
+  if (matchResultsDiv) matchResultsDiv.classList.remove("visible");
+}
 
 
 let buyersCurrentPage = 0;
@@ -1216,7 +1554,7 @@ async function scannerAcheteursPage(page) {
 
     let newCount = 0;
     if (data.annonces && data.annonces.length > 0) {
-      const filtered = data.annonces.filter(a => !isSellerAd(a) && isSwissListing(a));
+      const filtered = data.annonces.filter(a => !isSellerAd(a) && !isRentalListing(a) && isSwissListing(a));
       matchBuyers.push(...filtered);
       newCount = filtered.length;
     }
@@ -1308,7 +1646,11 @@ async function importerAcheteurPDF(fileInput) {
 }
 
 async function scannerAgences() {
-  const checkboxes = document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
+  // Ne prendre que les agences cochees du canton actif
+  const activeGroup = document.querySelector(`.agency-canton-group[data-canton="${currentCanton}"]`);
+  const checkboxes = activeGroup
+    ? activeGroup.querySelectorAll('input[type=checkbox]:checked')
+    : document.querySelectorAll("#agencyChecklist input[type=checkbox]:checked");
   const selectedAgencies = [...checkboxes].map(cb => cb.value);
   const scanAnibis = document.getElementById("matchSourceAnibis")?.checked;
 
@@ -1332,7 +1674,8 @@ async function scannerAgences() {
 
   // Scanner les sources en ligne d'abord
   const onlineSources = [];
-  if (scanAnibis) onlineSources.push({ name: 'anibis.ch', url: ANIBIS_IMMOBILIER_URL });
+  const cantonCfg = getCantonConfig();
+  if (scanAnibis && cantonCfg.anibis_url) onlineSources.push({ name: 'anibis.ch', url: cantonCfg.anibis_url });
 
   for (const source of onlineSources) {
     if (loadingText) loadingText.textContent = `Scan ${source.name}...`;
@@ -1399,8 +1742,8 @@ async function scannerAgences() {
     }
   }
 
-  // Filtrer les biens hors Suisse
-  matchBiens = matchBiens.filter(b => isSwissListing(b));
+  // Filtrer les biens hors Suisse et les annonces de location
+  matchBiens = matchBiens.filter(b => isSwissListing(b) && !isRentalListing(b));
 
   if (loading) loading.classList.remove("visible");
   if (btn) { btn.disabled = false; btn.classList.remove("loading"); }

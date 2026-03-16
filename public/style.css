@@ -1636,6 +1636,34 @@ footer p {
   color: var(--noir);
 }
 
+/* ── Canton Selector ──────────────────────────────────────────────────────*/
+.canton-selector {
+  display: flex;
+  gap: 8px;
+}
+.canton-btn {
+  padding: 8px 20px;
+  background: white;
+  border: 1.5px solid var(--gris-clair);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gris);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.canton-btn.active {
+  background: var(--noir);
+  color: white;
+  border-color: var(--noir);
+}
+.canton-btn:not(.active):hover {
+  background: var(--gris-clair);
+  color: var(--noir);
+}
+
 /* ── Agences Tab ──────────────────────────────────────────────────────────*/
 .agences-intro {
   margin-bottom: 32px;

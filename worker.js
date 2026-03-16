@@ -498,7 +498,7 @@ async function handleScrapeAgency(request, env) {
 
         const baseObj = new URL(pageUrl);
         const baseDomain = baseObj.origin;
-        const maxPages = 3;
+        const maxPages = 5;
         let allAnnonces = [];
         let currentUrl = pageUrl;
         let usedSmartProxy = false;

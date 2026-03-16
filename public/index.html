@@ -561,6 +561,22 @@
             <p class="agences-desc">Croisement automatique par localisation, budget, pieces et surface</p>
           </div>
         </div>
+        <div class="search-mode-options">
+          <label class="search-mode-option">
+            <input type="radio" name="searchMode" value="restreinte" checked>
+            <div>
+              <strong>Recherche restreinte</strong>
+              <span class="search-mode-desc">Même localisation ou région immédiate uniquement (même NPA ou district voisin)</span>
+            </div>
+          </label>
+          <label class="search-mode-option">
+            <input type="radio" name="searchMode" value="elargie">
+            <div>
+              <strong>Recherche élargie</strong>
+              <span class="search-mode-desc">Périmètre étendu : inclut les régions adjacentes et l'ensemble du canton</span>
+            </div>
+          </label>
+        </div>
         <button class="btn-analyser accent" id="btnMatch" onclick="lancerMatching()">
           <div class="spinner"></div>
           <span class="btn-text">Trouver les correspondances</span>

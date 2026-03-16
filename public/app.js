@@ -1721,10 +1721,10 @@ async function importerAcheteurPDF(fileInput) {
 function parseAdText(text) {
   // Prix
   let prix = null;
-  const prixMatch = text.match(/(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/i)
-      || text.match(/([\d''\u2019.,]+)\s*(?:CHF|Fr\.?|SFr\.?)/i);
+  const prixMatch = text.match(/(?:CHF|Frs\.?|Fr\.?|SFr\.?)\s*([\d''\u2019.,\-]+)/i)
+      || text.match(/([\d''\u2019.,\-]+)\s*(?:CHF|Frs\.?|Fr\.?|SFr\.?)/i);
   if (prixMatch) {
-    prix = parseInt(prixMatch[1].replace(/[''\u2019.,\s]/g, ''), 10) || null;
+    prix = parseInt(prixMatch[1].replace(/[''\u2019.,\s\-]/g, ''), 10) || null;
   }
 
   // Pieces
@@ -1760,16 +1760,31 @@ function parseAdText(text) {
   // Fallback: chercher un nom de region/canton
   if (!localisation) {
     const regionPatterns = [
+      // Arc lemanique (Lausanne-Montreux-Nyon, rive nord du Leman)
+      { pattern: /\barc\s+l[ée]manique\b/i, loc: '1000 Lausanne' },
+      { pattern: /\brive\s+nord\b/i, loc: '1000 Lausanne' },
+      { pattern: /\blac\s+l[ée]man\b/i, loc: '1000 Lausanne' },
+      // Vaud - regions
+      { pattern: /\bla\s+c[oô]te\b/i, loc: '1260 Nyon' },
+      { pattern: /\bgros[- ]de[- ]vaud\b/i, loc: '1040 Echallens' },
+      { pattern: /\bnord\s+vaudois\b/i, loc: '1400 Yverdon' },
+      { pattern: /\bbroye\b/i, loc: '1530 Payerne' },
+      { pattern: /\blavaux\b/i, loc: '1095 Lutry' },
+      { pattern: /\briviera\b/i, loc: '1820 Montreux' },
+      { pattern: /\bvaud\b/i, loc: '1000 Lausanne' },
+      // Valais
       { pattern: /\bvalais\s+central\b/i, loc: '1950 Sion' },
+      { pattern: /\bhaut[- ]valais\b/i, loc: '3900 Brig' },
+      { pattern: /\bbas[- ]valais\b/i, loc: '1870 Monthey' },
       { pattern: /\brégion\s+(?:de\s+)?sion\b/i, loc: '1950 Sion' },
       { pattern: /\brégion\s+(?:de\s+)?sierre\b/i, loc: '3960 Sierre' },
       { pattern: /\brégion\s+(?:de\s+)?martigny\b/i, loc: '1920 Martigny' },
       { pattern: /\brégion\s+(?:de\s+)?monthey\b/i, loc: '1870 Monthey' },
-      { pattern: /\bvalais\b/i, loc: '1950 Sion' },
-      { pattern: /\bvaud\b/i, loc: '1000 Lausanne' },
       { pattern: /\bchablais\b/i, loc: '1870 Monthey' },
-      { pattern: /\briviera\b/i, loc: '1820 Montreux' },
-      { pattern: /\blavaux\b/i, loc: '1095 Lutry' },
+      { pattern: /\bvalais\b/i, loc: '1950 Sion' },
+      // Geneve / Fribourg
+      { pattern: /\bgen[eè]ve\b/i, loc: '1200 Geneve' },
+      { pattern: /\bfribourg\b/i, loc: '1700 Fribourg' },
     ];
     for (const { pattern, loc } of regionPatterns) {
       if (pattern.test(text)) {
@@ -1988,7 +2003,8 @@ function lancerMatching() {
 
       // Score de pertinence
       const { score, breakdown } = calculerMatchScore(buyer, bien);
-      if (score >= 50) {
+      const minScore = getSearchMode() === 'elargie' ? 30 : 50;
+      if (score >= minScore) {
         matchResults.push({ buyer, bien, score, breakdown });
       }
     }

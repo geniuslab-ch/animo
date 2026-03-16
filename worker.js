@@ -490,36 +490,44 @@ async function handleScrapeAgency(request, env) {
         const maxPages = 3;
         let allAnnonces = [];
         let currentUrl = pageUrl;
+        let usedSmartProxy = false;
 
         for (let page = 1; page <= maxPages; page++) {
-            const response = await fetch(currentUrl, {
-                headers: {
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
-                    "Referer": baseDomain + "/",
-                },
-            });
+            // Tentative 1 : fetch direct (gratuit, rapide)
+            let html = '';
+            let fetchOk = false;
 
-            if (!response.ok) {
-                if (page === 1) {
-                    return new Response(JSON.stringify({
-                        annonces: [],
-                        error: `Site inaccessible (${response.status})`,
-                    }), {
-                        status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
-                    });
+            try {
+                const response = await fetch(currentUrl, {
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                        "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+                        "Referer": baseDomain + "/",
+                    },
+                });
+                if (response.ok) {
+                    html = await response.text();
+                    fetchOk = true;
                 }
-                break;
+            } catch (e) { /* fetch direct echoue */ }
+
+            let annonces = fetchOk ? extractAgencyListings(html, baseDomain, agencyName || "Agence") : [];
+
+            // Tentative 2 : SmartProxy fallback si fetch direct n'a rien donne
+            if (annonces.length === 0 && env.SMARTPROXY_AUTH) {
+                try {
+                    const spHtml = await fetchViaSmartProxy(currentUrl, env);
+                    if (spHtml) {
+                        html = spHtml;
+                        annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
+                        if (annonces.length > 0) usedSmartProxy = true;
+                    }
+                } catch (e) { /* SmartProxy echoue */ }
             }
 
-            const html = await response.text();
-            const isSPA = detectSPAShell(html);
-
-            let annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
-
-            // Pour les sites SPA, tenter d'extraire au moins les meta tags og: de la page
-            if (annonces.length === 0 && isSPA) {
+            // Dernier recours : meta tags pour les SPA
+            if (annonces.length === 0 && detectSPAShell(html)) {
                 const spaAd = extractMetaTagsAd(html, currentUrl, agencyName || "Agence");
                 if (spaAd) annonces.push(spaAd);
             }
@@ -533,8 +541,9 @@ async function handleScrapeAgency(request, env) {
             currentUrl = nextUrl;
         }
 
-        const status = allAnnonces.length > 0 ? 'ok' : (detectSPAShell('' /* already checked */) ? 'spa_empty' : 'empty');
-        const message = allAnnonces.length === 0 ? 'Aucune annonce trouvee' : null;
+        const status = allAnnonces.length > 0 ? 'ok' : 'empty';
+        const message = allAnnonces.length === 0 ? 'Aucune annonce trouvee' :
+            (usedSmartProxy ? 'Via SmartProxy (rendu JS)' : null);
 
         return new Response(JSON.stringify({ annonces: allAnnonces, total: allAnnonces.length, status, message }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -658,6 +667,37 @@ Pour la localisation, utilise le format "NPA Ville" suisse (4 chiffres + nom de 
 }
 
 // Detecter le lien vers la page suivante dans le HTML
+// SmartProxy Web Scraping API — rendu JavaScript cote serveur
+async function fetchViaSmartProxy(url, env) {
+    if (!env.SMARTPROXY_AUTH) return null;
+
+    const auth = btoa(env.SMARTPROXY_AUTH);
+    const response = await fetch('https://scraper-api.decodo.com/v2/scrape', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Basic ${auth}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            target: 'universal',
+            url: url,
+        }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    // L'API retourne le HTML rendu dans le champ "results"
+    if (data.results && data.results[0] && data.results[0].content) {
+        return data.results[0].content;
+    }
+    // Certaines versions retournent directement le body
+    if (data.body) return data.body;
+    if (typeof data === 'string') return data;
+
+    return null;
+}
+
 function findNextPageUrl(html, currentUrl, baseDomain) {
     // Patterns courants de pagination
     const patterns = [

@@ -477,13 +477,7 @@ async function scrapeAdDetail(adUrl, env) {
     // Ne retourner que si au moins un champ utile
     if (!prix && !pieces && !surface_m2 && !localisation) return null;
 
-    // Detecter et exclure les annonces de location (louer)
-    const combined = ((titre || '') + ' ' + (description || '')).toLowerCase();
-    const isRental = /\b(à louer|a louer|en location|loyer|bail|sous-location|mois de loyer|charges comprises|charges en sus)\b/.test(combined)
-        && !/\b(à vendre|a vendre|vente|achat|acheter|prix de vente)\b/.test(combined);
-    if (isRental) return null;
-
-    return {
+    const result = {
         url: adUrl,
         titre,
         description,
@@ -495,6 +489,11 @@ async function scrapeAdDetail(adUrl, env) {
         image_url,
         source: adUrl.includes('anibis.ch') ? 'anibis.ch' : 'petitesannonces.ch',
     };
+
+    // Detecter et exclure les annonces de location (louer)
+    if (isRentalAd(result)) return null;
+
+    return result;
 }
 
 // ── Scrape Agency (scan automatique d'un site d'agence) ─────────────────────
@@ -824,6 +823,17 @@ Pour la localisation, utilise le format "NPA Ville" suisse (4 chiffres + nom de 
 }
 
 // Detecter le lien vers la page suivante dans le HTML
+// Detecter les annonces de location (a exclure)
+function isRentalAd(annonce) {
+    const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.fullText || '')).toLowerCase();
+    const rentalPatterns = /\b(à louer|a louer|en location|louer|bail|sous-location|sous location|mois de loyer|loyer mensuel|loyer|charges comprises|charges en sus|zu vermieten|miete|affitto|per mese|to rent)\b/;
+    const salePatterns = /\b(à vendre|a vendre|vente|achat|acheter|prix de vente|rendement|immeuble de rapport|zu verkaufen|vendita)\b/;
+    if (rentalPatterns.test(text) && !salePatterns.test(text)) return true;
+    // Prix mensuel detecte (pattern /mois ou /m ou par mois)
+    if (/\b\d[\d''.]*\s*(?:\/\s*mois|\/\s*m\b|p\.?\s*m\.?|par mois|mensuel)/i.test(text)) return true;
+    return false;
+}
+
 // SmartProxy Web Scraping API — rendu JavaScript cote serveur
 async function fetchViaSmartProxy(url, env) {
     if (!env.SMARTPROXY_AUTH) return null;
@@ -987,12 +997,12 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         } catch (e) { /* JSON invalide */ }
     }
 
-    // Si JSON-LD a donne des resultats, on les retourne
-    if (annonces.length > 0) return annonces;
+    // Si JSON-LD a donne des resultats, on les retourne (sans les locations)
+    if (annonces.length > 0) return annonces.filter(a => !isRentalAd(a));
 
     // Strategie 1.5 : Donnees SSR embarquees (Next.js, Nuxt.js, etc.)
     const ssrAnnonces = extractSSRData(html, baseDomain, agencyName);
-    if (ssrAnnonces.length > 0) return ssrAnnonces;
+    if (ssrAnnonces.length > 0) return ssrAnnonces.filter(a => !isRentalAd(a));
 
     // Strategie 2 : Extraction par patterns HTML generiques
     // Chercher les blocs qui ressemblent a des annonces (contenant prix + lien)
@@ -1089,7 +1099,7 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         if (annonces.length >= 30) break;
     }
 
-    return annonces;
+    return annonces.filter(a => !isRentalAd(a));
 }
 
 // Extraire les donnees depuis les frameworks SSR (Next.js, Nuxt.js, etc.)

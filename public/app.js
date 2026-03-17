@@ -729,10 +729,12 @@ function isSellerAd(annonce) {
 
 function isRentalListing(annonce) {
   const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.fullText || '')).toLowerCase();
-  const rentalPatterns = /\b(à louer|a louer|location|louer|en location|bail|sous-location|sous location|mois de loyer|loyer mensuel|loyer|charges comprises|charges en sus|dès le|disponible dès|à remettre)\b/;
-  const salePatterns = /\b(à vendre|a vendre|vente|acheter|achat|prix de vente|offre d'achat)\b/;
+  const rentalPatterns = /\b(à louer|a louer|location|louer|en location|bail|sous-location|sous location|mois de loyer|loyer mensuel|loyer|charges comprises|charges en sus|dès le|disponible dès|à remettre|zu vermieten|miete|affitto|per mese|to rent)\b/;
+  const salePatterns = /\b(à vendre|a vendre|vente|acheter|achat|prix de vente|offre d'achat|rendement|immeuble de rapport|zu verkaufen|vendita)\b/;
   // Si patterns de location détectés et aucun pattern de vente => c'est une location
   if (rentalPatterns.test(text) && !salePatterns.test(text)) return true;
+  // Prix mensuel détecté (pattern /mois, /m, par mois, mensuel)
+  if (/\b\d[\d''.]*\s*(?:\/\s*mois|\/\s*m\b|p\.?\s*m\.?|par mois|mensuel)/i.test(text)) return true;
   return false;
 }
 
@@ -2033,7 +2035,73 @@ let buyersCurrentPage = 0;
 async function scannerAcheteurs() {
   buyersCurrentPage = 0;
   matchBuyers = [];
-  await scannerAcheteursPage(1);
+
+  const urlEl = document.getElementById("matchBuyersUrl");
+  const input = urlEl ? urlEl.value.trim() : "";
+  if (!input) { showMatchError("matchBuyersError", "Veuillez coller l'URL d'une rubrique."); return; }
+
+  let baseUrl;
+  try { baseUrl = new URL(input).href; } catch { showMatchError("matchBuyersError", "URL invalide."); return; }
+
+  const btn = document.getElementById("btnScanBuyers");
+  const btnNext = document.getElementById("btnNextPageBuyers");
+  const loading = document.getElementById("matchBuyersLoading");
+  const loadingText = document.getElementById("matchBuyersLoadingText");
+  const errBox = document.getElementById("matchBuyersError");
+
+  if (errBox) errBox.classList.remove("visible");
+  if (btn) { btn.disabled = true; btn.classList.add("loading"); }
+  if (btnNext) btnNext.style.display = 'none';
+  if (loading) loading.classList.add("visible");
+
+  try {
+    const maxPages = 20;
+    for (let page = 1; page <= maxPages; page++) {
+      if (loadingText) loadingText.textContent = `Scan acheteurs page ${page}...`;
+      const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`;
+
+      const response = await fetch("/api/scrape-listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+        body: JSON.stringify({ url: pageUrl }),
+      });
+      if (!response.ok) break;
+      const data = await response.json();
+
+      if (data.annonces && data.annonces.length > 0) {
+        const filtered = data.annonces.filter(a => !isSellerAd(a) && !isRentalListing(a) && isSwissListing(a));
+        matchBuyers.push(...filtered);
+      }
+
+      buyersCurrentPage = page;
+
+      const badge = document.getElementById("buyersCountBadge");
+      if (badge) {
+        badge.textContent = `${matchBuyers.length} acheteur(s) trouvé(s) (page ${page}...)`;
+        badge.classList.add("visible");
+      }
+
+      if (!data.annonces || data.annonces.length === 0 || data.hasMore === false) break;
+      if (page < maxPages) await new Promise(r => setTimeout(r, 2000));
+    }
+
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+
+    const badge = document.getElementById("buyersCountBadge");
+    if (badge) {
+      badge.textContent = `${matchBuyers.length} acheteur(s) trouvé(s) (${buyersCurrentPage} pages scannées)`;
+      badge.classList.add("visible");
+    }
+
+    if (matchBuyers.length === 0) {
+      showMatchError("matchBuyersError", "Aucun acheteur trouvé.");
+    }
+  } catch (err) {
+    if (loading) loading.classList.remove("visible");
+    if (btn) { btn.disabled = false; btn.classList.remove("loading"); }
+    showMatchError("matchBuyersError", "Erreur : " + err.message);
+  }
 }
 
 async function scannerAcheteursPageSuivante() {
@@ -2846,7 +2914,7 @@ async function importerFacebookJSON(input) {
         type: a.type || 'unknown',
         source: 'Facebook Marketplace',
       };
-      if (bien.titre || bien.prix || bien.localisation) {
+      if ((bien.titre || bien.prix || bien.localisation) && !isRentalListing(bien)) {
         matchBiens.push(bien);
         count++;
       }
@@ -2874,7 +2942,7 @@ function importerFacebookTexte() {
   for (const block of blocks) {
     const parsed = parseAdText(block.trim());
     parsed.source = 'Facebook Marketplace';
-    if (parsed.titre || parsed.prix || parsed.localisation || (parsed.type && parsed.type !== 'unknown')) {
+    if ((parsed.titre || parsed.prix || parsed.localisation || (parsed.type && parsed.type !== 'unknown')) && !isRentalListing(parsed)) {
       matchBiens.push(parsed);
       count++;
     }
@@ -3055,7 +3123,73 @@ async function importerVendeurPDF(fileInput) {
 async function scannerAcheteursReverse() {
   reverseCurrentPage = 0;
   reverseAcheteurs = [];
-  await scannerAcheteursReversePage(1);
+
+  const urlEl = document.getElementById('reverseAcheteursUrl');
+  const input = urlEl ? urlEl.value.trim() : '';
+  if (!input) { showMatchError('reverseAcheteursError', 'Veuillez coller l\'URL d\'une rubrique.'); return; }
+
+  let baseUrl;
+  try { baseUrl = new URL(input).href; } catch { showMatchError('reverseAcheteursError', 'URL invalide.'); return; }
+
+  const btn = document.getElementById('btnRevScanBuyers');
+  const btnNext = document.getElementById('btnRevNextPage');
+  const loading = document.getElementById('reverseAcheteursLoading');
+  const loadingText = document.getElementById('reverseAcheteursLoadingText');
+  const errBox = document.getElementById('reverseAcheteursError');
+
+  if (errBox) errBox.classList.remove('visible');
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+  if (btnNext) btnNext.style.display = 'none';
+  if (loading) loading.classList.add('visible');
+
+  try {
+    const maxPages = 20;
+    for (let page = 1; page <= maxPages; page++) {
+      if (loadingText) loadingText.textContent = 'Scan acheteurs page ' + page + '...';
+      const pageUrl = page === 1 ? baseUrl : baseUrl + '?page=' + page;
+
+      const response = await fetch('/api/scrape-listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-secret-token': SECRET_TOKEN },
+        body: JSON.stringify({ url: pageUrl }),
+      });
+      if (!response.ok) break;
+      const data = await response.json();
+
+      if (data.annonces && data.annonces.length > 0) {
+        const filtered = data.annonces.filter(a => !isSellerAd(a) && !isRentalListing(a) && isSwissListing(a));
+        reverseAcheteurs.push(...filtered);
+      }
+
+      reverseCurrentPage = page;
+
+      const badge = document.getElementById('reverseAcheteursBadge');
+      if (badge) {
+        badge.textContent = reverseAcheteurs.length + ' acheteur(s) trouvé(s) (page ' + page + '...)';
+        badge.classList.add('visible');
+      }
+
+      if (!data.annonces || data.annonces.length === 0 || data.hasMore === false) break;
+      if (page < maxPages) await new Promise(r => setTimeout(r, 2000));
+    }
+
+    if (loading) loading.classList.remove('visible');
+    if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+
+    const badge = document.getElementById('reverseAcheteursBadge');
+    if (badge) {
+      badge.textContent = reverseAcheteurs.length + ' acheteur(s) trouvé(s) (' + reverseCurrentPage + ' pages scannées)';
+      badge.classList.add('visible');
+    }
+
+    if (reverseAcheteurs.length === 0) {
+      showMatchError('reverseAcheteursError', 'Aucun acheteur trouvé.');
+    }
+  } catch (e) {
+    showMatchError('reverseAcheteursError', e.message);
+    if (loading) loading.classList.remove('visible');
+    if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+  }
 }
 
 async function scannerAcheteursReverseSuivante() {

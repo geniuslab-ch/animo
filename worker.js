@@ -277,7 +277,7 @@ async function handleScrapeListings(request, env) {
         // Mode fiche individuelle (pour le matching)
         if (singleAd) {
             try {
-                const ad = await scrapeAdDetail(pageUrl);
+                const ad = await scrapeAdDetail(pageUrl, env);
                 return new Response(JSON.stringify({
                     annonces: ad ? [ad] : [],
                     hasMore: false,
@@ -292,24 +292,33 @@ async function handleScrapeListings(request, env) {
             }
         }
 
-        // Fetcher la page de liste
-        const response = await fetch(pageUrl, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
-            },
-        });
+        // Fetcher la page de liste (avec fallback SmartProxy)
+        let html = null;
 
-        if (!response.ok) {
+        // Tentative 1 : fetch direct
+        try {
+            const response = await fetch(pageUrl, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+                },
+            });
+            if (response.ok) html = await response.text();
+        } catch (e) { /* ignore, will try SmartProxy */ }
+
+        // Tentative 2 : SmartProxy fallback
+        if (!html && env.SMARTPROXY_AUTH) {
+            html = await fetchViaSmartProxy(pageUrl, env);
+        }
+
+        if (!html) {
             return new Response(JSON.stringify({
-                error: `Impossible de charger la page (${response.status})`,
+                error: "Impossible de charger la page",
             }), {
                 status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
             });
         }
-
-        const html = await response.text();
 
         // Detecter la source (anibis vs petitesannonces)
         const isAnibis = pageUrl.includes('anibis.ch');
@@ -339,7 +348,7 @@ async function handleScrapeListings(request, env) {
 
         for (const adUrl of links) {
             try {
-                const ad = await scrapeAdDetail(adUrl);
+                const ad = await scrapeAdDetail(adUrl, env);
                 if (ad) annonces.push(ad);
             } catch (e) {
                 // Ignorer les fiches qui echouent
@@ -364,18 +373,27 @@ async function handleScrapeListings(request, env) {
 }
 
 // ── Scraper une fiche individuelle ──────────────────────────────────────────
-async function scrapeAdDetail(adUrl) {
-    const response = await fetch(adUrl, {
-        headers: {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "fr-CH,fr;q=0.9",
-        },
-    });
+async function scrapeAdDetail(adUrl, env) {
+    let html = null;
 
-    if (!response.ok) return null;
+    // Tentative 1 : fetch direct
+    try {
+        const response = await fetch(adUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "fr-CH,fr;q=0.9",
+            },
+        });
+        if (response.ok) html = await response.text();
+    } catch (e) { /* ignore, will try SmartProxy */ }
 
-    const html = await response.text();
+    // Tentative 2 : SmartProxy fallback
+    if (!html && env?.SMARTPROXY_AUTH) {
+        html = await fetchViaSmartProxy(adUrl, env);
+    }
+
+    if (!html) return null;
 
     // Nettoyer le HTML pour extraire le texte
     const text = html

@@ -528,7 +528,7 @@ async function handleScrapeAgency(request, env) {
 
         const baseObj = new URL(pageUrl);
         const baseDomain = baseObj.origin;
-        const maxPages = 5;
+        const maxPages = 15;
         let allAnnonces = [];
         let currentUrl = pageUrl;
         let usedSmartProxy = false;
@@ -1096,7 +1096,7 @@ function extractAgencyListings(html, baseDomain, agencyName) {
             source: agencyName,
         });
 
-        if (annonces.length >= 30) break;
+        if (annonces.length >= 100) break;
     }
 
     return annonces.filter(a => !isRentalAd(a));
@@ -1179,7 +1179,7 @@ function findListingsInObject(obj, baseDomain, depth = 0) {
         // Sinon recurser dans chaque element
         for (const item of obj.slice(0, 50)) {
             results.push(...findListingsInObject(item, baseDomain, depth + 1));
-            if (results.length >= 30) return results;
+            if (results.length >= 100) return results;
         }
         return results;
     }
@@ -1188,7 +1188,7 @@ function findListingsInObject(obj, baseDomain, depth = 0) {
         for (const [key, value] of Object.entries(obj)) {
             if (value && typeof value === 'object') {
                 results.push(...findListingsInObject(value, baseDomain, depth + 1));
-                if (results.length >= 30) return results;
+                if (results.length >= 100) return results;
             }
         }
     }

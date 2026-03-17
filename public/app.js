@@ -2447,6 +2447,7 @@ function lancerMatching() {
   matchResults = [];
 
   for (const buyer of matchBuyers) {
+    if (excludedBuyers.has(getBuyerKey(buyer))) continue;
     for (const bien of matchBiens) {
       // Ignorer les auto-matchs (même annonce dans les deux listes)
       if (buyer.url && bien.url && buyer.url === bien.url) continue;
@@ -2574,6 +2575,7 @@ function renderCurrentGroup() {
       </div>
       <div class="match-side-loc">${escapeHTML(buyer.localisation || '')}</div>
       ${buyer.url ? `<a href="${escapeHTML(buyer.url)}" target="_blank" class="match-link">Voir annonce</a>` : ''}
+      <button class="match-exclude-btn" onclick="exclureAcheteur('${escapeHTML(getBuyerKey(buyer))}')">Exclure</button>
     </div>
   `).join('');
 
@@ -2700,6 +2702,36 @@ function exclureBien(bienKey) {
 
 function getBienKey(bien) {
   return (bien.url || bien.titre || '').toLowerCase().trim();
+}
+
+const excludedBuyers = new Set();
+
+function getBuyerKey(buyer) {
+  return (buyer.url || buyer.titre || '').toLowerCase().trim();
+}
+
+function exclureAcheteur(buyerKey) {
+  excludedBuyers.add(buyerKey);
+  const state = cantonState[currentCanton];
+  state.groups.forEach(g => {
+    g.buyers = g.buyers.filter(b => !excludedBuyers.has(getBuyerKey(b)));
+  });
+  state.groups = state.groups.filter(g => g.buyers.length > 0);
+  if (state.groups.length === 0) {
+    document.getElementById("matchGrid").innerHTML = '<div class="history-empty">Aucune correspondance restante.</div>';
+    document.getElementById("matchCount").textContent = '0';
+    document.getElementById("matchNav").style.display = 'none';
+    return;
+  }
+  if (state.currentGroupIdx >= state.groups.length) state.currentGroupIdx = state.groups.length - 1;
+  renderCurrentGroup();
+  document.getElementById("matchCount").textContent = state.groups.length;
+}
+
+function exclureAcheteurReverse(buyerKey) {
+  excludedBuyers.add(buyerKey);
+  reverseResults = reverseResults.filter(r => !excludedBuyers.has(getBuyerKey(r.buyer)));
+  afficherResultatsReverse();
 }
 
 function calculerMatchScore(buyer, bien, searchMode) {
@@ -3106,6 +3138,7 @@ function lancerMatchingReverse() {
   reverseResults = [];
 
   for (const buyer of reverseAcheteurs) {
+    if (excludedBuyers.has(getBuyerKey(buyer))) continue;
     const exclusion = checkExclusions(buyer, reverseBien, searchMode);
     if (!exclusion.compatible) continue;
     const { score, breakdown } = calculerMatchScore(buyer, reverseBien, searchMode);
@@ -3185,6 +3218,7 @@ function afficherResultatsReverse() {
     if (b.url) {
       html += '<a href="' + escapeHTML(b.url) + '" target="_blank" class="match-link">Voir l\'annonce</a>';
     }
+    html += '<button class="match-exclude-btn" onclick="exclureAcheteurReverse(\'' + escapeHTML(getBuyerKey(b)) + '\')">Exclure</button>';
 
     html += '</div>';
   }

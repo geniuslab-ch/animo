@@ -292,24 +292,28 @@ async function handleScrapeListings(request, env) {
             }
         }
 
-        // Fetcher la page de liste (avec fallback SmartProxy)
+        // Fetcher la page de liste (SmartProxy en priorité)
         let html = null;
 
-        // Tentative 1 : fetch direct
-        try {
-            const response = await fetch(pageUrl, {
-                headers: {
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
-                },
-            });
-            if (response.ok) html = await response.text();
-        } catch (e) { /* ignore, will try SmartProxy */ }
+        // Tentative 1 : SmartProxy (meilleur taux de succès)
+        if (env.SMARTPROXY_AUTH) {
+            try {
+                html = await fetchViaSmartProxy(pageUrl, env);
+            } catch (e) { /* SmartProxy échoué, on essaie le fetch direct */ }
+        }
 
-        // Tentative 2 : SmartProxy fallback
-        if (!html && env.SMARTPROXY_AUTH) {
-            html = await fetchViaSmartProxy(pageUrl, env);
+        // Tentative 2 : fetch direct (fallback gratuit)
+        if (!html) {
+            try {
+                const response = await fetch(pageUrl, {
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                        "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+                    },
+                });
+                if (response.ok) html = await response.text();
+            } catch (e) { /* ignore */ }
         }
 
         if (!html) {
@@ -376,21 +380,25 @@ async function handleScrapeListings(request, env) {
 async function scrapeAdDetail(adUrl, env) {
     let html = null;
 
-    // Tentative 1 : fetch direct
-    try {
-        const response = await fetch(adUrl, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "fr-CH,fr;q=0.9",
-            },
-        });
-        if (response.ok) html = await response.text();
-    } catch (e) { /* ignore, will try SmartProxy */ }
+    // Tentative 1 : SmartProxy (prioritaire)
+    if (env?.SMARTPROXY_AUTH) {
+        try {
+            html = await fetchViaSmartProxy(adUrl, env);
+        } catch (e) { /* SmartProxy échoué, fallback au fetch direct */ }
+    }
 
-    // Tentative 2 : SmartProxy fallback
-    if (!html && env?.SMARTPROXY_AUTH) {
-        html = await fetchViaSmartProxy(adUrl, env);
+    // Tentative 2 : fetch direct (fallback)
+    if (!html) {
+        try {
+            const response = await fetch(adUrl, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "fr-CH,fr;q=0.9",
+                },
+            });
+            if (response.ok) html = await response.text();
+        } catch (e) { /* ignore */ }
     }
 
     if (!html) return null;
@@ -527,37 +535,42 @@ async function handleScrapeAgency(request, env) {
         let usedSmartProxy = false;
 
         for (let page = 1; page <= maxPages; page++) {
-            // Tentative 1 : fetch direct (gratuit, rapide)
             let html = '';
             let fetchOk = false;
+            let annonces = [];
 
-            try {
-                const response = await fetch(currentUrl, {
-                    headers: {
-                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                        "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
-                        "Referer": baseDomain + "/",
-                    },
-                });
-                if (response.ok) {
-                    html = await response.text();
-                    fetchOk = true;
-                }
-            } catch (e) { /* fetch direct echoue */ }
-
-            let annonces = fetchOk ? extractAgencyListings(html, baseDomain, agencyName || "Agence") : [];
-
-            // Tentative 2 : SmartProxy fallback si fetch direct n'a rien donne
-            if (annonces.length === 0 && env.SMARTPROXY_AUTH) {
+            // Tentative 1 : SmartProxy (prioritaire, meilleur taux de succès)
+            if (env.SMARTPROXY_AUTH) {
                 try {
                     const spHtml = await fetchViaSmartProxy(currentUrl, env);
                     if (spHtml) {
                         html = spHtml;
                         annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
-                        if (annonces.length > 0) usedSmartProxy = true;
+                        if (annonces.length > 0) {
+                            fetchOk = true;
+                            usedSmartProxy = true;
+                        }
                     }
-                } catch (e) { /* SmartProxy echoue */ }
+                } catch (e) { /* SmartProxy échoué, fallback au fetch direct */ }
+            }
+
+            // Tentative 2 : fetch direct (fallback gratuit)
+            if (!fetchOk) {
+                try {
+                    const response = await fetch(currentUrl, {
+                        headers: {
+                            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                            "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+                            "Referer": baseDomain + "/",
+                        },
+                    });
+                    if (response.ok) {
+                        html = await response.text();
+                        fetchOk = true;
+                        annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
+                    }
+                } catch (e) { /* fetch direct échoué */ }
             }
 
             // Dernier recours : meta tags pour les SPA

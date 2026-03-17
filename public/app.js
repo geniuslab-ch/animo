@@ -729,10 +729,12 @@ function isSellerAd(annonce) {
 
 function isRentalListing(annonce) {
   const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.fullText || '')).toLowerCase();
-  const rentalPatterns = /\b(à louer|a louer|location|louer|en location|bail|sous-location|sous location|mois de loyer|loyer mensuel|loyer|charges comprises|charges en sus|dès le|disponible dès|à remettre)\b/;
-  const salePatterns = /\b(à vendre|a vendre|vente|acheter|achat|prix de vente|offre d'achat)\b/;
+  const rentalPatterns = /\b(à louer|a louer|location|louer|en location|bail|sous-location|sous location|mois de loyer|loyer mensuel|loyer|charges comprises|charges en sus|dès le|disponible dès|à remettre|zu vermieten|miete|affitto|per mese|to rent)\b/;
+  const salePatterns = /\b(à vendre|a vendre|vente|acheter|achat|prix de vente|offre d'achat|rendement|immeuble de rapport|zu verkaufen|vendita)\b/;
   // Si patterns de location détectés et aucun pattern de vente => c'est une location
   if (rentalPatterns.test(text) && !salePatterns.test(text)) return true;
+  // Prix mensuel détecté (pattern /mois, /m, par mois, mensuel)
+  if (/\b\d[\d''.]*\s*(?:\/\s*mois|\/\s*m\b|p\.?\s*m\.?|par mois|mensuel)/i.test(text)) return true;
   return false;
 }
 
@@ -2846,7 +2848,7 @@ async function importerFacebookJSON(input) {
         type: a.type || 'unknown',
         source: 'Facebook Marketplace',
       };
-      if (bien.titre || bien.prix || bien.localisation) {
+      if ((bien.titre || bien.prix || bien.localisation) && !isRentalListing(bien)) {
         matchBiens.push(bien);
         count++;
       }
@@ -2874,7 +2876,7 @@ function importerFacebookTexte() {
   for (const block of blocks) {
     const parsed = parseAdText(block.trim());
     parsed.source = 'Facebook Marketplace';
-    if (parsed.titre || parsed.prix || parsed.localisation || (parsed.type && parsed.type !== 'unknown')) {
+    if ((parsed.titre || parsed.prix || parsed.localisation || (parsed.type && parsed.type !== 'unknown')) && !isRentalListing(parsed)) {
       matchBiens.push(parsed);
       count++;
     }

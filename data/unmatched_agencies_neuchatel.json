@@ -1,0 +1,410 @@
+[
+  {
+    "name": "Achat Immobilier",
+    "city": "2063 Saules"
+  },
+  {
+    "name": "AGesteam Sàrl",
+    "city": "2013 Colombier NE"
+  },
+  {
+    "name": "AJA Immobilier",
+    "city": "2074 Marin-Epagnier"
+  },
+  {
+    "name": "AS Asset Services SA",
+    "city": "2036 Cormondrèche"
+  },
+  {
+    "name": "Atrium, conseils & gestion immobilière Sàrl",
+    "city": "2016 Cortaillod"
+  },
+  {
+    "name": "B-Free Immobilier",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "B2P SA",
+    "city": "2013 Colombier NE"
+  },
+  {
+    "name": "Batec-immobilier",
+    "city": "2013 Colombier NE"
+  },
+  {
+    "name": "BERCIMO SA",
+    "city": "2014 Bôle"
+  },
+  {
+    "name": "Bornand Immobilier",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "BR Immobilier Corporate Sàrl",
+    "city": "2017 Boudry"
+  },
+  {
+    "name": "Broggi SA",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "BZImmobilier Sàrl",
+    "city": "2042 Valangin"
+  },
+  {
+    "name": "Sauge 8",
+    "city": "2042 Valangin"
+  },
+  {
+    "name": "C-Lagérance Sàrl",
+    "city": "2013 Colombier NE"
+  },
+  {
+    "name": "Carré-Noir Sàrl",
+    "city": "2087 Cornaux NE"
+  },
+  {
+    "name": "Castel Régie SA",
+    "city": "2034 Peseux"
+  },
+  {
+    "name": "Le Château 23",
+    "city": "2034 Peseux"
+  },
+  {
+    "name": "CBOX Services SA",
+    "city": "2017 Boudry"
+  },
+  {
+    "name": "Chanson Immobilier",
+    "city": "2525 Le Landeron"
+  },
+  {
+    "name": "CIC SA",
+    "city": "2034 Peseux"
+  },
+  {
+    "name": "Le Château",
+    "city": "2034 Peseux"
+  },
+  {
+    "name": "Claude Jacot",
+    "city": "2072 St-Blaise"
+  },
+  {
+    "name": "Claude Mayor Régie Immobilière",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Promenade-Noire 10",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Compagnie Immobilière Romande Sàrl",
+    "city": "2013 Colombier NE"
+  },
+  {
+    "name": "COPRIVA SA",
+    "city": "2072 St-Blaise"
+  },
+  {
+    "name": "Coworking La Chaux-de-Fonds Gare",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "CPA Ribaudes SA",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Louis-Guillaume 14",
+    "city": "2074 Marin-Epagnier"
+  },
+  {
+    "name": "Domicim La Chaux-de-Fonds",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "Dynactif SA",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "easyMOB",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "Etude Nicolas Pointet",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Eugène Herschdorfer Gérance Immobilière",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Vy-d'Etra 33a",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Expertissimmo Sàrl",
+    "city": "2053 Cernier"
+  },
+  {
+    "name": "Faubourg de l’Hôpital 13",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Promenade-Noire 5",
+    "city": "2001 Neuchâtel"
+  },
+  {
+    "name": "Fiscaplus SA",
+    "city": "2013 Colombier NE"
+  },
+  {
+    "name": "Forbat SA",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Gérance Bosshart & Gautschi SA",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "Gérance Charles-Berset SA",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "Gérance CPCN",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "GHB Gérance",
+    "city": "2114 Fleurier"
+  },
+  {
+    "name": "gpc gérance ppe courtage sa",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Hypoimmo SA",
+    "city": "2400 Le Locle"
+  },
+  {
+    "name": "ifimmob Sàrl",
+    "city": "2025 Chez-le-Bart"
+  },
+  {
+    "name": "Littoral 62D",
+    "city": "2025 Chez-le-Bart"
+  },
+  {
+    "name": "immobilier-NE.ch Sàrl",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "Isabelle Cornu Pehlivanlar",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "JD Planification Sàrl",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "JDM Consulting Sàrl",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Espace de l’Europe 20",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Kasapimmo SA",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "KS Immobilier",
+    "city": "2074 Marin-Epagnier"
+  },
+  {
+    "name": "L'Atelier Immobilier Sàrl",
+    "city": "2525 Le Landeron"
+  },
+  {
+    "name": "LAFIDU Immobilier Sàrl",
+    "city": "2013 Colombier NE"
+  },
+  {
+    "name": "Littoral-Gérance SA",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "MAJ immo SA",
+    "city": "2024 St-Aubin-Sauges"
+  },
+  {
+    "name": "Marti Gérance et Conseils",
+    "city": "2072 St-Blaise"
+  },
+  {
+    "name": "Masini Immobilier SA",
+    "city": "2016 Cortaillod"
+  },
+  {
+    "name": "MCM Immobilier SA",
+    "city": "2525 Le Landeron"
+  },
+  {
+    "name": "METANOVA SA",
+    "city": "2088 Cressier NE"
+  },
+  {
+    "name": "MF Gestion immobilière",
+    "city": "2206 Les Geneveys-sur-Coffrane"
+  },
+  {
+    "name": "Faubourg du Lac 9",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Monnier Gérances",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "MURA Real Estate SA",
+    "city": "2036 Cormondrèche"
+  },
+  {
+    "name": "My-Defensor Sàrl",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "NEXIUM IMMOBILIER Sàrl",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "NOOBS-Immo",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Vaud-Fribourg-Neuchâtel",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Offidus Régie Immobilière SA",
+    "city": "2016 Cortaillod"
+  },
+  {
+    "name": "En Segrin 1",
+    "city": "2016 Cortaillod"
+  },
+  {
+    "name": "Faubourg de l'Hôpital 21",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "OptiGestion Services Immobiliers SA",
+    "city": "2034 Peseux"
+  },
+  {
+    "name": "Patrick Immobilier Sàrl - Cortaillod",
+    "city": "2016 Cortaillod"
+  },
+  {
+    "name": "Peruccio Gérance",
+    "city": "2400 Le Locle"
+  },
+  {
+    "name": "Petoud Immobilier",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "PRO Conseils",
+    "city": "2116 Mont-de-Buttes"
+  },
+  {
+    "name": "Chez La Leuba 2",
+    "city": "2116 Mont-de-Buttes"
+  },
+  {
+    "name": "Pro Immob SA",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "ProxiServices",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "PY Gérance",
+    "city": "2301 La Chaux-de-Fonds"
+  },
+  {
+    "name": "RB immobilier",
+    "city": "2057 Villiers"
+  },
+  {
+    "name": "Régie des Montagnes",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "RIBAUX VON KESSEL, Services Immobiliers, SA",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Promenade Noire N°6",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Roccabella Immo SA",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Rotilio Immobilier SA",
+    "city": "2016 Cortaillod"
+  },
+  {
+    "name": "RT-Immo SA",
+    "city": "2013 Colombier NE"
+  },
+  {
+    "name": "Fbg du Lac 5",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Société coopérative d'habitation Les Rocailles",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Swiss-Immo-Dream",
+    "city": "2115 Buttes"
+  },
+  {
+    "name": "J.-L.-de-Pourtalès 1",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "TERRIER SA",
+    "city": "2053 Cernier"
+  },
+  {
+    "name": "The Swatch Group Immeubles SA",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Faubourg de l'Hôpital 3",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "VDS Immobilier Sàrl",
+    "city": "2300 La Chaux-de-Fonds"
+  },
+  {
+    "name": "Vernets Parc – Swiss Select Immo SA",
+    "city": "2035 Corcelles NE"
+  },
+  {
+    "name": "WOB-Conseils",
+    "city": "2000 Neuchâtel"
+  },
+  {
+    "name": "Roc 2",
+    "city": "2000 Neuchâtel"
+  }
+]

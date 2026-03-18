@@ -993,7 +993,7 @@ function detectSPAShell(html) {
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-    return textContent.length < 200;
+    return textContent.length < 500;
 }
 
 // ── Extraction generique des listings depuis une page d'agence ──────────────
@@ -1069,7 +1069,7 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         seenUrls.add(href);
 
         // Chercher les infos autour du lien (500 chars avant et apres dans le HTML)
-        const linkPos = textOnly.indexOf(linkMatch[0]);
+        const linkPos = linkMatch.index;
         const context = textOnly.substring(Math.max(0, linkPos - 300), Math.min(textOnly.length, linkPos + linkMatch[0].length + 300));
         const contextText = context.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
@@ -1097,12 +1097,12 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         const locM = contextText.match(/\b(\d{4}\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/);
         if (locM) localisation = locM[1].trim();
 
-        // Ne garder que si au moins prix ou pieces
-        if (!prix && !pieces && !surface_m2) continue;
+        // Ne garder que si au moins un champ utile (prix, pieces, surface ou localisation)
+        if (!prix && !pieces && !surface_m2 && !localisation) continue;
 
-        // Extraire l'image la plus proche
+        // Extraire l'image la plus proche (chercher dans le meme contexte nettoyé)
         let image_url = null;
-        const imgContext = html.substring(Math.max(0, linkPos - 500), Math.min(html.length, linkPos + 500));
+        const imgContext = textOnly.substring(Math.max(0, linkPos - 500), Math.min(textOnly.length, linkPos + 500));
         const imgM = imgContext.match(/(?:src|data-src)=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/i);
         if (imgM && !imgM[1].includes('logo') && !imgM[1].includes('icon')) {
             image_url = imgM[1];

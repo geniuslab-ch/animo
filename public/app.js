@@ -3352,15 +3352,13 @@ async function scannerAgences() {
     }
   }
 
-  for (const agencyKey of selectedAgencies) {
-    const agency = AGENCIES[agencyKey];
-    if (!agency) continue;
+  const CONCURRENCY = 5;
+  const agencyEntries = selectedAgencies
+    .map(key => ({ key, agency: AGENCIES[key] }))
+    .filter(e => e.agency);
+  const total = agencyEntries.length;
 
-    scannedCount++;
-    if (loadingText) {
-      loadingText.textContent = `Scan ${agency.name} (${scannedCount}/${selectedAgencies.length})...`;
-    }
-
+  async function scanOneAgency({ key, agency }) {
     try {
       const response = await fetch("/api/scrape-agency", {
         method: "POST",
@@ -3371,26 +3369,40 @@ async function scannerAgences() {
       if (response.ok) {
         const data = await response.json();
         const count = data.annonces?.length || 0;
-        if (count > 0) {
-          matchBiens.push(...data.annonces.map(a => ({ ...a, source: agency.name })));
-        }
-        agencyStatuses.push({
+        const annonces = count > 0
+          ? data.annonces.map(a => ({ ...a, source: agency.name }))
+          : [];
+        return {
           name: agency.name,
           status: data.status || (count > 0 ? 'ok' : 'empty'),
-          count,
-          message: data.message || null,
-        });
+          count, message: data.message || null, annonces,
+        };
       } else {
-        agencyStatuses.push({ name: agency.name, status: 'error', count: 0, message: `HTTP ${response.status}` });
+        return { name: agency.name, status: 'error', count: 0, message: `HTTP ${response.status}`, annonces: [] };
       }
     } catch (e) {
-      agencyStatuses.push({ name: agency.name, status: 'error', count: 0, message: e.message });
+      return { name: agency.name, status: 'error', count: 0, message: e.message, annonces: [] };
+    }
+  }
+
+  // Traitement par batches de CONCURRENCY agences en parallèle
+  for (let i = 0; i < agencyEntries.length; i += CONCURRENCY) {
+    const batch = agencyEntries.slice(i, i + CONCURRENCY);
+    const batchNames = batch.map(e => e.agency.name).join(', ');
+    if (loadingText) {
+      loadingText.textContent = `Scan ${i + 1}-${Math.min(i + CONCURRENCY, total)}/${total} : ${batchNames}...`;
     }
 
-    // Pause entre les agences
-    if (scannedCount < selectedAgencies.length) {
-      await new Promise(r => setTimeout(r, 1000));
+    const results = await Promise.all(batch.map(scanOneAgency));
+
+    for (const r of results) {
+      scannedCount++;
+      if (r.annonces.length > 0) matchBiens.push(...r.annonces);
+      agencyStatuses.push({ name: r.name, status: r.status, count: r.count, message: r.message });
     }
+
+    // Mise à jour progressive des statuts
+    afficherAgencyStatuses(agencyStatuses);
   }
 
   // Filtrer les biens hors Suisse et les annonces de location, puis dedupliquer

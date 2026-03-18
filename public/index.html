@@ -28,6 +28,7 @@
       <button class="tab-btn active" id="tabAnalyse" onclick="switchTab('analyse')">Analyse</button>
       <button class="tab-btn" id="tabAgences" onclick="switchTab('agences')">Agences</button>
       <button class="tab-btn" id="tabScraper" onclick="switchTab('scraper')">Petites Annonces</button>
+      <button class="tab-btn" id="tabCensus" onclick="switchTab('census')">Recensement</button>
       <button class="tab-btn" id="tabMatching" onclick="switchTab('matching')">Matching</button>
       <button class="tab-btn" id="tabReverse" onclick="switchTab('reverse')">Trouver Acheteurs</button>
       <button class="tab-btn" id="tabHistorique" onclick="switchTab('historique')">Historique</button>
@@ -258,6 +259,68 @@
           <button class="btn-pdf" onclick="exporterJSON()">Exporter JSON</button>
         </div>
         <div id="scraperGrid" class="scraper-grid"></div>
+      </div>
+
+    </div>
+
+    <!-- ── TAB: Recensement ─────────────────────────────────────────────── -->
+    <div id="pageCensus" class="tab-page">
+
+      <!-- Canton sub-tabs -->
+      <div class="canton-tabs" style="margin-bottom:16px">
+        <button class="canton-tab active" onclick="censusSwitchCanton('vaud')" id="censusCantonVD">Vaud</button>
+        <button class="canton-tab" onclick="censusSwitchCanton('valais')" id="censusCantonVS">Valais</button>
+        <button class="canton-tab" onclick="censusSwitchCanton('neuchatel')" id="censusCantonNE">Neuchatel</button>
+        <button class="canton-tab" onclick="censusSwitchCanton('fribourg')" id="censusCantonFR">Fribourg</button>
+        <button class="canton-tab" onclick="censusSwitchCanton('geneve')" id="censusCantonGE">Geneve</button>
+      </div>
+
+      <!-- Filtres -->
+      <div class="census-filters">
+        <div class="census-filter-row">
+          <input type="text" id="censusFilterLocation" class="census-filter-input" placeholder="Filtrer par lieu (ex: Lausanne, 1200...)" oninput="censusApplyFilters()">
+          <select id="censusFilterType" class="census-filter-select" onchange="censusApplyFilters()">
+            <option value="">Tous les types</option>
+            <option value="apartment">Appartement</option>
+            <option value="house">Maison / Villa</option>
+            <option value="land">Terrain</option>
+            <option value="commercial">Commercial</option>
+          </select>
+          <select id="censusFilterPrice" class="census-filter-select" onchange="censusApplyFilters()">
+            <option value="">Tous les prix</option>
+            <option value="0-500000">< CHF 500'000</option>
+            <option value="500000-1000000">CHF 500'000 - 1M</option>
+            <option value="1000000-2000000">CHF 1M - 2M</option>
+            <option value="2000000-">> CHF 2M</option>
+          </select>
+        </div>
+        <div class="census-filter-row" style="margin-top:8px; gap:8px; align-items:center">
+          <button class="btn-analyser" id="btnCensusScan" onclick="censusLancerScan()" style="flex:none; padding:10px 24px">
+            <div class="spinner"></div>
+            <span class="btn-text">Scanner toutes les agences</span>
+          </button>
+          <span class="census-stats" id="censusStats"></span>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div class="loading-box" id="censusLoading">
+        <div class="spinner-anim"></div>
+        <span id="censusLoadingText">Scan en cours...</span>
+      </div>
+
+      <!-- Erreur -->
+      <div class="error-box" id="censusError"></div>
+
+      <!-- Statuts des agences -->
+      <div class="agency-status-list" id="censusAgencyStatuses"></div>
+
+      <!-- Grille des annonces -->
+      <div class="scraper-results" id="censusResults">
+        <div class="scraper-grid" id="censusGrid"></div>
+        <div class="census-load-more" id="censusLoadMore" style="display:none">
+          <button class="agency-select-btn" onclick="censusShowMore()">Afficher plus</button>
+        </div>
       </div>
 
     </div>

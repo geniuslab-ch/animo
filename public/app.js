@@ -104,9 +104,9 @@ function checkExclusions(buyer, bien, searchMode) {
 
 // ── Tab Navigation ───────────────────────────────────────────────────────────
 function switchTab(tab) {
-  const tabs = ["analyse", "agences", "scraper", "matching", "reverse", "historique"];
-  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", matching: "pageMatching", reverse: "pageReverse", historique: "pageHistorique" };
-  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", matching: "tabMatching", reverse: "tabReverse", historique: "tabHistorique" };
+  const tabs = ["analyse", "agences", "scraper", "census", "matching", "reverse", "historique"];
+  const pageIds = { analyse: "pageAnalyse", agences: "pageAgences", scraper: "pageScraper", census: "pageCensus", matching: "pageMatching", reverse: "pageReverse", historique: "pageHistorique" };
+  const tabIds = { analyse: "tabAnalyse", agences: "tabAgences", scraper: "tabScraper", census: "tabCensus", matching: "tabMatching", reverse: "tabReverse", historique: "tabHistorique" };
   for (const t of tabs) {
     const page = document.getElementById(pageIds[t]);
     const btn = document.getElementById(tabIds[t]);
@@ -4296,6 +4296,208 @@ function afficherResultatsReverse() {
     html += '</div>';
   }
   grid.innerHTML = html;
+}
+
+// ── Recensement (Census) ──────────────────────────────────────────────────────
+let censusCurrentCanton = "vaud";
+let censusAllListings = []; // toutes les annonces scannées
+let censusFiltered = [];    // après filtrage
+let censusDisplayed = 0;    // combien affichées
+const CENSUS_PAGE_SIZE = 60;
+
+function censusSwitchCanton(canton) {
+  censusCurrentCanton = canton;
+  const suffixMap = { vaud: 'VD', valais: 'VS', neuchatel: 'NE', fribourg: 'FR', geneve: 'GE' };
+  document.querySelectorAll('#pageCensus .canton-tab').forEach(t => t.classList.remove('active'));
+  const btn = document.getElementById('censusCanton' + suffixMap[canton]);
+  if (btn) btn.classList.add('active');
+  // Reset quand on change de canton
+  censusAllListings = [];
+  censusFiltered = [];
+  censusDisplayed = 0;
+  const grid = document.getElementById('censusGrid');
+  if (grid) grid.innerHTML = '';
+  const stats = document.getElementById('censusStats');
+  if (stats) stats.textContent = '';
+  const results = document.getElementById('censusResults');
+  if (results) results.classList.remove('visible');
+  const statuses = document.getElementById('censusAgencyStatuses');
+  if (statuses) { statuses.innerHTML = ''; statuses.classList.remove('visible'); }
+}
+
+async function censusLancerScan() {
+  const btn = document.getElementById('btnCensusScan');
+  const loading = document.getElementById('censusLoading');
+  const loadingText = document.getElementById('censusLoadingText');
+  const errBox = document.getElementById('censusError');
+
+  if (errBox) errBox.classList.remove('visible');
+  if (btn) { btn.disabled = true; btn.classList.add('loading'); }
+  if (loading) loading.classList.add('visible');
+
+  censusAllListings = [];
+  const agencyStatuses = [];
+
+  // Récupérer toutes les agences du canton sélectionné
+  const entries = [];
+  for (const [key, agency] of Object.entries(AGENCIES)) {
+    const canton = getAgencyCanton(key, agency);
+    if (canton === censusCurrentCanton) {
+      entries.push({ key, agency });
+    }
+  }
+
+  const CONCURRENCY = 5;
+  let scannedCount = 0;
+  const total = entries.length;
+
+  async function scanOne({ key, agency }) {
+    try {
+      const response = await fetch("/api/scrape-agency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
+        body: JSON.stringify({ url: agency.listingsUrl, agencyName: agency.name }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const count = data.annonces?.length || 0;
+        const annonces = count > 0 ? data.annonces.map(a => ({ ...a, source: agency.name })) : [];
+        return { name: agency.name, status: data.status || (count > 0 ? 'ok' : 'empty'), count, message: data.message || null, annonces };
+      } else {
+        return { name: agency.name, status: 'error', count: 0, message: `HTTP ${response.status}`, annonces: [] };
+      }
+    } catch (e) {
+      return { name: agency.name, status: 'error', count: 0, message: e.message, annonces: [] };
+    }
+  }
+
+  for (let i = 0; i < entries.length; i += CONCURRENCY) {
+    const batch = entries.slice(i, i + CONCURRENCY);
+    if (loadingText) {
+      loadingText.textContent = `Scan ${i + 1}-${Math.min(i + CONCURRENCY, total)}/${total} agences...`;
+    }
+    const results = await Promise.all(batch.map(scanOne));
+    for (const r of results) {
+      scannedCount++;
+      if (r.annonces.length > 0) censusAllListings.push(...r.annonces);
+      agencyStatuses.push({ name: r.name, status: r.status, count: r.count, message: r.message });
+    }
+    // Mise à jour progressive
+    censusUpdateStats(scannedCount, total, agencyStatuses);
+    afficherCensusAgencyStatuses(agencyStatuses);
+  }
+
+  // Filtrer location/doublons
+  censusAllListings = censusAllListings.filter(b => isSwissListing(b) && !isRentalListing(b));
+  censusAllListings = deduplicateBiens(censusAllListings);
+
+  if (loading) loading.classList.remove('visible');
+  if (btn) { btn.disabled = false; btn.classList.remove('loading'); }
+
+  censusUpdateStats(scannedCount, total, agencyStatuses);
+  censusApplyFilters();
+
+  if (censusAllListings.length === 0) {
+    if (errBox) { errBox.textContent = 'Aucune annonce trouvee.'; errBox.classList.add('visible'); }
+  }
+}
+
+function censusUpdateStats(scanned, total, statuses) {
+  const stats = document.getElementById('censusStats');
+  if (!stats) return;
+  const ok = statuses.filter(s => s.status === 'ok').length;
+  const totalListings = statuses.reduce((sum, s) => sum + s.count, 0);
+  stats.textContent = `${scanned}/${total} agences scannees · ${ok} avec resultats · ${totalListings} annonces`;
+}
+
+function afficherCensusAgencyStatuses(statuses) {
+  const container = document.getElementById('censusAgencyStatuses');
+  if (!container) return;
+  container.innerHTML = statuses.map(s => {
+    const icon = s.status === 'ok' ? '\u2705' : s.status === 'empty' ? '\u26AB' : '\u274C';
+    const label = s.status === 'ok' ? `${s.count} bien(s)` : s.status === 'empty' ? 'Aucun' : 'Erreur';
+    const tooltip = s.message ? ` title="${escapeHTML(s.message)}"` : '';
+    return `<span class="agency-status-item agency-status-${s.status}"${tooltip}>${icon} ${escapeHTML(s.name)}: ${label}</span>`;
+  }).join('');
+  container.classList.add('visible');
+}
+
+function censusApplyFilters() {
+  const locationVal = (document.getElementById('censusFilterLocation')?.value || '').toLowerCase().trim();
+  const typeVal = document.getElementById('censusFilterType')?.value || '';
+  const priceVal = document.getElementById('censusFilterPrice')?.value || '';
+
+  censusFiltered = censusAllListings.filter(a => {
+    // Filtre lieu
+    if (locationVal) {
+      const loc = (a.localisation || '').toLowerCase();
+      const src = (a.source || '').toLowerCase();
+      if (!loc.includes(locationVal) && !src.includes(locationVal)) return false;
+    }
+    // Filtre type
+    if (typeVal && a.type && a.type !== typeVal) return false;
+    // Filtre prix
+    if (priceVal && a.prix) {
+      const [min, max] = priceVal.split('-').map(Number);
+      if (min && a.prix < min) return false;
+      if (max && a.prix > max) return false;
+    }
+    return true;
+  });
+
+  // Trier par prix décroissant
+  censusFiltered.sort((a, b) => (b.prix || 0) - (a.prix || 0));
+
+  censusDisplayed = 0;
+  const grid = document.getElementById('censusGrid');
+  if (grid) grid.innerHTML = '';
+  censusShowMore();
+
+  // Compteur de résultats
+  const stats = document.getElementById('censusStats');
+  if (stats && censusAllListings.length > 0) {
+    const locCounts = {};
+    censusFiltered.forEach(a => {
+      const loc = a.localisation || 'Inconnu';
+      const city = loc.replace(/^\d{4}\s*/, '');
+      locCounts[city] = (locCounts[city] || 0) + 1;
+    });
+    const topCities = Object.entries(locCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([c, n]) => `${c} (${n})`).join(', ');
+    stats.textContent = `${censusFiltered.length}/${censusAllListings.length} annonces · ${topCities}`;
+  }
+}
+
+function censusShowMore() {
+  const grid = document.getElementById('censusGrid');
+  const loadMoreBtn = document.getElementById('censusLoadMore');
+  if (!grid) return;
+
+  const slice = censusFiltered.slice(censusDisplayed, censusDisplayed + CENSUS_PAGE_SIZE);
+  censusDisplayed += slice.length;
+
+  grid.innerHTML += slice.map(a => `
+    <div class="scraper-card" ${a.url ? `onclick="window.open('${escapeHTML(a.url)}','_blank')"` : ''}>
+      ${a.image_url ? `<div class="scraper-card-img" style="background-image:url('${escapeHTML(a.image_url)}')"></div>` : '<div class="scraper-card-img scraper-card-noimg">Pas de photo</div>'}
+      <div class="scraper-card-body">
+        <div class="scraper-card-price">${a.prix ? formatPrix(a.prix) : 'Prix sur demande'}</div>
+        <div class="scraper-card-details">
+          ${a.pieces ? `<span>${a.pieces} pcs</span>` : ''}
+          ${a.surface_m2 ? `<span>${a.surface_m2} m\u00B2</span>` : ''}
+          ${a.type ? `<span class="census-type-badge">${escapeHTML(a.type)}</span>` : ''}
+        </div>
+        <div class="scraper-card-location">${escapeHTML(a.localisation || 'Localisation inconnue')}</div>
+        <div class="scraper-card-title">${escapeHTML(a.titre || '')}</div>
+        <div class="scraper-card-source">${escapeHTML(a.source || '')}</div>
+      </div>
+    </div>
+  `).join('');
+
+  const results = document.getElementById('censusResults');
+  if (results) results.classList.add('visible');
+
+  if (loadMoreBtn) {
+    loadMoreBtn.style.display = censusDisplayed < censusFiltered.length ? '' : 'none';
+  }
 }
 
 window.onload = () => { populateAgencyCheckboxes(); loadHistory(); };

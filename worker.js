@@ -497,6 +497,65 @@ async function scrapeAdDetail(adUrl, env) {
 }
 
 // ── Scrape Agency (scan automatique d'un site d'agence) ─────────────────────
+// Tente de découvrir la page de vente d'une agence à partir de sa homepage
+async function discoverListingsUrl(baseDomain, candidatePaths, env, agencyName) {
+    // D'abord tenter de trouver des liens de vente dans la homepage elle-même
+    try {
+        const homeResp = await fetch(baseDomain + '/', {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                "Accept": "text/html,application/xhtml+xml",
+            },
+            redirect: 'follow',
+        });
+        if (homeResp.ok) {
+            const html = await homeResp.text();
+            // Chercher des liens contenant acheter/vente/buy/a-vendre dans la homepage
+            const linkPattern = /<a[^>]+href=["']([^"']*(?:achet|vente|a-vendre|buy|verkauf|for-sale|immobilier)[^"']*)["']/gi;
+            let m;
+            const foundLinks = [];
+            while ((m = linkPattern.exec(html)) !== null) {
+                let href = m[1];
+                // Ignorer les liens de location
+                if (/lou|rent|miet/i.test(href)) continue;
+                if (href.startsWith('/')) href = baseDomain + href;
+                else if (!href.startsWith('http')) continue;
+                // Garder seulement les liens du même domaine
+                try { if (new URL(href).origin !== baseDomain) continue; } catch { continue; }
+                foundLinks.push(href);
+            }
+            if (foundLinks.length > 0) {
+                // Tester le premier lien trouvé
+                const testResp = await fetch(foundLinks[0], { method: 'HEAD', redirect: 'follow',
+                    headers: { "User-Agent": "Mozilla/5.0" } });
+                if (testResp.ok) return foundLinks[0];
+            }
+        }
+    } catch (e) { /* ignore */ }
+
+    // Sinon, tester les chemins candidats courants
+    for (const path of candidatePaths) {
+        const testUrl = baseDomain + path;
+        try {
+            const resp = await fetch(testUrl, {
+                method: 'HEAD',
+                redirect: 'follow',
+                headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+            });
+            if (resp.ok && resp.status !== 404) {
+                // Vérifier que ce n'est pas une redirection vers la homepage
+                const finalUrl = resp.url || testUrl;
+                const finalPath = new URL(finalUrl).pathname.replace(/\/$/, '');
+                if (finalPath !== '' && finalPath !== '/fr' && finalPath !== '/de') {
+                    return finalUrl;
+                }
+            }
+        } catch (e) { /* URL inaccessible, continuer */ }
+    }
+
+    return null; // Aucune page de vente trouvée
+}
+
 async function handleScrapeAgency(request, env) {
     const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
@@ -528,9 +587,25 @@ async function handleScrapeAgency(request, env) {
 
         const baseObj = new URL(pageUrl);
         const baseDomain = baseObj.origin;
+
+        // Si l'URL est une simple homepage, tenter de trouver la page de vente
+        let resolvedUrl = pageUrl;
+        const path = baseObj.pathname.replace(/\/$/, '');
+        if (path === '' || path === '/fr' || path === '/de' || path === '/en') {
+            const candidatePaths = [
+                '/acheter/', '/fr/acheter/', '/acheter', '/fr/acheter',
+                '/a-vendre/', '/fr/a-vendre/', '/a-vendre', '/fr/a-vendre',
+                '/vente/', '/fr/vente/', '/vente', '/fr/vente',
+                '/en/buy/', '/buy/', '/en/buy', '/buy',
+                '/immobilier-a-vendre/', '/biens-a-vendre/',
+            ];
+            const discoveredUrl = await discoverListingsUrl(baseDomain, candidatePaths, env, agencyName);
+            if (discoveredUrl) resolvedUrl = discoveredUrl;
+        }
+
         const maxPages = 15;
         let allAnnonces = [];
-        let currentUrl = pageUrl;
+        let currentUrl = resolvedUrl;
         let usedSmartProxy = false;
         let emptyPages = 0;
 
@@ -599,8 +674,10 @@ async function handleScrapeAgency(request, env) {
         }
 
         const status = allAnnonces.length > 0 ? 'ok' : 'empty';
-        const message = allAnnonces.length === 0 ? 'Aucune annonce trouvee' :
-            (usedSmartProxy ? 'Via SmartProxy (rendu JS)' : null);
+        const urlChanged = resolvedUrl !== pageUrl;
+        const message = allAnnonces.length === 0
+            ? (urlChanged ? `Page vente decouverte (${resolvedUrl}) mais aucune annonce` : 'Aucune annonce trouvee')
+            : (usedSmartProxy ? 'Via SmartProxy (rendu JS)' : (urlChanged ? `Via ${resolvedUrl}` : null));
 
         return new Response(JSON.stringify({ annonces: allAnnonces, total: allAnnonces.length, status, message }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },

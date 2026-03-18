@@ -532,16 +532,22 @@ async function handleScrapeAgency(request, env) {
         let allAnnonces = [];
         let currentUrl = pageUrl;
         let usedSmartProxy = false;
+        let emptyPages = 0;
 
         for (let page = 1; page <= maxPages; page++) {
             let html = '';
             let fetchOk = false;
             let annonces = [];
 
-            // Tentative 1 : SmartProxy (prioritaire, meilleur taux de succès)
+            // Tentative 1 : SmartProxy avec rendu JS (prioritaire, sites SPA/infinite scroll)
             if (env.SMARTPROXY_AUTH) {
                 try {
-                    const spHtml = await fetchViaSmartProxy(currentUrl, env);
+                    const spHtml = await fetchViaSmartProxy(currentUrl, env, {
+                        headless: true,
+                        browser_actions: [
+                            { type: 'wait', wait_time_s: 5 },
+                        ],
+                    });
                     if (spHtml) {
                         html = spHtml;
                         annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
@@ -578,8 +584,13 @@ async function handleScrapeAgency(request, env) {
                 if (spaAd) annonces.push(spaAd);
             }
 
-            if (annonces.length === 0) break;
-            allAnnonces.push(...annonces);
+            if (annonces.length > 0) {
+                emptyPages = 0;
+                allAnnonces.push(...annonces);
+            } else {
+                emptyPages++;
+                if (emptyPages >= 2) break; // 2 pages vides consecutives = fin
+            }
 
             // Chercher un lien de page suivante
             const nextUrl = findNextPageUrl(html, currentUrl, baseDomain);
@@ -835,20 +846,33 @@ function isRentalAd(annonce) {
 }
 
 // SmartProxy Web Scraping API — rendu JavaScript cote serveur
-async function fetchViaSmartProxy(url, env) {
+async function fetchViaSmartProxy(url, env, options = {}) {
     if (!env.SMARTPROXY_AUTH) return null;
 
     const auth = btoa(env.SMARTPROXY_AUTH);
+    const body = {
+        target: 'universal',
+        url: url,
+    };
+
+    // Activer le rendu JS headless (sites SPA, infinite scroll)
+    if (options.headless) {
+        body.headless = 'html';
+    }
+
+    // Ajouter des browser actions (click, wait, etc.)
+    if (options.browser_actions) {
+        body.headless = 'html'; // requis pour les browser actions
+        body.browser_actions = options.browser_actions;
+    }
+
     const response = await fetch('https://scraper-api.decodo.com/v2/scrape', {
         method: 'POST',
         headers: {
             'Authorization': `Basic ${auth}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            target: 'universal',
-            url: url,
-        }),
+        body: JSON.stringify(body),
     });
 
     if (!response.ok) return null;
@@ -870,7 +894,9 @@ function findNextPageUrl(html, currentUrl, baseDomain) {
     const patterns = [
         // rel="next"
         /<a[^>]+rel=["']next["'][^>]+href=["']([^"']+)["']/i,
-        // class contenant "next"
+        // href avant class contenant "next"
+        /<a[^>]+href=["']([^"']+)["'][^>]+class=["'][^"']*next[^"']*["']/i,
+        // class contenant "next" avant href
         /<a[^>]+class=["'][^"']*next[^"']*["'][^>]+href=["']([^"']+)["']/i,
         // aria-label="next" ou "suivant"
         /<a[^>]+aria-label=["'][^"']*(?:next|suivant)[^"']*["'][^>]+href=["']([^"']+)["']/i,
@@ -888,7 +914,7 @@ function findNextPageUrl(html, currentUrl, baseDomain) {
         }
     }
 
-    // Chercher un parametre page= dans l'URL courante et incrementer
+    // Chercher un parametre page= ou p= dans l'URL courante et incrementer
     const urlObj = new URL(currentUrl);
     const pageParam = urlObj.searchParams.get('page') || urlObj.searchParams.get('p');
     if (pageParam) {
@@ -898,7 +924,17 @@ function findNextPageUrl(html, currentUrl, baseDomain) {
         return urlObj.href;
     }
 
-    return null;
+    // Detecter /page/N/ dans le path et incrementer
+    const pathPageMatch = currentUrl.match(/\/page\/(\d+)(\/|$)/);
+    if (pathPageMatch) {
+        const nextPage = parseInt(pathPageMatch[1], 10) + 1;
+        return currentUrl.replace(/\/page\/\d+(\/|$)/, `/page/${nextPage}$2`);
+    }
+
+    // Dernier recours : ajouter ?page=2 meme si l'URL n'a pas de parametre page
+    // La plupart des sites supportent ce parametre
+    urlObj.searchParams.set('page', '2');
+    return urlObj.href;
 }
 
 // Extraire un minimum d'infos depuis les meta tags d'un site SPA

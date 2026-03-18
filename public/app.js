@@ -2825,6 +2825,43 @@ const AGENCIES = {
   geYourGreenHome: { name: "Your Green Home SA", listingsUrl: "https://ygh.ch/", canton: "geneve" },
 };
 
+const DEFAULT_CHECKED_AGENCIES = new Set([
+  "naef","bernardnicod","frNaef","frFavreNaudeix","frVotreCourtier",
+  "geMillenium","geNessell","geStoneInvest","neBarnes","neImmobilierNe",
+  "neNaef","vsComptoirImmo","vsHermes","vsTwixy","vsValimmobilier"
+]);
+
+function getAgencyCanton(key, agency) {
+  if (agency.canton) return agency.canton;
+  if (key.startsWith("vs")) return "valais";
+  if (key.startsWith("ne") && key !== "neho") return "neuchatel";
+  if (key.startsWith("fr")) return "fribourg";
+  if (key.startsWith("ge")) return "geneve";
+  if (key === "restreinte" || key === "elargie") return "geneve";
+  return "vaud";
+}
+
+function populateAgencyCheckboxes() {
+  const groups = {};
+  ["vaud","valais","neuchatel","fribourg","geneve"].forEach(c => groups[c] = []);
+
+  for (const [key, agency] of Object.entries(AGENCIES)) {
+    const canton = getAgencyCanton(key, agency);
+    if (groups[canton]) groups[canton].push({ key, name: agency.name });
+  }
+
+  for (const [canton, agencies] of Object.entries(groups)) {
+    agencies.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+    const container = document.querySelector(`.agency-canton-group[data-canton="${canton}"]`);
+    if (!container) continue;
+    container.innerHTML = agencies.map(a => {
+      const checked = DEFAULT_CHECKED_AGENCIES.has(a.key) ? " checked" : "";
+      const escaped = a.name.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+      return `<label class="agency-check"><input type="checkbox" value="${a.key}"${checked}> ${escaped}</label>`;
+    }).join("\n");
+  }
+}
+
 function toggleAllAgencies(checked) {
   // Ne toggler que les agences du canton actif (visibles)
   const activeGroup = document.querySelector(`.agency-canton-group[data-canton="${currentCanton}"]`);
@@ -4249,4 +4286,4 @@ function afficherResultatsReverse() {
   grid.innerHTML = html;
 }
 
-window.onload = () => loadHistory();
+window.onload = () => { populateAgencyCheckboxes(); loadHistory(); };

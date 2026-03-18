@@ -773,23 +773,31 @@ textarea::placeholder {
 
 /* ── Matching Tab ──────────────────────────────────────────────────────────*/
 .agency-checklist {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
   margin-bottom: 16px;
+}
+
+.agency-canton-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .agency-check {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 5px 8px;
   background: white;
   border: 1px solid var(--gris-clair);
   border-radius: var(--radius);
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agency-check:hover {
@@ -798,8 +806,9 @@ textarea::placeholder {
 
 .agency-check input[type="checkbox"] {
   accent-color: var(--rouge);
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .agency-check:has(input:checked) {

@@ -2030,3 +2030,65 @@ footer p {
   line-height: 1.5;
   margin-bottom: 8px;
 }
+
+/* ── Census / Recensement ────────────────────────────────────────────────── */
+.census-filters {
+  margin-bottom: 16px;
+}
+
+.census-filter-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.census-filter-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid var(--gris-clair);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  background: white;
+}
+
+.census-filter-input:focus {
+  outline: none;
+  border-color: var(--rouge);
+}
+
+.census-filter-select {
+  padding: 8px 12px;
+  border: 1px solid var(--gris-clair);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  background: white;
+  cursor: pointer;
+}
+
+.census-stats {
+  font-size: 0.82rem;
+  color: var(--gris-2);
+}
+
+.census-type-badge {
+  background: var(--rouge-soft);
+  color: var(--rouge);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.scraper-card-source {
+  font-size: 0.72rem;
+  color: var(--gris);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.census-load-more {
+  text-align: center;
+  padding: 16px;
+}

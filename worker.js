@@ -532,6 +532,7 @@ async function handleScrapeAgency(request, env) {
         let allAnnonces = [];
         let currentUrl = pageUrl;
         let usedSmartProxy = false;
+        let emptyPages = 0;
 
         for (let page = 1; page <= maxPages; page++) {
             let html = '';
@@ -578,8 +579,13 @@ async function handleScrapeAgency(request, env) {
                 if (spaAd) annonces.push(spaAd);
             }
 
-            if (annonces.length === 0) break;
-            allAnnonces.push(...annonces);
+            if (annonces.length > 0) {
+                emptyPages = 0;
+                allAnnonces.push(...annonces);
+            } else {
+                emptyPages++;
+                if (emptyPages >= 2) break; // 2 pages vides consecutives = fin
+            }
 
             // Chercher un lien de page suivante
             const nextUrl = findNextPageUrl(html, currentUrl, baseDomain);
@@ -870,7 +876,9 @@ function findNextPageUrl(html, currentUrl, baseDomain) {
     const patterns = [
         // rel="next"
         /<a[^>]+rel=["']next["'][^>]+href=["']([^"']+)["']/i,
-        // class contenant "next"
+        // href avant class contenant "next"
+        /<a[^>]+href=["']([^"']+)["'][^>]+class=["'][^"']*next[^"']*["']/i,
+        // class contenant "next" avant href
         /<a[^>]+class=["'][^"']*next[^"']*["'][^>]+href=["']([^"']+)["']/i,
         // aria-label="next" ou "suivant"
         /<a[^>]+aria-label=["'][^"']*(?:next|suivant)[^"']*["'][^>]+href=["']([^"']+)["']/i,
@@ -888,7 +896,7 @@ function findNextPageUrl(html, currentUrl, baseDomain) {
         }
     }
 
-    // Chercher un parametre page= dans l'URL courante et incrementer
+    // Chercher un parametre page= ou p= dans l'URL courante et incrementer
     const urlObj = new URL(currentUrl);
     const pageParam = urlObj.searchParams.get('page') || urlObj.searchParams.get('p');
     if (pageParam) {
@@ -898,7 +906,17 @@ function findNextPageUrl(html, currentUrl, baseDomain) {
         return urlObj.href;
     }
 
-    return null;
+    // Detecter /page/N/ dans le path et incrementer
+    const pathPageMatch = currentUrl.match(/\/page\/(\d+)(\/|$)/);
+    if (pathPageMatch) {
+        const nextPage = parseInt(pathPageMatch[1], 10) + 1;
+        return currentUrl.replace(/\/page\/\d+(\/|$)/, `/page/${nextPage}$2`);
+    }
+
+    // Dernier recours : ajouter ?page=2 meme si l'URL n'a pas de parametre page
+    // La plupart des sites supportent ce parametre
+    urlObj.searchParams.set('page', '2');
+    return urlObj.href;
 }
 
 // Extraire un minimum d'infos depuis les meta tags d'un site SPA

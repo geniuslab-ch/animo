@@ -539,10 +539,15 @@ async function handleScrapeAgency(request, env) {
             let fetchOk = false;
             let annonces = [];
 
-            // Tentative 1 : SmartProxy (prioritaire, meilleur taux de succès)
+            // Tentative 1 : SmartProxy avec rendu JS (prioritaire, sites SPA/infinite scroll)
             if (env.SMARTPROXY_AUTH) {
                 try {
-                    const spHtml = await fetchViaSmartProxy(currentUrl, env);
+                    const spHtml = await fetchViaSmartProxy(currentUrl, env, {
+                        headless: true,
+                        browser_actions: [
+                            { type: 'wait', wait_time_s: 5 },
+                        ],
+                    });
                     if (spHtml) {
                         html = spHtml;
                         annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
@@ -841,20 +846,33 @@ function isRentalAd(annonce) {
 }
 
 // SmartProxy Web Scraping API — rendu JavaScript cote serveur
-async function fetchViaSmartProxy(url, env) {
+async function fetchViaSmartProxy(url, env, options = {}) {
     if (!env.SMARTPROXY_AUTH) return null;
 
     const auth = btoa(env.SMARTPROXY_AUTH);
+    const body = {
+        target: 'universal',
+        url: url,
+    };
+
+    // Activer le rendu JS headless (sites SPA, infinite scroll)
+    if (options.headless) {
+        body.headless = 'html';
+    }
+
+    // Ajouter des browser actions (click, wait, etc.)
+    if (options.browser_actions) {
+        body.headless = 'html'; // requis pour les browser actions
+        body.browser_actions = options.browser_actions;
+    }
+
     const response = await fetch('https://scraper-api.decodo.com/v2/scrape', {
         method: 'POST',
         headers: {
             'Authorization': `Basic ${auth}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            target: 'universal',
-            url: url,
-        }),
+        body: JSON.stringify(body),
     });
 
     if (!response.ok) return null;

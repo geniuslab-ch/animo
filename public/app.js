@@ -4329,7 +4329,7 @@ function censusSwitchCanton(canton) {
   const stats = document.getElementById('censusStats');
   if (stats) stats.textContent = '';
   const results = document.getElementById('censusResults');
-  if (results) results.classList.remove('visible');
+  if (results) results.style.display = 'none';
   const statuses = document.getElementById('censusAgencyStatuses');
   if (statuses) { statuses.innerHTML = ''; statuses.classList.remove('visible'); }
 }
@@ -4587,33 +4587,38 @@ function censusApplyFilters() {
   }
 }
 
+const TYPE_LABELS = {
+  apartment: 'Appartement', house: 'Maison/Villa', land: 'Terrain',
+  commercial: 'Commercial', parking: 'Parking', building: 'Immeuble', unknown: '',
+};
+
 function censusShowMore() {
-  const grid = document.getElementById('censusGrid');
+  const tbody = document.getElementById('censusGrid');
   const loadMoreBtn = document.getElementById('censusLoadMore');
-  if (!grid) return;
+  if (!tbody) return;
 
   const slice = censusFiltered.slice(censusDisplayed, censusDisplayed + CENSUS_PAGE_SIZE);
   censusDisplayed += slice.length;
 
-  grid.innerHTML += slice.map(a => `
-    <div class="scraper-card" ${a.url ? `onclick="window.open('${escapeHTML(a.url)}','_blank')"` : ''}>
-      ${a.image_url ? `<div class="scraper-card-img" style="background-image:url('${escapeHTML(a.image_url)}')"></div>` : '<div class="scraper-card-img scraper-card-noimg">Pas de photo</div>'}
-      <div class="scraper-card-body">
-        <div class="scraper-card-price">${a.prix ? formatPrix(a.prix) : 'Prix sur demande'}</div>
-        <div class="scraper-card-details">
-          ${a.pieces ? `<span>${a.pieces} pcs</span>` : ''}
-          ${a.surface_m2 ? `<span>${a.surface_m2} m\u00B2</span>` : ''}
-          ${a.type ? `<span class="census-type-badge">${escapeHTML(a.type)}</span>` : ''}
-        </div>
-        <div class="scraper-card-location">${escapeHTML(a.localisation || 'Localisation inconnue')}</div>
-        <div class="scraper-card-title">${escapeHTML(a.titre || '')}</div>
-        <div class="scraper-card-source">${escapeHTML(a.source || '')}</div>
-      </div>
-    </div>
-  `).join('');
+  tbody.innerHTML += slice.map(a => {
+    const typeLabel = TYPE_LABELS[a.type] || a.type || '';
+    const link = a.url
+      ? `<a href="${escapeHTML(a.url)}" target="_blank" rel="noopener" class="census-link">Voir</a>`
+      : '';
+    return `<tr>
+      <td><span class="census-type-badge">${escapeHTML(typeLabel)}</span></td>
+      <td class="census-cell-title">${escapeHTML(a.titre || '-')}</td>
+      <td>${escapeHTML(a.localisation || '-')}</td>
+      <td>${a.pieces || '-'}</td>
+      <td>${a.surface_m2 ? a.surface_m2 + ' m\u00B2' : '-'}</td>
+      <td class="census-cell-price">${a.prix ? formatPrix(a.prix) : '-'}</td>
+      <td class="census-cell-source">${escapeHTML(a.source || '-')}</td>
+      <td>${link}</td>
+    </tr>`;
+  }).join('');
 
   const results = document.getElementById('censusResults');
-  if (results) results.classList.add('visible');
+  if (results) results.style.display = '';
 
   if (loadMoreBtn) {
     loadMoreBtn.style.display = censusDisplayed < censusFiltered.length ? '' : 'none';

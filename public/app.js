@@ -4457,31 +4457,39 @@ function censusPopulateRegions() {
 
 function censusApplyFilters() {
   const mode = getCensusSearchMode();
-  const locationVal = (document.getElementById('censusFilterLocation')?.value || '').toLowerCase().trim();
+  const locationRaw = (document.getElementById('censusFilterLocation')?.value || '').trim();
   const regionVal = document.getElementById('censusFilterRegion')?.value || '';
   const typeVal = document.getElementById('censusFilterType')?.value || '';
-  const priceVal = document.getElementById('censusFilterPrice')?.value || '';
+  const piecesMinVal = parseFloat(document.getElementById('censusFilterPiecesMin')?.value) || 0;
+  const piecesMaxVal = parseFloat(document.getElementById('censusFilterPiecesMax')?.value) || 0;
+  const priceMinVal = parseInt(document.getElementById('censusFilterPriceMin')?.value) || 0;
+  const priceMaxVal = parseInt(document.getElementById('censusFilterPriceMax')?.value) || 0;
+
+  // Parser la liste de villes/NPA séparées par virgule
+  const locationTerms = locationRaw
+    ? locationRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+    : [];
 
   censusFiltered = censusAllListings.filter(a => {
     const npa = extractNPA(a.localisation);
     const region = npa ? getNPARegion(npa) : null;
+    const loc = (a.localisation || '').toLowerCase();
 
-    // ── Filtre lieu (texte libre) ──
-    if (locationVal) {
-      const loc = (a.localisation || '').toLowerCase();
-      const src = (a.source || '').toLowerCase();
+    // ── Filtre lieu (multi-villes, séparées par virgule) ──
+    if (locationTerms.length > 0) {
       if (mode === 'restreinte') {
-        // Strict : le texte doit correspondre exactement
-        if (!loc.includes(locationVal) && !src.includes(locationVal)) return false;
+        // Au moins un terme doit correspondre
+        const match = locationTerms.some(term => loc.includes(term));
+        if (!match) return false;
       } else {
-        // Élargie : inclure aussi les NPA voisins
-        const searchNPA = locationVal.match(/^\d{4}$/)?.[0];
-        if (searchNPA) {
-          const proximity = npa ? npaProximityScore(searchNPA, npa) : 0;
-          if (proximity === 0) return false;
-        } else {
-          if (!loc.includes(locationVal) && !src.includes(locationVal)) return false;
-        }
+        // Élargie : accepter aussi les NPA voisins
+        const match = locationTerms.some(term => {
+          if (loc.includes(term)) return true;
+          const termNPA = term.match(/^\d{4}$/)?.[0];
+          if (termNPA && npa) return npaProximityScore(termNPA, npa) > 0;
+          return false;
+        });
+        if (!match) return false;
       }
     }
 
@@ -4490,7 +4498,6 @@ function censusApplyFilters() {
       if (mode === 'restreinte') {
         if (region !== regionVal) return false;
       } else {
-        // Élargie : inclure les régions adjacentes
         if (region !== regionVal) {
           const adj = ADJACENT_REGIONS[regionVal];
           if (!adj || !adj.includes(region)) return false;
@@ -4501,28 +4508,37 @@ function censusApplyFilters() {
     // ── Filtre type ──
     if (typeVal) {
       if (mode === 'restreinte') {
-        // Strict : le type doit correspondre exactement
         if (!a.type || a.type !== typeVal) return false;
       } else {
-        // Élargie : accepter les types inconnus
         if (a.type && a.type !== 'unknown' && a.type !== typeVal) return false;
       }
     }
 
-    // ── Filtre prix ──
-    if (priceVal) {
-      const [min, max] = priceVal.split('-').map(Number);
+    // ── Filtre pièces ──
+    if (piecesMinVal || piecesMaxVal) {
       if (mode === 'restreinte') {
-        if (!a.prix) return false; // pas de prix = exclu en restreinte
-        if (min && a.prix < min) return false;
-        if (max && a.prix > max) return false;
+        if (!a.pieces) return false;
+        if (piecesMinVal && a.pieces < piecesMinVal) return false;
+        if (piecesMaxVal && a.pieces > piecesMaxVal) return false;
       } else {
-        // Élargie : accepter les biens sans prix, tolérance ±15%
-        if (a.prix) {
-          if (min && a.prix < min * 0.85) return false;
-          if (max && a.prix > max * 1.15) return false;
+        if (a.pieces) {
+          if (piecesMinVal && a.pieces < piecesMinVal - 0.5) return false;
+          if (piecesMaxVal && a.pieces > piecesMaxVal + 0.5) return false;
         }
-        // Sans prix → on garde
+      }
+    }
+
+    // ── Filtre prix ──
+    if (priceMinVal || priceMaxVal) {
+      if (mode === 'restreinte') {
+        if (!a.prix) return false;
+        if (priceMinVal && a.prix < priceMinVal) return false;
+        if (priceMaxVal && a.prix > priceMaxVal) return false;
+      } else {
+        if (a.prix) {
+          if (priceMinVal && a.prix < priceMinVal * 0.85) return false;
+          if (priceMaxVal && a.prix > priceMaxVal * 1.15) return false;
+        }
       }
     }
 
@@ -4537,13 +4553,12 @@ function censusApplyFilters() {
   if (grid) grid.innerHTML = '';
   censusShowMore();
 
-  // Compteur de résultats avec top villes et régions
+  // Stats
   const stats = document.getElementById('censusStats');
   if (stats && censusAllListings.length > 0) {
     const locCounts = {};
     censusFiltered.forEach(a => {
-      const loc = a.localisation || 'Inconnu';
-      const city = loc.replace(/^\d{4}\s*/, '') || 'Inconnu';
+      const city = (a.localisation || 'Inconnu').replace(/^\d{4}\s*/, '') || 'Inconnu';
       locCounts[city] = (locCounts[city] || 0) + 1;
     });
     const topCities = Object.entries(locCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([c, n]) => `${c} (${n})`).join(', ');

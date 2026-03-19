@@ -294,10 +294,12 @@
           </label>
         </div>
         <div class="census-filter-row">
-          <input type="text" id="censusFilterLocation" class="census-filter-input" placeholder="Filtrer par lieu (ex: Lausanne, 1200...)" oninput="censusApplyFilters()">
+          <input type="text" id="censusFilterLocation" class="census-filter-input" style="flex:2" placeholder="Villes (ex: Lausanne, Morges, 1200...)" oninput="censusApplyFilters()">
           <select id="censusFilterRegion" class="census-filter-select" onchange="censusApplyFilters()">
             <option value="">Toutes les regions</option>
           </select>
+        </div>
+        <div class="census-filter-row" style="margin-top:8px">
           <select id="censusFilterType" class="census-filter-select" onchange="censusApplyFilters()">
             <option value="">Tous les types</option>
             <option value="apartment">Appartement</option>
@@ -305,13 +307,10 @@
             <option value="land">Terrain</option>
             <option value="commercial">Commercial</option>
           </select>
-          <select id="censusFilterPrice" class="census-filter-select" onchange="censusApplyFilters()">
-            <option value="">Tous les prix</option>
-            <option value="0-500000">&lt; CHF 500'000</option>
-            <option value="500000-1000000">CHF 500'000 - 1M</option>
-            <option value="1000000-2000000">CHF 1M - 2M</option>
-            <option value="2000000-">&gt; CHF 2M</option>
-          </select>
+          <input type="number" id="censusFilterPiecesMin" class="census-filter-input census-filter-small" placeholder="Pcs min" step="0.5" min="1" oninput="censusApplyFilters()">
+          <input type="number" id="censusFilterPiecesMax" class="census-filter-input census-filter-small" placeholder="Pcs max" step="0.5" min="1" oninput="censusApplyFilters()">
+          <input type="number" id="censusFilterPriceMin" class="census-filter-input census-filter-small" placeholder="Prix min (CHF)" step="10000" min="0" oninput="censusApplyFilters()">
+          <input type="number" id="censusFilterPriceMax" class="census-filter-input census-filter-small" placeholder="Prix max (CHF)" step="10000" min="0" oninput="censusApplyFilters()">
         </div>
         <div class="census-filter-row" style="margin-top:8px; gap:8px; align-items:center">
           <button class="btn-analyser" id="btnCensusScan" onclick="censusLancerScan()" style="flex:none; padding:10px 24px">

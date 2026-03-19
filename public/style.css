@@ -2076,6 +2076,72 @@ footer p {
   color: var(--gris-2);
 }
 
+.census-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.census-table thead {
+  background: var(--noir);
+  color: white;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.census-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.census-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--gris-clair);
+  vertical-align: middle;
+}
+
+.census-table tbody tr:hover {
+  background: var(--rouge-soft);
+}
+
+.census-cell-title {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.census-cell-price {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.census-cell-source {
+  font-size: 0.75rem;
+  color: var(--gris);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.census-link {
+  color: var(--rouge);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.census-link:hover {
+  text-decoration: underline;
+}
+
 .census-type-badge {
   background: var(--rouge-soft);
   color: var(--rouge);
@@ -2084,13 +2150,7 @@ footer p {
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
-}
-
-.scraper-card-source {
-  font-size: 0.72rem;
-  color: var(--gris);
-  margin-top: 4px;
-  font-style: italic;
+  white-space: nowrap;
 }
 
 .census-load-more {

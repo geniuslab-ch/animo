@@ -333,9 +333,23 @@
       <!-- Statuts des agences -->
       <div class="agency-status-list" id="censusAgencyStatuses"></div>
 
-      <!-- Grille des annonces -->
-      <div class="scraper-results" id="censusResults">
-        <div class="scraper-grid" id="censusGrid"></div>
+      <!-- Liste des résultats -->
+      <div id="censusResults" style="display:none">
+        <table class="census-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Titre</th>
+              <th>Localisation</th>
+              <th>Pièces</th>
+              <th>Surface</th>
+              <th>Prix</th>
+              <th>Agence</th>
+              <th>Lien</th>
+            </tr>
+          </thead>
+          <tbody id="censusGrid"></tbody>
+        </table>
         <div class="census-load-more" id="censusLoadMore" style="display:none">
           <button class="agency-select-btn" onclick="censusShowMore()">Afficher plus</button>
         </div>

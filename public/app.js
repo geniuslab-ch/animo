@@ -3353,18 +3353,23 @@ async function scannerAgences() {
   }
 
   const CONCURRENCY = 10;
+  const CLIENT_TIMEOUT = 25000;
   const agencyEntries = selectedAgencies
     .map(key => ({ key, agency: AGENCIES[key] }))
     .filter(e => e.agency);
   const total = agencyEntries.length;
 
   async function scanOneAgency({ key, agency }) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT);
     try {
       const response = await fetch("/api/scrape-agency", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
         body: JSON.stringify({ url: agency.listingsUrl, agencyName: agency.name }),
+        signal: controller.signal,
       });
+      clearTimeout(timer);
 
       if (response.ok) {
         const data = await response.json();
@@ -3381,11 +3386,13 @@ async function scannerAgences() {
         return { name: agency.name, status: 'error', count: 0, message: `HTTP ${response.status}`, annonces: [] };
       }
     } catch (e) {
-      return { name: agency.name, status: 'error', count: 0, message: e.message, annonces: [] };
+      clearTimeout(timer);
+      const msg = e.name === 'AbortError' ? 'Timeout (25s)' : e.message;
+      return { name: agency.name, status: 'error', count: 0, message: msg, annonces: [] };
     }
   }
 
-  // Traitement par batches de CONCURRENCY agences en parallèle
+  // Traitement par batches — Promise.allSettled pour ne jamais bloquer
   for (let i = 0; i < agencyEntries.length; i += CONCURRENCY) {
     const batch = agencyEntries.slice(i, i + CONCURRENCY);
     const batchNames = batch.map(e => e.agency.name).join(', ');
@@ -3393,10 +3400,12 @@ async function scannerAgences() {
       loadingText.textContent = `Scan ${i + 1}-${Math.min(i + CONCURRENCY, total)}/${total} : ${batchNames}...`;
     }
 
-    const results = await Promise.all(batch.map(scanOneAgency));
+    const settled = await Promise.allSettled(batch.map(scanOneAgency));
 
-    for (const r of results) {
+    for (const s of settled) {
       scannedCount++;
+      const r = s.status === 'fulfilled' ? s.value
+        : { name: '?', status: 'error', count: 0, message: s.reason?.message || 'Erreur', annonces: [] };
       if (r.annonces.length > 0) matchBiens.push(...r.annonces);
       agencyStatuses.push({ name: r.name, status: r.status, count: r.count, message: r.message });
     }
@@ -4348,16 +4357,21 @@ async function censusLancerScan() {
   }
 
   const CONCURRENCY = 10;
+  const CLIENT_TIMEOUT = 25000; // 25s max par agence
   let scannedCount = 0;
   const total = entries.length;
 
   async function scanOne({ key, agency }) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT);
     try {
       const response = await fetch("/api/scrape-agency", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-secret-token": SECRET_TOKEN },
         body: JSON.stringify({ url: agency.listingsUrl, agencyName: agency.name }),
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       if (response.ok) {
         const data = await response.json();
         const count = data.annonces?.length || 0;
@@ -4367,7 +4381,9 @@ async function censusLancerScan() {
         return { name: agency.name, status: 'error', count: 0, message: `HTTP ${response.status}`, annonces: [] };
       }
     } catch (e) {
-      return { name: agency.name, status: 'error', count: 0, message: e.message, annonces: [] };
+      clearTimeout(timer);
+      const msg = e.name === 'AbortError' ? 'Timeout (25s)' : e.message;
+      return { name: agency.name, status: 'error', count: 0, message: msg, annonces: [] };
     }
   }
 
@@ -4376,13 +4392,16 @@ async function censusLancerScan() {
     if (loadingText) {
       loadingText.textContent = `Scan ${i + 1}-${Math.min(i + CONCURRENCY, total)}/${total} agences...`;
     }
-    const results = await Promise.all(batch.map(scanOne));
-    for (const r of results) {
+    // Promise.allSettled : ne bloque PAS si une agence est lente
+    const settled = await Promise.allSettled(batch.map(scanOne));
+    for (const s of settled) {
       scannedCount++;
+      const r = s.status === 'fulfilled' ? s.value
+        : { name: '?', status: 'error', count: 0, message: s.reason?.message || 'Erreur', annonces: [] };
       if (r.annonces.length > 0) censusAllListings.push(...r.annonces);
       agencyStatuses.push({ name: r.name, status: r.status, count: r.count, message: r.message });
     }
-    // Mise à jour progressive : statuts + filtres + affichage des annonces
+    // Mise à jour progressive : statuts + annonces visibles immédiatement
     censusUpdateStats(scannedCount, total, agencyStatuses);
     afficherCensusAgencyStatuses(agencyStatuses);
     censusPopulateRegions();

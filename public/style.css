@@ -2044,12 +2044,17 @@ footer p {
 
 .census-filter-input {
   flex: 1;
-  min-width: 200px;
+  min-width: 120px;
   padding: 8px 12px;
   border: 1px solid var(--gris-clair);
   border-radius: var(--radius);
   font-size: 0.85rem;
   background: white;
+}
+
+.census-filter-small {
+  flex: 0 1 130px;
+  min-width: 100px;
 }
 
 .census-filter-input:focus {

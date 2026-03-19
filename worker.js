@@ -556,6 +556,205 @@ async function discoverListingsUrl(baseDomain, candidatePaths, env, agencyName) 
     return null; // Aucune page de vente trouvée
 }
 
+// ── Fetch simple d'une page HTML ─────────────────────────────────────────────
+async function fetchPage(url, baseDomain) {
+    const response = await fetch(url, {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
+            "Referer": (baseDomain || new URL(url).origin) + "/",
+        },
+        redirect: 'follow',
+    });
+    if (!response.ok) return null;
+    return await response.text();
+}
+
+// ── Découverte d'API endpoints depuis le code source HTML ────────────────────
+async function tryApiEndpointDiscovery(html, baseDomain, agencyName) {
+    const allAnnonces = [];
+
+    // 1. Chercher des endpoints API dans les scripts inline et les attributs data-*
+    const apiEndpoints = discoverApiEndpoints(html, baseDomain);
+
+    // 2. Tester chaque endpoint découvert
+    for (const endpoint of apiEndpoints.slice(0, 5)) { // max 5 tentatives
+        try {
+            const resp = await fetch(endpoint, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Referer": baseDomain + "/",
+                    "Origin": baseDomain,
+                },
+            });
+            if (!resp.ok) continue;
+
+            const contentType = resp.headers.get('content-type') || '';
+            if (!contentType.includes('json')) continue;
+
+            const data = await resp.json();
+            const listings = findListingsInObject(data, baseDomain);
+            if (listings.length > 0) {
+                for (const l of listings) {
+                    allAnnonces.push({ ...l, source: agencyName });
+                }
+
+                // Tenter la pagination de l'API (offset/page)
+                const moreAnnonces = await paginateApiEndpoint(endpoint, data, baseDomain, agencyName);
+                allAnnonces.push(...moreAnnonces);
+                break; // on a trouvé un endpoint qui marche
+            }
+        } catch (e) { /* endpoint inaccessible */ }
+    }
+
+    return allAnnonces;
+}
+
+// Découvrir les endpoints API depuis le HTML source
+function discoverApiEndpoints(html, baseDomain) {
+    const endpoints = new Set();
+    const domain = baseDomain.replace(/^https?:\/\//, '');
+
+    // Pattern 1 : URLs d'API dans le JS inline
+    const apiPatterns = [
+        // fetch("https://api.example.com/properties") ou fetch("/api/listings")
+        /fetch\s*\(\s*["'`]([^"'`]*(?:propert|listing|immobil|annonce|object|bien|estate|item|offer)[^"'`]*)["'`]/gi,
+        // axios.get("/api/v1/properties")
+        /axios\.(?:get|post)\s*\(\s*["'`]([^"'`]*(?:propert|listing|immobil|annonce|object|bien|estate)[^"'`]*)["'`]/gi,
+        // apiUrl: "/api/listings", baseURL: "https://..."
+        /(?:api[_-]?(?:url|base|endpoint)|base[_-]?url)\s*[:=]\s*["'`]([^"'`]+)["'`]/gi,
+        // data-api="/api/listings" ou data-url="/properties"
+        /data-(?:api|url|endpoint|src)\s*=\s*["']([^"']*(?:propert|listing|immobil|annonce|object|bien)[^"']*)["']/gi,
+    ];
+
+    for (const pattern of apiPatterns) {
+        let m;
+        while ((m = pattern.exec(html)) !== null) {
+            let url = m[1];
+            if (url.startsWith('/')) url = baseDomain + url;
+            else if (!url.startsWith('http')) continue;
+            // Garder seulement les URLs du même domaine ou des APIs connues
+            try {
+                const u = new URL(url);
+                if (u.hostname === domain || u.hostname.includes(domain.replace('www.', ''))) {
+                    endpoints.add(url);
+                }
+            } catch (e) { /* URL invalide */ }
+        }
+    }
+
+    // Pattern 2 : Endpoints API courants à tester sur le domaine
+    const commonApiPaths = [
+        '/api/properties', '/api/listings', '/api/v1/properties', '/api/v1/listings',
+        '/api/immobilier', '/api/biens', '/api/objects', '/api/real-estate',
+        '/wp-json/wp/v2/property', '/wp-json/wp/v2/listing',
+        '/_api/wix-data/v2/items/query', // Wix sites
+    ];
+    for (const p of commonApiPaths) {
+        endpoints.add(baseDomain + p);
+    }
+
+    // Pattern 3 : Liens vers des JSON/XML feeds dans le HTML
+    const feedPattern = /href=["']([^"']*\.(?:json|xml)(?:\?[^"']*)?)["']/gi;
+    let fm;
+    while ((fm = feedPattern.exec(html)) !== null) {
+        let url = fm[1];
+        if (url.startsWith('/')) url = baseDomain + url;
+        if (url.startsWith('http')) endpoints.add(url);
+    }
+
+    // Pattern 4 : Extraire les URLs du sitemap/robots pour trouver des feeds
+    const sitemapPattern = /["'](\/[^"']*sitemap[^"']*\.xml)["']/gi;
+    let sm;
+    while ((sm = sitemapPattern.exec(html)) !== null) {
+        endpoints.add(baseDomain + sm[1]);
+    }
+
+    return Array.from(endpoints);
+}
+
+// Paginer un endpoint API (offset, page, cursor)
+async function paginateApiEndpoint(endpoint, firstResponse, baseDomain, agencyName) {
+    const allAnnonces = [];
+    const maxApiPages = 10;
+
+    // Détecter le type de pagination
+    const url = new URL(endpoint);
+    const hasPage = url.searchParams.has('page');
+    const hasOffset = url.searchParams.has('offset');
+    const hasLimit = url.searchParams.has('limit');
+
+    // Déterminer combien d'items dans la première page
+    let firstCount = 0;
+    if (Array.isArray(firstResponse)) firstCount = firstResponse.length;
+    else if (firstResponse.data && Array.isArray(firstResponse.data)) firstCount = firstResponse.data.length;
+    else if (firstResponse.results && Array.isArray(firstResponse.results)) firstCount = firstResponse.results.length;
+    else if (firstResponse.items && Array.isArray(firstResponse.items)) firstCount = firstResponse.items.length;
+
+    if (firstCount === 0) return allAnnonces;
+
+    // Déterminer la stratégie de pagination
+    let paginationType = null;
+    if (hasPage) paginationType = 'page';
+    else if (hasOffset) paginationType = 'offset';
+    else if (firstResponse.next || firstResponse.nextPage || firstResponse.next_page) paginationType = 'cursor';
+    else {
+        // Essayer d'ajouter ?page=2 ou &page=2
+        paginationType = 'page';
+    }
+
+    for (let p = 2; p <= maxApiPages; p++) {
+        let nextUrl;
+        if (paginationType === 'page') {
+            const u = new URL(endpoint);
+            u.searchParams.set('page', p);
+            nextUrl = u.toString();
+        } else if (paginationType === 'offset') {
+            const u = new URL(endpoint);
+            const limit = parseInt(u.searchParams.get('limit')) || firstCount;
+            u.searchParams.set('offset', (p - 1) * limit);
+            nextUrl = u.toString();
+        } else if (paginationType === 'cursor') {
+            const cursor = firstResponse.next || firstResponse.nextPage || firstResponse.next_page;
+            if (!cursor) break;
+            if (cursor.startsWith('http')) nextUrl = cursor;
+            else {
+                const u = new URL(endpoint);
+                u.searchParams.set('cursor', cursor);
+                nextUrl = u.toString();
+            }
+        }
+
+        if (!nextUrl) break;
+
+        try {
+            const resp = await fetch(nextUrl, {
+                headers: {
+                    "User-Agent": "Mozilla/5.0",
+                    "Accept": "application/json",
+                    "Referer": baseDomain + "/",
+                    "Origin": baseDomain,
+                },
+            });
+            if (!resp.ok) break;
+            const data = await resp.json();
+            const listings = findListingsInObject(data, baseDomain);
+            if (listings.length === 0) break;
+            for (const l of listings) {
+                allAnnonces.push({ ...l, source: agencyName });
+            }
+            // Mettre à jour le cursor pour la page suivante
+            if (paginationType === 'cursor') {
+                firstResponse = data;
+            }
+        } catch (e) { break; }
+    }
+
+    return allAnnonces;
+}
+
 async function handleScrapeAgency(request, env) {
     const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
@@ -606,78 +805,72 @@ async function handleScrapeAgency(request, env) {
         const maxPages = 15;
         let allAnnonces = [];
         let currentUrl = resolvedUrl;
-        let usedSmartProxy = false;
         let emptyPages = 0;
+        let method = 'html'; // tracking : html, api, ssr
 
-        for (let page = 1; page <= maxPages; page++) {
-            let html = '';
-            let fetchOk = false;
-            let annonces = [];
+        // ── Phase 1 : Fetch initial + extraction ────────────────────────────
+        let html = '';
+        try {
+            html = await fetchPage(currentUrl, baseDomain);
+        } catch (e) { /* fetch échoué */ }
 
-            // Tentative 1 : SmartProxy avec rendu JS (prioritaire, sites SPA/infinite scroll)
-            if (env.SMARTPROXY_AUTH) {
-                try {
-                    const spHtml = await fetchViaSmartProxy(currentUrl, env, {
-                        headless: true,
-                        browser_actions: [
-                            { type: 'wait', wait_time_s: 5 },
-                        ],
-                    });
-                    if (spHtml) {
-                        html = spHtml;
-                        annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
-                        if (annonces.length > 0) {
-                            fetchOk = true;
-                            usedSmartProxy = true;
-                        }
-                    }
-                } catch (e) { /* SmartProxy échoué, fallback au fetch direct */ }
-            }
-
-            // Tentative 2 : fetch direct (fallback gratuit)
-            if (!fetchOk) {
-                try {
-                    const response = await fetch(currentUrl, {
-                        headers: {
-                            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                            "Accept-Language": "fr-CH,fr;q=0.9,en;q=0.8",
-                            "Referer": baseDomain + "/",
-                        },
-                    });
-                    if (response.ok) {
-                        html = await response.text();
-                        fetchOk = true;
-                        annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
-                    }
-                } catch (e) { /* fetch direct échoué */ }
-            }
-
-            // Dernier recours : meta tags pour les SPA
-            if (annonces.length === 0 && detectSPAShell(html)) {
-                const spaAd = extractMetaTagsAd(html, currentUrl, agencyName || "Agence");
-                if (spaAd) annonces.push(spaAd);
-            }
+        if (html) {
+            // Essayer d'abord l'extraction classique (JSON-LD, SSR, HTML patterns)
+            let annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
 
             if (annonces.length > 0) {
-                emptyPages = 0;
                 allAnnonces.push(...annonces);
-            } else {
-                emptyPages++;
-                if (emptyPages >= 2) break; // 2 pages vides consecutives = fin
+                method = html.includes('__NEXT_DATA__') || html.includes('__NUXT__') ? 'ssr' : 'html';
             }
 
-            // Chercher un lien de page suivante
-            const nextUrl = findNextPageUrl(html, currentUrl, baseDomain);
-            if (!nextUrl) break;
-            currentUrl = nextUrl;
+            // ── Phase 2 : Si SPA ou pas de résultats, chercher des API endpoints ──
+            if (annonces.length === 0) {
+                const apiAnnonces = await tryApiEndpointDiscovery(html, baseDomain, agencyName || "Agence");
+                if (apiAnnonces.length > 0) {
+                    allAnnonces.push(...apiAnnonces);
+                    method = 'api';
+                }
+            }
+
+            // ── Phase 2b : Meta tags pour SPA en dernier recours ──
+            if (allAnnonces.length === 0 && detectSPAShell(html)) {
+                const spaAd = extractMetaTagsAd(html, currentUrl, agencyName || "Agence");
+                if (spaAd) {
+                    allAnnonces.push(spaAd);
+                    method = 'spa_meta';
+                }
+            }
+
+            // ── Phase 3 : Pagination (suivre les pages suivantes) ────────────
+            if (allAnnonces.length > 0 && method !== 'api') {
+                for (let page = 2; page <= maxPages; page++) {
+                    const nextUrl = findNextPageUrl(html, currentUrl, baseDomain);
+                    if (!nextUrl) break;
+                    currentUrl = nextUrl;
+
+                    try {
+                        html = await fetchPage(currentUrl, baseDomain);
+                        if (!html) break;
+                        const pageAnnonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
+                        if (pageAnnonces.length > 0) {
+                            emptyPages = 0;
+                            allAnnonces.push(...pageAnnonces);
+                        } else {
+                            emptyPages++;
+                            if (emptyPages >= 2) break;
+                        }
+                    } catch (e) { break; }
+                }
+            }
         }
 
-        const status = allAnnonces.length > 0 ? 'ok' : 'empty';
+        const status = allAnnonces.length > 0 ? 'ok'
+            : (html && detectSPAShell(html)) ? 'spa_empty' : 'empty';
         const urlChanged = resolvedUrl !== pageUrl;
         const message = allAnnonces.length === 0
-            ? (urlChanged ? `Page vente decouverte (${resolvedUrl}) mais aucune annonce` : 'Aucune annonce trouvee')
-            : (usedSmartProxy ? 'Via SmartProxy (rendu JS)' : (urlChanged ? `Via ${resolvedUrl}` : null));
+            ? (status === 'spa_empty' ? 'Site SPA (necessite JS)'
+                : urlChanged ? `Page decouverte (${resolvedUrl}) mais aucune annonce` : 'Aucune annonce trouvee')
+            : (urlChanged ? `Via ${resolvedUrl} (${method})` : `(${method})`);
 
         return new Response(JSON.stringify({ annonces: allAnnonces, total: allAnnonces.length, status, message }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -1064,13 +1257,22 @@ function extractMetaTagsAd(html, pageUrl, agencyName) {
 }
 
 function detectSPAShell(html) {
+    if (!html) return false;
+    // Indicateurs forts de SPA
+    const spaMarkers = [
+        /<div\s+id=["'](?:app|root|__next|__nuxt|__gatsby)["'][^>]*>\s*<\/div>/i,
+        /\.(?:js|mjs)["'][^>]*><\/script>\s*<\/body>/i,
+    ];
+    const hasSpaMarker = spaMarkers.some(p => p.test(html));
+
     const textContent = html
         .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
         .replace(/<[^>]+>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-    return textContent.length < 500;
+
+    return textContent.length < 500 || (hasSpaMarker && textContent.length < 1500);
 }
 
 // ── Extraction generique des listings depuis une page d'agence ──────────────
@@ -1247,22 +1449,72 @@ function extractSSRData(html, baseDomain, agencyName) {
         } catch (e) { /* JSON invalide */ }
     }
 
-    // Generique : gros blocs JSON dans les <script> contenant des donnees immobilieres
+    // Apollo Client : __APOLLO_STATE__
+    const apolloMatch = html.match(/window\.__APOLLO_STATE__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/i);
+    if (apolloMatch) {
+        try {
+            const apolloData = JSON.parse(apolloMatch[1]);
+            const listings = findListingsInObject(apolloData, baseDomain);
+            for (const l of listings) annonces.push({ ...l, source: agencyName });
+            if (annonces.length > 0) return annonces;
+        } catch (e) { /* JSON invalide */ }
+    }
+
+    // Redux / Preloaded State : __PRELOADED_STATE__, __INITIAL_STATE__, __REDUX_STATE__
+    const statePatterns = [
+        /window\.__PRELOADED_STATE__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/i,
+        /window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/i,
+        /window\.__REDUX_STATE__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/i,
+        /window\.__APP_DATA__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/i,
+        /window\.__DATA__\s*=\s*(\{[\s\S]*?\});\s*<\/script>/i,
+    ];
+    for (const pattern of statePatterns) {
+        const stateMatch = html.match(pattern);
+        if (stateMatch) {
+            try {
+                const stateData = JSON.parse(stateMatch[1]);
+                const listings = findListingsInObject(stateData, baseDomain);
+                for (const l of listings) annonces.push({ ...l, source: agencyName });
+                if (annonces.length > 0) return annonces;
+            } catch (e) { /* JSON invalide */ }
+        }
+    }
+
+    // Gatsby : window.___GATSBY, pageContext embedded in script
+    const gatsbyMatch = html.match(/<script[^>]*>[\s\S]*?pageContext\s*:\s*(\{[\s\S]*?\})\s*[,}][\s\S]*?<\/script>/i);
+    if (gatsbyMatch) {
+        try {
+            const gatsbyData = JSON.parse(gatsbyMatch[1]);
+            const listings = findListingsInObject(gatsbyData, baseDomain);
+            for (const l of listings) annonces.push({ ...l, source: agencyName });
+            if (annonces.length > 0) return annonces;
+        } catch (e) { /* JSON invalide */ }
+    }
+
+    // application/json script blocks (Remix, Astro, etc.)
+    const jsonScripts = html.matchAll(/<script[^>]*type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    for (const block of jsonScripts) {
+        try {
+            const data = JSON.parse(block[1].trim());
+            const listings = findListingsInObject(data, baseDomain);
+            for (const l of listings) annonces.push({ ...l, source: agencyName });
+            if (annonces.length > 0) return annonces;
+        } catch (e) { /* JSON invalide */ }
+    }
+
+    // Generique : gros blocs JSON dans les <script> (arrays et objects)
     const scriptBlocks = html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi);
     for (const block of scriptBlocks) {
         const content = block[1].trim();
-        // Chercher des objets JSON assignes a des variables (window.__DATA__ = {...}, var data = [...])
-        const jsonAssignments = content.matchAll(/(?:window\.[A-Z_]+|var\s+\w+|let\s+\w+|const\s+\w+)\s*=\s*(\[[\s\S]{100,}?\]);/gi);
+        if (content.length < 100 || content.length > 500000) continue;
+        // Chercher des arrays/objects JSON assignes a des variables
+        const jsonAssignments = content.matchAll(/(?:window\.\w+|(?:var|let|const)\s+\w+)\s*=\s*(\[[\s\S]{100,}?\]|\{[\s\S]{200,}?\})\s*;/gi);
         for (const m of jsonAssignments) {
             try {
                 const data = JSON.parse(m[1]);
-                if (Array.isArray(data) && data.length > 1) {
-                    const listings = findListingsInObject(data, baseDomain);
-                    for (const l of listings) {
-                        annonces.push({ ...l, source: agencyName });
-                    }
-                    if (annonces.length > 0) return annonces;
-                }
+                const listings = findListingsInObject(data, baseDomain);
+                for (const l of listings) annonces.push({ ...l, source: agencyName });
+                if (annonces.length > 0) return annonces;
             } catch (e) { /* pas du JSON valide */ }
         }
     }

@@ -499,66 +499,71 @@ async function scrapeAdDetail(adUrl, env) {
 // ── Scrape Agency (scan automatique d'un site d'agence) ─────────────────────
 // Tente de découvrir la page de vente d'une agence à partir de sa homepage
 async function discoverListingsUrl(baseDomain, candidatePaths, env, agencyName) {
-    // D'abord tenter de trouver des liens de vente dans la homepage elle-même
+    // D'abord tenter de trouver des liens de vente dans la homepage
     try {
-        const homeResp = await fetch(baseDomain + '/', {
+        const homeResp = await fetchWithTimeout(baseDomain + '/', {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
                 "Accept": "text/html,application/xhtml+xml",
             },
             redirect: 'follow',
-        });
+        }, 5000);
         if (homeResp.ok) {
             const html = await homeResp.text();
-            // Chercher des liens contenant acheter/vente/buy/a-vendre dans la homepage
             const linkPattern = /<a[^>]+href=["']([^"']*(?:achet|vente|a-vendre|buy|verkauf|for-sale|immobilier)[^"']*)["']/gi;
             let m;
             const foundLinks = [];
             while ((m = linkPattern.exec(html)) !== null) {
                 let href = m[1];
-                // Ignorer les liens de location
                 if (/lou|rent|miet/i.test(href)) continue;
                 if (href.startsWith('/')) href = baseDomain + href;
                 else if (!href.startsWith('http')) continue;
-                // Garder seulement les liens du même domaine
                 try { if (new URL(href).origin !== baseDomain) continue; } catch { continue; }
                 foundLinks.push(href);
             }
-            if (foundLinks.length > 0) {
-                // Tester le premier lien trouvé
-                const testResp = await fetch(foundLinks[0], { method: 'HEAD', redirect: 'follow',
-                    headers: { "User-Agent": "Mozilla/5.0" } });
-                if (testResp.ok) return foundLinks[0];
-            }
+            if (foundLinks.length > 0) return foundLinks[0];
         }
-    } catch (e) { /* ignore */ }
+    } catch (e) { /* timeout ou erreur */ }
 
-    // Sinon, tester les chemins candidats courants
-    for (const path of candidatePaths) {
-        const testUrl = baseDomain + path;
-        try {
-            const resp = await fetch(testUrl, {
+    // Tester TOUS les chemins candidats en parallèle (rapide)
+    const results = await Promise.allSettled(
+        candidatePaths.map(async (path) => {
+            const testUrl = baseDomain + path;
+            const resp = await fetchWithTimeout(testUrl, {
                 method: 'HEAD',
                 redirect: 'follow',
                 headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
-            });
+            }, 4000);
             if (resp.ok && resp.status !== 404) {
-                // Vérifier que ce n'est pas une redirection vers la homepage
                 const finalUrl = resp.url || testUrl;
                 const finalPath = new URL(finalUrl).pathname.replace(/\/$/, '');
                 if (finalPath !== '' && finalPath !== '/fr' && finalPath !== '/de') {
                     return finalUrl;
                 }
             }
-        } catch (e) { /* URL inaccessible, continuer */ }
+            throw new Error('not found');
+        })
+    );
+
+    // Retourner le premier chemin qui a répondu positivement
+    for (const r of results) {
+        if (r.status === 'fulfilled' && r.value) return r.value;
     }
 
-    return null; // Aucune page de vente trouvée
+    return null;
+}
+
+// ── Fetch avec timeout ───────────────────────────────────────────────────────
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal })
+        .finally(() => clearTimeout(timer));
 }
 
 // ── Fetch simple d'une page HTML ─────────────────────────────────────────────
 async function fetchPage(url, baseDomain) {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
         headers: {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -578,35 +583,37 @@ async function tryApiEndpointDiscovery(html, baseDomain, agencyName) {
     // 1. Chercher des endpoints API dans les scripts inline et les attributs data-*
     const apiEndpoints = discoverApiEndpoints(html, baseDomain);
 
-    // 2. Tester chaque endpoint découvert
-    for (const endpoint of apiEndpoints.slice(0, 5)) { // max 5 tentatives
-        try {
-            const resp = await fetch(endpoint, {
+    // 2. Tester les endpoints en parallèle (max 5)
+    const testResults = await Promise.allSettled(
+        apiEndpoints.slice(0, 5).map(async (endpoint) => {
+            const resp = await fetchWithTimeout(endpoint, {
                 headers: {
                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
                     "Accept": "application/json, text/plain, */*",
                     "Referer": baseDomain + "/",
                     "Origin": baseDomain,
                 },
-            });
-            if (!resp.ok) continue;
-
+            }, 5000);
+            if (!resp.ok) return null;
             const contentType = resp.headers.get('content-type') || '';
-            if (!contentType.includes('json')) continue;
-
+            if (!contentType.includes('json')) return null;
             const data = await resp.json();
             const listings = findListingsInObject(data, baseDomain);
-            if (listings.length > 0) {
-                for (const l of listings) {
-                    allAnnonces.push({ ...l, source: agencyName });
-                }
+            if (listings.length > 0) return { endpoint, data, listings };
+            return null;
+        })
+    );
 
-                // Tenter la pagination de l'API (offset/page)
-                const moreAnnonces = await paginateApiEndpoint(endpoint, data, baseDomain, agencyName);
-                allAnnonces.push(...moreAnnonces);
-                break; // on a trouvé un endpoint qui marche
-            }
-        } catch (e) { /* endpoint inaccessible */ }
+    // Prendre le premier endpoint qui a retourné des résultats
+    for (const r of testResults) {
+        if (r.status === 'fulfilled' && r.value) {
+            const { endpoint, data, listings } = r.value;
+            for (const l of listings) allAnnonces.push({ ...l, source: agencyName });
+            // Paginer cet endpoint
+            const moreAnnonces = await paginateApiEndpoint(endpoint, data, baseDomain, agencyName);
+            allAnnonces.push(...moreAnnonces);
+            break;
+        }
     }
 
     return allAnnonces;
@@ -730,7 +737,7 @@ async function paginateApiEndpoint(endpoint, firstResponse, baseDomain, agencyNa
         if (!nextUrl) break;
 
         try {
-            const resp = await fetch(nextUrl, {
+            const resp = await fetchWithTimeout(nextUrl, {
                 headers: {
                     "User-Agent": "Mozilla/5.0",
                     "Accept": "application/json",

@@ -3352,7 +3352,7 @@ async function scannerAgences() {
     }
   }
 
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 10;
   const agencyEntries = selectedAgencies
     .map(key => ({ key, agency: AGENCIES[key] }))
     .filter(e => e.agency);
@@ -4347,7 +4347,7 @@ async function censusLancerScan() {
     }
   }
 
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 10;
   let scannedCount = 0;
   const total = entries.length;
 
@@ -4382,12 +4382,14 @@ async function censusLancerScan() {
       if (r.annonces.length > 0) censusAllListings.push(...r.annonces);
       agencyStatuses.push({ name: r.name, status: r.status, count: r.count, message: r.message });
     }
-    // Mise à jour progressive
+    // Mise à jour progressive : statuts + filtres + affichage des annonces
     censusUpdateStats(scannedCount, total, agencyStatuses);
     afficherCensusAgencyStatuses(agencyStatuses);
+    censusPopulateRegions();
+    censusApplyFilters();
   }
 
-  // Filtrer location/doublons
+  // Filtrer location/doublons (final)
   censusAllListings = censusAllListings.filter(b => isSwissListing(b) && !isRentalListing(b));
   censusAllListings = deduplicateBiens(censusAllListings);
 

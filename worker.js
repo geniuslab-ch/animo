@@ -572,8 +572,8 @@ async function fetchPage(url, baseDomain) {
         },
         redirect: 'follow',
     });
-    if (!response.ok) return null;
-    return await response.text();
+    if (!response.ok) return { html: null, status: response.status };
+    return { html: await response.text(), status: response.status };
 }
 
 // ── Découverte d'API endpoints depuis le code source HTML ────────────────────
@@ -817,9 +817,21 @@ async function handleScrapeAgency(request, env) {
 
         // ── Phase 1 : Fetch initial + extraction ────────────────────────────
         let html = '';
+        let fetchStatus = 0;
         try {
-            html = await fetchPage(currentUrl, baseDomain);
+            const result = await fetchPage(currentUrl, baseDomain);
+            html = result.html;
+            fetchStatus = result.status;
         } catch (e) { /* fetch échoué */ }
+
+        // ── Phase 0b : Si 503 ou SPA vide, retenter via SmartProxy headless ──
+        const needs503Retry = !html && (fetchStatus === 503 || fetchStatus === 502 || fetchStatus === 429);
+        if (needs503Retry && env.SMARTPROXY_AUTH) {
+            try {
+                html = await fetchViaSmartProxy(currentUrl, env, { headless: true });
+                if (html) method = 'smartproxy';
+            } catch (e) { /* SmartProxy échoué aussi */ }
+        }
 
         if (html) {
             // Essayer d'abord l'extraction classique (JSON-LD, SSR, HTML patterns)
@@ -827,7 +839,9 @@ async function handleScrapeAgency(request, env) {
 
             if (annonces.length > 0) {
                 allAnnonces.push(...annonces);
-                method = html.includes('__NEXT_DATA__') || html.includes('__NUXT__') ? 'ssr' : 'html';
+                if (method !== 'smartproxy') {
+                    method = html.includes('__NEXT_DATA__') || html.includes('__NUXT__') ? 'ssr' : 'html';
+                }
             }
 
             // ── Phase 2 : Si SPA ou pas de résultats, chercher des API endpoints ──
@@ -839,7 +853,29 @@ async function handleScrapeAgency(request, env) {
                 }
             }
 
-            // ── Phase 2b : Meta tags pour SPA en dernier recours ──
+            // ── Phase 2b : SPA détecté → retenter via SmartProxy headless ──
+            if (allAnnonces.length === 0 && detectSPAShell(html) && env.SMARTPROXY_AUTH && method !== 'smartproxy') {
+                try {
+                    const spaHtml = await fetchViaSmartProxy(currentUrl, env, { headless: true });
+                    if (spaHtml) {
+                        const spaAnnonces = extractAgencyListings(spaHtml, baseDomain, agencyName || "Agence");
+                        if (spaAnnonces.length > 0) {
+                            allAnnonces.push(...spaAnnonces);
+                            html = spaHtml;
+                            method = 'smartproxy_spa';
+                        } else {
+                            // Dernier recours : API discovery sur le HTML rendu
+                            const apiAnnonces = await tryApiEndpointDiscovery(spaHtml, baseDomain, agencyName || "Agence");
+                            if (apiAnnonces.length > 0) {
+                                allAnnonces.push(...apiAnnonces);
+                                method = 'smartproxy_api';
+                            }
+                        }
+                    }
+                } catch (e) { /* SmartProxy SPA échoué */ }
+            }
+
+            // ── Phase 2c : Meta tags pour SPA en dernier recours ──
             if (allAnnonces.length === 0 && detectSPAShell(html)) {
                 const spaAd = extractMetaTagsAd(html, currentUrl, agencyName || "Agence");
                 if (spaAd) {
@@ -856,7 +892,8 @@ async function handleScrapeAgency(request, env) {
                     currentUrl = nextUrl;
 
                     try {
-                        html = await fetchPage(currentUrl, baseDomain);
+                        const pgResult = await fetchPage(currentUrl, baseDomain);
+                        html = pgResult.html;
                         if (!html) break;
                         const pageAnnonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
                         if (pageAnnonces.length > 0) {
@@ -872,10 +909,12 @@ async function handleScrapeAgency(request, env) {
         }
 
         const status = allAnnonces.length > 0 ? 'ok'
+            : needs503Retry ? 'error'
             : (html && detectSPAShell(html)) ? 'spa_empty' : 'empty';
         const urlChanged = resolvedUrl !== pageUrl;
         const message = allAnnonces.length === 0
-            ? (status === 'spa_empty' ? 'Site SPA (necessite JS)'
+            ? (needs503Retry && !html ? `Erreur ${fetchStatus} (site indisponible)`
+                : status === 'spa_empty' ? 'Site SPA (necessite JS)'
                 : urlChanged ? `Page decouverte (${resolvedUrl}) mais aucune annonce` : 'Aucune annonce trouvee')
             : (urlChanged ? `Via ${resolvedUrl} (${method})` : `(${method})`);
 

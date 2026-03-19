@@ -277,8 +277,27 @@
 
       <!-- Filtres -->
       <div class="census-filters">
+        <div class="search-mode-options" style="margin-bottom:12px">
+          <label class="search-mode-option">
+            <input type="radio" name="censusSearchMode" value="restreinte" checked onchange="censusApplyFilters()">
+            <div>
+              <strong>Recherche restreinte</strong>
+              <span class="search-mode-desc">Filtres stricts : seuls les biens correspondant exactement au type et lieu sélectionnés</span>
+            </div>
+          </label>
+          <label class="search-mode-option">
+            <input type="radio" name="censusSearchMode" value="elargie" onchange="censusApplyFilters()">
+            <div>
+              <strong>Recherche élargie</strong>
+              <span class="search-mode-desc">Filtres souples : inclut les biens sans type défini, les NPA voisins et les prix approximatifs</span>
+            </div>
+          </label>
+        </div>
         <div class="census-filter-row">
           <input type="text" id="censusFilterLocation" class="census-filter-input" placeholder="Filtrer par lieu (ex: Lausanne, 1200...)" oninput="censusApplyFilters()">
+          <select id="censusFilterRegion" class="census-filter-select" onchange="censusApplyFilters()">
+            <option value="">Toutes les regions</option>
+          </select>
           <select id="censusFilterType" class="census-filter-select" onchange="censusApplyFilters()">
             <option value="">Tous les types</option>
             <option value="apartment">Appartement</option>
@@ -288,10 +307,10 @@
           </select>
           <select id="censusFilterPrice" class="census-filter-select" onchange="censusApplyFilters()">
             <option value="">Tous les prix</option>
-            <option value="0-500000">< CHF 500'000</option>
+            <option value="0-500000">&lt; CHF 500'000</option>
             <option value="500000-1000000">CHF 500'000 - 1M</option>
             <option value="1000000-2000000">CHF 1M - 2M</option>
-            <option value="2000000-">> CHF 2M</option>
+            <option value="2000000-">&gt; CHF 2M</option>
           </select>
         </div>
         <div class="census-filter-row" style="margin-top:8px; gap:8px; align-items:center">

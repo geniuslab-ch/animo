@@ -2857,12 +2857,22 @@ function getAgencyCanton(key, agency) {
   return "vaud";
 }
 
+function hasListingPath(url) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/$/, '');
+    return (path !== '' && path !== '/fr' && path !== '/en') || u.search.length > 0 || u.hash.length > 0;
+  } catch { return false; }
+}
+
 function populateAgencyCheckboxes() {
   const groups = {};
   ["vaud","valais","neuchatel","fribourg","geneve"].forEach(c => groups[c] = []);
 
   for (const [key, agency] of Object.entries(AGENCIES)) {
     const canton = getAgencyCanton(key, agency);
+    // Pour VD, n'afficher que les agences avec un vrai lien de listing
+    if (canton === "vaud" && !hasListingPath(agency.listingsUrl)) continue;
     if (groups[canton]) groups[canton].push({ key, name: agency.name });
   }
 
@@ -4367,7 +4377,7 @@ async function censusLancerScan() {
   const entries = [];
   for (const [key, agency] of Object.entries(AGENCIES)) {
     const canton = getAgencyCanton(key, agency);
-    if (canton === censusCurrentCanton) {
+    if (canton === censusCurrentCanton && hasListingPath(agency.listingsUrl)) {
       entries.push({ key, agency });
     }
   }

@@ -1594,7 +1594,8 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         // Extraire le type de bien
         const typeText = (linkContent + ' ' + contextText).toLowerCase();
         let type = 'unknown';
-        if (/maison|villa|chalet/i.test(typeText)) type = 'house';
+        if (/chalet/i.test(typeText)) type = 'chalet';
+        else if (/maison|villa/i.test(typeText)) type = 'house';
         else if (/appartement|appart\b/i.test(typeText)) type = 'apartment';
         else if (/terrain|parcelle/i.test(typeText)) type = 'land';
         else if (/commercial|bureau|local\b/i.test(typeText)) type = 'commercial';
@@ -1807,7 +1808,8 @@ function extractListingFromObject(item, baseDomain) {
 
     let type = 'unknown';
     const typeStr = (item.type || item.propertyType || item.category || titre || '').toString().toLowerCase();
-    if (/maison|villa|chalet|house/i.test(typeStr)) type = 'house';
+    if (/chalet/i.test(typeStr)) type = 'chalet';
+    else if (/maison|villa|house/i.test(typeStr)) type = 'house';
     else if (/appartement|apartment|appart\b/i.test(typeStr)) type = 'apartment';
     else if (/terrain|land|parcelle/i.test(typeStr)) type = 'land';
     else if (/commercial|bureau|office/i.test(typeStr)) type = 'commercial';
@@ -1865,8 +1867,9 @@ function extractFromJsonLd(item, baseDomain, agencyName) {
     let type = 'unknown';
     const schemaType = (item["@type"] || '').toLowerCase();
     const nameText = (name || '').toLowerCase();
-    if (schemaType === 'apartment' || /appartement|appart\b/i.test(nameText)) type = 'apartment';
-    else if (schemaType === 'house' || /maison|villa|chalet/i.test(nameText)) type = 'house';
+    if (/chalet/i.test(nameText)) type = 'chalet';
+    else if (schemaType === 'apartment' || /appartement|appart\b/i.test(nameText)) type = 'apartment';
+    else if (schemaType === 'house' || /maison|villa/i.test(nameText)) type = 'house';
     else if (/terrain|parcelle/i.test(nameText)) type = 'land';
     else if (/parking|garage|box/i.test(nameText)) type = 'parking';
     else if (/commercial|bureau|local\b/i.test(nameText)) type = 'commercial';

@@ -554,7 +554,7 @@ async function discoverListingsUrl(baseDomain, candidatePaths, env, agencyName) 
 }
 
 // ── Fetch avec timeout ───────────────────────────────────────────────────────
-function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     return fetch(url, { ...options, signal: controller.signal })
@@ -795,9 +795,11 @@ async function handleScrapeAgency(request, env) {
         const baseDomain = baseObj.origin;
 
         // Si l'URL est une simple homepage, tenter de trouver la page de vente
+        // (skip si l'URL a deja un chemin specifique — ex. Url listing du CSV)
         let resolvedUrl = pageUrl;
         const path = baseObj.pathname.replace(/\/$/, '');
-        if (path === '' || path === '/fr' || path === '/de' || path === '/en') {
+        const isHomepage = path === '' || path === '/fr' || path === '/de' || path === '/en' || path === '/it';
+        if (isHomepage) {
             const candidatePaths = [
                 '/acheter/', '/fr/acheter/', '/acheter', '/fr/acheter',
                 '/a-vendre/', '/fr/a-vendre/', '/a-vendre', '/fr/a-vendre',
@@ -818,15 +820,18 @@ async function handleScrapeAgency(request, env) {
         // ── Phase 1 : Fetch initial + extraction ────────────────────────────
         let html = '';
         let fetchStatus = 0;
+        let fetchTimedOut = false;
         try {
             const result = await fetchPage(currentUrl, baseDomain);
             html = result.html;
             fetchStatus = result.status;
-        } catch (e) { /* fetch échoué */ }
+        } catch (e) {
+            fetchTimedOut = e.name === 'AbortError';
+        }
 
-        // ── Phase 0b : Si 503 ou SPA vide, retenter via SmartProxy headless ──
-        const needs503Retry = !html && (fetchStatus === 503 || fetchStatus === 502 || fetchStatus === 429);
-        if (needs503Retry && env.SMARTPROXY_AUTH) {
+        // ── Phase 1b : Si erreur (503/502/429/timeout), retenter via SmartProxy headless ──
+        const needsRetry = !html && (fetchTimedOut || fetchStatus === 503 || fetchStatus === 502 || fetchStatus === 429);
+        if (needsRetry && env.SMARTPROXY_AUTH) {
             try {
                 html = await fetchViaSmartProxy(currentUrl, env, { headless: true });
                 if (html) method = 'smartproxy';
@@ -909,11 +914,11 @@ async function handleScrapeAgency(request, env) {
         }
 
         const status = allAnnonces.length > 0 ? 'ok'
-            : needs503Retry ? 'error'
+            : needsRetry ? 'error'
             : (html && detectSPAShell(html)) ? 'spa_empty' : 'empty';
         const urlChanged = resolvedUrl !== pageUrl;
         const message = allAnnonces.length === 0
-            ? (needs503Retry && !html ? `Erreur ${fetchStatus} (site indisponible)`
+            ? (needsRetry && !html ? (fetchTimedOut ? 'Timeout (site trop lent)' : `Erreur ${fetchStatus} (site indisponible)`)
                 : status === 'spa_empty' ? 'Site SPA (necessite JS)'
                 : urlChanged ? `Page decouverte (${resolvedUrl}) mais aucune annonce` : 'Aucune annonce trouvee')
             : (urlChanged ? `Via ${resolvedUrl} (${method})` : `(${method})`);
@@ -1182,14 +1187,14 @@ async function fetchViaSmartProxy(url, env, options = {}) {
         body.browser_actions = options.browser_actions;
     }
 
-    const response = await fetch('https://scraper-api.decodo.com/v2/scrape', {
+    const response = await fetchWithTimeout('https://scraper-api.decodo.com/v2/scrape', {
         method: 'POST',
         headers: {
             'Authorization': `Basic ${auth}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-    });
+    }, 15000);
 
     if (!response.ok) return null;
 

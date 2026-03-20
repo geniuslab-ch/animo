@@ -3353,7 +3353,7 @@ async function scannerAgences() {
   }
 
   const CONCURRENCY = 10;
-  const CLIENT_TIMEOUT = 25000;
+  const CLIENT_TIMEOUT = 45000;
   const agencyEntries = selectedAgencies
     .map(key => ({ key, agency: AGENCIES[key] }))
     .filter(e => e.agency);
@@ -4357,7 +4357,7 @@ async function censusLancerScan() {
   }
 
   const CONCURRENCY = 10;
-  const CLIENT_TIMEOUT = 25000; // 25s max par agence
+  const CLIENT_TIMEOUT = 45000; // 25s max par agence
   let scannedCount = 0;
   const total = entries.length;
 

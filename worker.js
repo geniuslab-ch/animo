@@ -888,21 +888,34 @@ async function handleScrapeAgency(request, env) {
                 }
             }
 
-            // ── Phase 2b : SPA détecté → retenter via l'autre proxy en headless ──
+            // ── Phase 2b : SPA detecte → retenter avec Bright Data + waitForSelector ──
             if (allAnnonces.length === 0 && detectSPAShell(html)) {
                 let spaHtml = null;
-                // Si Bright Data a ete utilise, tenter SmartProxy headless (rendu JS different)
-                if (method === 'brightdata' && env.SMARTPROXY_AUTH) {
+
+                // Tenter Bright Data avec x-unblock-expect (attendre rendu JS des listings)
+                if (env.BRIGHTDATA_API_KEY) {
+                    // 1. Essayer avec un selecteur generique (CHF = prix visible)
+                    try {
+                        spaHtml = await fetchViaBrightData(currentUrl, env, { waitForText: 'CHF' });
+                    } catch (e) { /* echoue */ }
+                    if (spaHtml && detectSPAShell(spaHtml)) spaHtml = null;
+
+                    // 2. Si echec, essayer avec un selecteur CSS courant
+                    if (!spaHtml) {
+                        try {
+                            spaHtml = await fetchViaBrightData(currentUrl, env, { waitForSelector: 'a[href]' });
+                        } catch (e) { /* echoue */ }
+                        if (spaHtml && detectSPAShell(spaHtml)) spaHtml = null;
+                    }
+                }
+
+                // Fallback SmartProxy headless
+                if (!spaHtml && env.SMARTPROXY_AUTH) {
                     try {
                         spaHtml = await fetchViaSmartProxy(currentUrl, env, { headless: true });
                     } catch (e) { /* SmartProxy SPA echoue */ }
                 }
-                // Si SmartProxy ou direct, tenter Bright Data
-                if (!spaHtml && method !== 'brightdata' && env.BRIGHTDATA_API_KEY) {
-                    try {
-                        spaHtml = await fetchViaBrightData(currentUrl, env);
-                    } catch (e) { /* Bright Data SPA echoue */ }
-                }
+
                 if (spaHtml) {
                     const spaAnnonces = extractAgencyListings(spaHtml, baseDomain, agencyName || "Agence");
                     if (spaAnnonces.length > 0) {
@@ -910,7 +923,7 @@ async function handleScrapeAgency(request, env) {
                         html = spaHtml;
                         method = 'proxy_spa';
                     } else {
-                        // Dernier recours : API discovery sur le HTML rendu
+                        // API discovery sur le HTML rendu
                         const apiAnnonces = await tryApiEndpointDiscovery(spaHtml, baseDomain, agencyName || "Agence");
                         if (apiAnnonces.length > 0) {
                             allAnnonces.push(...apiAnnonces);
@@ -1278,12 +1291,26 @@ async function fetchViaBrightData(url, env, options = {}) {
                 country: 'ch',
             };
 
+            // data_format: markdown pour un parsing plus propre des SPA
+            if (options.dataFormat) {
+                body.data_format = options.dataFormat;
+            }
+
+            const headers = {
+                'Authorization': `Bearer ${env.BRIGHTDATA_API_KEY}`,
+                'Content-Type': 'application/json',
+            };
+
+            // Attendre qu'un element CSS soit rendu avant de retourner (SPA)
+            if (options.waitForSelector) {
+                headers['x-unblock-expect'] = JSON.stringify({ element: options.waitForSelector });
+            } else if (options.waitForText) {
+                headers['x-unblock-expect'] = JSON.stringify({ text: options.waitForText });
+            }
+
             const response = await fetchWithTimeout('https://api.brightdata.com/request', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${env.BRIGHTDATA_API_KEY}`,
-                    'Content-Type': 'application/json',
-                },
+                headers,
                 body: JSON.stringify(body),
             }, TIMEOUT);
 

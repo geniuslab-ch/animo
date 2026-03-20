@@ -888,21 +888,34 @@ async function handleScrapeAgency(request, env) {
                 }
             }
 
-            // ── Phase 2b : SPA détecté → retenter via l'autre proxy en headless ──
+            // ── Phase 2b : SPA detecte → retenter avec Bright Data + waitForSelector ──
             if (allAnnonces.length === 0 && detectSPAShell(html)) {
                 let spaHtml = null;
-                // Si Bright Data a ete utilise, tenter SmartProxy headless (rendu JS different)
-                if (method === 'brightdata' && env.SMARTPROXY_AUTH) {
+
+                // Tenter Bright Data avec x-unblock-expect (attendre rendu JS des listings)
+                if (env.BRIGHTDATA_API_KEY) {
+                    // 1. Essayer avec un selecteur generique (CHF = prix visible)
+                    try {
+                        spaHtml = await fetchViaBrightData(currentUrl, env, { waitForText: 'CHF' });
+                    } catch (e) { /* echoue */ }
+                    if (spaHtml && detectSPAShell(spaHtml)) spaHtml = null;
+
+                    // 2. Si echec, essayer avec un selecteur CSS courant
+                    if (!spaHtml) {
+                        try {
+                            spaHtml = await fetchViaBrightData(currentUrl, env, { waitForSelector: 'a[href]' });
+                        } catch (e) { /* echoue */ }
+                        if (spaHtml && detectSPAShell(spaHtml)) spaHtml = null;
+                    }
+                }
+
+                // Fallback SmartProxy headless
+                if (!spaHtml && env.SMARTPROXY_AUTH) {
                     try {
                         spaHtml = await fetchViaSmartProxy(currentUrl, env, { headless: true });
                     } catch (e) { /* SmartProxy SPA echoue */ }
                 }
-                // Si SmartProxy ou direct, tenter Bright Data
-                if (!spaHtml && method !== 'brightdata' && env.BRIGHTDATA_API_KEY) {
-                    try {
-                        spaHtml = await fetchViaBrightData(currentUrl, env);
-                    } catch (e) { /* Bright Data SPA echoue */ }
-                }
+
                 if (spaHtml) {
                     const spaAnnonces = extractAgencyListings(spaHtml, baseDomain, agencyName || "Agence");
                     if (spaAnnonces.length > 0) {
@@ -910,7 +923,7 @@ async function handleScrapeAgency(request, env) {
                         html = spaHtml;
                         method = 'proxy_spa';
                     } else {
-                        // Dernier recours : API discovery sur le HTML rendu
+                        // API discovery sur le HTML rendu
                         const apiAnnonces = await tryApiEndpointDiscovery(spaHtml, baseDomain, agencyName || "Agence");
                         if (apiAnnonces.length > 0) {
                             allAnnonces.push(...apiAnnonces);
@@ -1266,26 +1279,78 @@ async function fetchViaSmartProxy(url, env, options = {}) {
 async function fetchViaBrightData(url, env, options = {}) {
     if (!env.BRIGHTDATA_API_KEY) return null;
 
-    const body = {
-        zone: 'web_unlocker1',
-        url: url,
-        format: 'raw',
-        country: 'ch',
-    };
+    const MAX_RETRIES = 3;
+    const TIMEOUT = 60000; // 60s pour laisser le browser check se terminer
 
-    const response = await fetchWithTimeout('https://api.brightdata.com/request', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${env.BRIGHTDATA_API_KEY}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    }, 20000);
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            const body = {
+                zone: 'web_unlocker1',
+                url: url,
+                format: 'raw',
+                country: 'ch',
+            };
 
-    if (!response.ok) return null;
+            // data_format: markdown pour un parsing plus propre des SPA
+            if (options.dataFormat) {
+                body.data_format = options.dataFormat;
+            }
 
-    const text = await response.text();
-    return text || null;
+            const headers = {
+                'Authorization': `Bearer ${env.BRIGHTDATA_API_KEY}`,
+                'Content-Type': 'application/json',
+            };
+
+            // Attendre qu'un element CSS soit rendu avant de retourner (SPA)
+            if (options.waitForSelector) {
+                headers['x-unblock-expect'] = JSON.stringify({ element: options.waitForSelector });
+            } else if (options.waitForText) {
+                headers['x-unblock-expect'] = JSON.stringify({ text: options.waitForText });
+            }
+
+            const response = await fetchWithTimeout('https://api.brightdata.com/request', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body),
+            }, TIMEOUT);
+
+            // Succes
+            if (response.ok) {
+                const text = await response.text();
+                return text || null;
+            }
+
+            // Lire les headers d'erreur Bright Data pour diagnostic
+            const brdError = response.headers.get('x-brd-error-code') || response.headers.get('x-luminati-error-code') || '';
+            const brdMsg = response.headers.get('x-brd-error') || response.headers.get('x-luminati-error') || '';
+            const status = response.status;
+
+            // 503/530 : retryable (browser check en cours / protection)
+            if ((status === 503 || status === 530) && attempt < MAX_RETRIES - 1) {
+                const delay = (attempt + 1) * 2000; // 2s, 4s
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+
+            // 429 : rate limit, attendre plus longtemps
+            if (status === 429 && attempt < MAX_RETRIES - 1) {
+                await new Promise(r => setTimeout(r, 5000));
+                continue;
+            }
+
+            // Erreur non-retryable
+            return null;
+
+        } catch (e) {
+            // Timeout ou erreur reseau : retenter
+            if (attempt < MAX_RETRIES - 1) {
+                await new Promise(r => setTimeout(r, (attempt + 1) * 1000));
+                continue;
+            }
+            return null;
+        }
+    }
+    return null;
 }
 
 function findNextPageUrl(html, currentUrl, baseDomain) {

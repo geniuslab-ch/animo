@@ -292,24 +292,24 @@ async function handleScrapeListings(request, env) {
             }
         }
 
-        // Fetcher la page de liste (SmartProxy en priorité)
+        // Fetcher la page de liste (Bright Data en priorité)
         let html = null;
 
-        // Tentative 1 : SmartProxy (meilleur taux de succès)
-        if (env.SMARTPROXY_AUTH) {
-            try {
-                html = await fetchViaSmartProxy(pageUrl, env);
-            } catch (e) { /* SmartProxy échoué */ }
-        }
-
-        // Tentative 2 : Bright Data (fallback anti-bot)
-        if (!html && env.BRIGHTDATA_API_KEY) {
+        // Tentative 1 : Bright Data (meilleur taux de succes)
+        if (env.BRIGHTDATA_API_KEY) {
             try {
                 html = await fetchViaBrightData(pageUrl, env);
-            } catch (e) { /* Bright Data échoué */ }
+            } catch (e) { /* Bright Data echoue */ }
         }
 
-        // Tentative 3 : fetch direct (fallback gratuit)
+        // Tentative 2 : SmartProxy (fallback)
+        if (!html && env.SMARTPROXY_AUTH) {
+            try {
+                html = await fetchViaSmartProxy(pageUrl, env);
+            } catch (e) { /* SmartProxy echoue */ }
+        }
+
+        // Tentative 3 : fetch direct (dernier recours)
         if (!html) {
             try {
                 const response = await fetch(pageUrl, {
@@ -387,21 +387,21 @@ async function handleScrapeListings(request, env) {
 async function scrapeAdDetail(adUrl, env) {
     let html = null;
 
-    // Tentative 1 : SmartProxy (prioritaire)
-    if (env?.SMARTPROXY_AUTH) {
-        try {
-            html = await fetchViaSmartProxy(adUrl, env);
-        } catch (e) { /* SmartProxy échoué */ }
-    }
-
-    // Tentative 2 : Bright Data (fallback anti-bot)
-    if (!html && env?.BRIGHTDATA_API_KEY) {
+    // Tentative 1 : Bright Data (prioritaire)
+    if (env?.BRIGHTDATA_API_KEY) {
         try {
             html = await fetchViaBrightData(adUrl, env);
-        } catch (e) { /* Bright Data échoué */ }
+        } catch (e) { /* Bright Data echoue */ }
     }
 
-    // Tentative 3 : fetch direct (fallback)
+    // Tentative 2 : SmartProxy (fallback)
+    if (!html && env?.SMARTPROXY_AUTH) {
+        try {
+            html = await fetchViaSmartProxy(adUrl, env);
+        } catch (e) { /* SmartProxy echoue */ }
+    }
+
+    // Tentative 3 : fetch direct (dernier recours)
     if (!html) {
         try {
             const response = await fetch(adUrl, {
@@ -515,15 +515,22 @@ async function scrapeAdDetail(adUrl, env) {
 async function discoverListingsUrl(baseDomain, candidatePaths, env, agencyName) {
     // D'abord tenter de trouver des liens de vente dans la homepage
     try {
-        const homeResp = await fetchWithTimeout(baseDomain + '/', {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-                "Accept": "text/html,application/xhtml+xml",
-            },
-            redirect: 'follow',
-        }, 5000);
-        if (homeResp.ok) {
-            const html = await homeResp.text();
+        let html = null;
+        // Priorite Bright Data pour la homepage aussi
+        if (env.BRIGHTDATA_API_KEY) {
+            try { html = await fetchViaBrightData(baseDomain + '/', env); } catch (e) {}
+        }
+        if (!html) {
+            const homeResp = await fetchWithTimeout(baseDomain + '/', {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                    "Accept": "text/html,application/xhtml+xml",
+                },
+                redirect: 'follow',
+            }, 5000);
+            if (homeResp.ok) html = await homeResp.text();
+        }
+        if (html) {
             const linkPattern = /<a[^>]+href=["']([^"']*(?:achet|vente|a-vendre|buy|verkauf|for-sale|immobilier)[^"']*)["']/gi;
             let m;
             const foundLinks = [];
@@ -835,33 +842,30 @@ async function handleScrapeAgency(request, env) {
         let html = '';
         let fetchStatus = 0;
         let fetchFailed = false;
-        try {
-            const result = await fetchPage(currentUrl, baseDomain);
-            html = result.html;
-            fetchStatus = result.status;
-            // Retry une fois pour les erreurs 503 (service temporairement indisponible)
-            if (!html && fetchStatus === 503) {
-                await new Promise(r => setTimeout(r, 2000));
-                const retry = await fetchPage(currentUrl, baseDomain);
-                html = retry.html;
-                fetchStatus = retry.status;
-            }
-        } catch (e) {
-            fetchFailed = true;
-        }
 
-        // ── Phase 1b : Si AUCUN HTML, retenter via SmartProxy puis Bright Data ──
+        // ── Phase 1 : Fetch via Bright Data en priorite (meilleure fiabilite) ──
+        if (env.BRIGHTDATA_API_KEY) {
+            try {
+                html = await fetchViaBrightData(currentUrl, env);
+                if (html) method = 'brightdata';
+            } catch (e) { /* Bright Data echoue */ }
+        }
+        // Fallback SmartProxy
         if (!html && env.SMARTPROXY_AUTH) {
             try {
                 html = await fetchViaSmartProxy(currentUrl, env, { headless: true });
                 if (html) method = 'smartproxy';
-            } catch (e) { /* SmartProxy échoué aussi */ }
+            } catch (e) { /* SmartProxy echoue */ }
         }
-        if (!html && env.BRIGHTDATA_API_KEY) {
+        // Dernier recours : fetch direct
+        if (!html) {
             try {
-                html = await fetchViaBrightData(currentUrl, env);
-                if (html) method = 'brightdata';
-            } catch (e) { /* Bright Data échoué aussi */ }
+                const result = await fetchPage(currentUrl, baseDomain);
+                html = result.html;
+                fetchStatus = result.status;
+            } catch (e) {
+                fetchFailed = true;
+            }
         }
 
         if (html) {
@@ -884,18 +888,20 @@ async function handleScrapeAgency(request, env) {
                 }
             }
 
-            // ── Phase 2b : SPA détecté → retenter via SmartProxy/BrightData headless ──
-            if (allAnnonces.length === 0 && detectSPAShell(html) && method !== 'smartproxy' && method !== 'brightdata') {
+            // ── Phase 2b : SPA détecté → retenter via l'autre proxy en headless ──
+            if (allAnnonces.length === 0 && detectSPAShell(html)) {
                 let spaHtml = null;
-                if (env.SMARTPROXY_AUTH) {
+                // Si Bright Data a ete utilise, tenter SmartProxy headless (rendu JS different)
+                if (method === 'brightdata' && env.SMARTPROXY_AUTH) {
                     try {
                         spaHtml = await fetchViaSmartProxy(currentUrl, env, { headless: true });
-                    } catch (e) { /* SmartProxy SPA échoué */ }
+                    } catch (e) { /* SmartProxy SPA echoue */ }
                 }
-                if (!spaHtml && env.BRIGHTDATA_API_KEY) {
+                // Si SmartProxy ou direct, tenter Bright Data
+                if (!spaHtml && method !== 'brightdata' && env.BRIGHTDATA_API_KEY) {
                     try {
                         spaHtml = await fetchViaBrightData(currentUrl, env);
-                    } catch (e) { /* Bright Data SPA échoué */ }
+                    } catch (e) { /* Bright Data SPA echoue */ }
                 }
                 if (spaHtml) {
                     const spaAnnonces = extractAgencyListings(spaHtml, baseDomain, agencyName || "Agence");
@@ -931,8 +937,15 @@ async function handleScrapeAgency(request, env) {
                     currentUrl = nextUrl;
 
                     try {
-                        const pgResult = await fetchPage(currentUrl, baseDomain);
-                        html = pgResult.html;
+                        // Utiliser le meme canal que le fetch initial
+                        html = null;
+                        if (env.BRIGHTDATA_API_KEY) {
+                            try { html = await fetchViaBrightData(currentUrl, env); } catch (e) {}
+                        }
+                        if (!html) {
+                            const pgResult = await fetchPage(currentUrl, baseDomain);
+                            html = pgResult.html;
+                        }
                         if (!html) break;
                         const pageAnnonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
                         if (pageAnnonces.length > 0) {

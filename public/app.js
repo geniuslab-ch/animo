@@ -54,7 +54,8 @@ function npaProximityScore(npa1, npa2) {
 
 function extractPropertyType(annonce) {
   const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.localisation || '')).toLowerCase();
-  if (/maison|villa|chalet/.test(text)) return 'house';
+  if (/chalet/.test(text)) return 'chalet';
+  if (/maison|villa/.test(text)) return 'house';
   if (/appartement|appart\b|apt\.?/.test(text)) return 'apartment';
   if (/terrain|parcelle/.test(text)) return 'land';
   if (/commercial|bureau|local\b|dépôt|depot|entrepôt|entrepot|hangar|atelier/.test(text)) return 'commercial';
@@ -4595,7 +4596,7 @@ function censusApplyFilters() {
 }
 
 const TYPE_LABELS = {
-  apartment: 'Appartement', house: 'Maison/Villa', land: 'Terrain',
+  apartment: 'Appartement', house: 'Maison/Villa', chalet: 'Chalet', land: 'Terrain',
   commercial: 'Commercial', parking: 'Parking', building: 'Immeuble', unknown: '',
 };
 

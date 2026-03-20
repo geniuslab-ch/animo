@@ -299,10 +299,17 @@ async function handleScrapeListings(request, env) {
         if (env.SMARTPROXY_AUTH) {
             try {
                 html = await fetchViaSmartProxy(pageUrl, env);
-            } catch (e) { /* SmartProxy échoué, on essaie le fetch direct */ }
+            } catch (e) { /* SmartProxy échoué */ }
         }
 
-        // Tentative 2 : fetch direct (fallback gratuit)
+        // Tentative 2 : Bright Data (fallback anti-bot)
+        if (!html && env.BRIGHTDATA_API_KEY) {
+            try {
+                html = await fetchViaBrightData(pageUrl, env);
+            } catch (e) { /* Bright Data échoué */ }
+        }
+
+        // Tentative 3 : fetch direct (fallback gratuit)
         if (!html) {
             try {
                 const response = await fetch(pageUrl, {
@@ -384,10 +391,17 @@ async function scrapeAdDetail(adUrl, env) {
     if (env?.SMARTPROXY_AUTH) {
         try {
             html = await fetchViaSmartProxy(adUrl, env);
-        } catch (e) { /* SmartProxy échoué, fallback au fetch direct */ }
+        } catch (e) { /* SmartProxy échoué */ }
     }
 
-    // Tentative 2 : fetch direct (fallback)
+    // Tentative 2 : Bright Data (fallback anti-bot)
+    if (!html && env?.BRIGHTDATA_API_KEY) {
+        try {
+            html = await fetchViaBrightData(adUrl, env);
+        } catch (e) { /* Bright Data échoué */ }
+    }
+
+    // Tentative 3 : fetch direct (fallback)
     if (!html) {
         try {
             const response = await fetch(adUrl, {
@@ -829,12 +843,18 @@ async function handleScrapeAgency(request, env) {
             fetchFailed = true;
         }
 
-        // ── Phase 1b : Si AUCUN HTML (erreur, timeout, 403, 503…), retenter via SmartProxy ──
+        // ── Phase 1b : Si AUCUN HTML, retenter via SmartProxy puis Bright Data ──
         if (!html && env.SMARTPROXY_AUTH) {
             try {
                 html = await fetchViaSmartProxy(currentUrl, env, { headless: true });
                 if (html) method = 'smartproxy';
             } catch (e) { /* SmartProxy échoué aussi */ }
+        }
+        if (!html && env.BRIGHTDATA_API_KEY) {
+            try {
+                html = await fetchViaBrightData(currentUrl, env);
+                if (html) method = 'brightdata';
+            } catch (e) { /* Bright Data échoué aussi */ }
         }
 
         if (html) {
@@ -857,26 +877,34 @@ async function handleScrapeAgency(request, env) {
                 }
             }
 
-            // ── Phase 2b : SPA détecté → retenter via SmartProxy headless ──
-            if (allAnnonces.length === 0 && detectSPAShell(html) && env.SMARTPROXY_AUTH && method !== 'smartproxy') {
-                try {
-                    const spaHtml = await fetchViaSmartProxy(currentUrl, env, { headless: true });
-                    if (spaHtml) {
-                        const spaAnnonces = extractAgencyListings(spaHtml, baseDomain, agencyName || "Agence");
-                        if (spaAnnonces.length > 0) {
-                            allAnnonces.push(...spaAnnonces);
-                            html = spaHtml;
-                            method = 'smartproxy_spa';
-                        } else {
-                            // Dernier recours : API discovery sur le HTML rendu
-                            const apiAnnonces = await tryApiEndpointDiscovery(spaHtml, baseDomain, agencyName || "Agence");
-                            if (apiAnnonces.length > 0) {
-                                allAnnonces.push(...apiAnnonces);
-                                method = 'smartproxy_api';
-                            }
+            // ── Phase 2b : SPA détecté → retenter via SmartProxy/BrightData headless ──
+            if (allAnnonces.length === 0 && detectSPAShell(html) && method !== 'smartproxy' && method !== 'brightdata') {
+                let spaHtml = null;
+                if (env.SMARTPROXY_AUTH) {
+                    try {
+                        spaHtml = await fetchViaSmartProxy(currentUrl, env, { headless: true });
+                    } catch (e) { /* SmartProxy SPA échoué */ }
+                }
+                if (!spaHtml && env.BRIGHTDATA_API_KEY) {
+                    try {
+                        spaHtml = await fetchViaBrightData(currentUrl, env);
+                    } catch (e) { /* Bright Data SPA échoué */ }
+                }
+                if (spaHtml) {
+                    const spaAnnonces = extractAgencyListings(spaHtml, baseDomain, agencyName || "Agence");
+                    if (spaAnnonces.length > 0) {
+                        allAnnonces.push(...spaAnnonces);
+                        html = spaHtml;
+                        method = 'proxy_spa';
+                    } else {
+                        // Dernier recours : API discovery sur le HTML rendu
+                        const apiAnnonces = await tryApiEndpointDiscovery(spaHtml, baseDomain, agencyName || "Agence");
+                        if (apiAnnonces.length > 0) {
+                            allAnnonces.push(...apiAnnonces);
+                            method = 'proxy_api';
                         }
                     }
-                } catch (e) { /* SmartProxy SPA échoué */ }
+                }
             }
 
             // ── Phase 2c : Meta tags pour SPA en dernier recours ──
@@ -1208,6 +1236,31 @@ async function fetchViaSmartProxy(url, env, options = {}) {
     if (typeof data === 'string') return data;
 
     return null;
+}
+
+async function fetchViaBrightData(url, env, options = {}) {
+    if (!env.BRIGHTDATA_API_KEY) return null;
+
+    const body = {
+        zone: 'web_unlocker1',
+        url: url,
+        format: 'raw',
+        country: 'ch',
+    };
+
+    const response = await fetchWithTimeout('https://api.brightdata.com/request', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${env.BRIGHTDATA_API_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    }, 20000);
+
+    if (!response.ok) return null;
+
+    const text = await response.text();
+    return text || null;
 }
 
 function findNextPageUrl(html, currentUrl, baseDomain) {

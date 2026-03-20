@@ -750,24 +750,40 @@ function isSwissListing(annonce) {
   return true;
 }
 
+function normalizeTitle(t) {
+  return (t || '').toLowerCase().trim()
+    .replace(/\s+/g, ' ')
+    .replace(/^(vente|a vendre|en vente|nouveau|new)\s*[:|-]?\s*/i, '')
+    .replace(/\bde\s+(\d)/g, '$1')       // "de 4.5 pièces" → "4.5 pièces"
+    .replace(/[''`]/g, "'")
+    .replace(/\bchf\s*/gi, '')
+    .replace(/\s*m2\b/g, 'm²');
+}
+
 function deduplicateBiens(biens) {
-  const seen = new Set();
+  const seenUrls = new Set();
+  const seenContent = new Set();
   return biens.filter(b => {
     // Cle primaire : URL normalisee (sans query/hash/trailing slash)
     const urlKey = b.url ? b.url.replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase() : null;
-    if (urlKey && seen.has(urlKey)) return false;
+    if (urlKey && seenUrls.has(urlKey)) return false;
 
-    // Cle secondaire : titre+prix+localisation (meme bien sur differentes pages)
+    // Cle secondaire : titre normalise + prix + localisation (cross-agences)
     const contentKey = [
-      (b.titre || '').toLowerCase().trim(),
+      normalizeTitle(b.titre),
       b.prix || '',
       (b.localisation || '').toLowerCase().trim()
     ].join('|');
 
-    if (contentKey !== '||' && seen.has(contentKey)) return false;
+    if (contentKey !== '||' && seenContent.has(contentKey)) return false;
 
-    if (urlKey) seen.add(urlKey);
-    if (contentKey !== '||') seen.add(contentKey);
+    // Cle tertiaire : prix + localisation exacte (meme bien, titres differents)
+    const priceLocKey = b.prix && b.localisation
+      ? `${b.prix}|${(b.localisation || '').toLowerCase().trim()}`
+      : null;
+
+    if (urlKey) seenUrls.add(urlKey);
+    if (contentKey !== '||') seenContent.add(contentKey);
     return true;
   });
 }
@@ -4491,7 +4507,10 @@ function censusApplyFilters() {
     ? locationRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
     : [];
 
-  censusFiltered = censusAllListings.filter(a => {
+  // Deduplication systematique (progressive + finale)
+  const dedupedListings = deduplicateBiens(censusAllListings);
+
+  censusFiltered = dedupedListings.filter(a => {
     const npa = extractNPA(a.localisation);
     const region = npa ? getNPARegion(npa) : null;
     const loc = (a.localisation || '').toLowerCase();

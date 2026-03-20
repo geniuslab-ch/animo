@@ -1266,26 +1266,64 @@ async function fetchViaSmartProxy(url, env, options = {}) {
 async function fetchViaBrightData(url, env, options = {}) {
     if (!env.BRIGHTDATA_API_KEY) return null;
 
-    const body = {
-        zone: 'web_unlocker1',
-        url: url,
-        format: 'raw',
-        country: 'ch',
-    };
+    const MAX_RETRIES = 3;
+    const TIMEOUT = 60000; // 60s pour laisser le browser check se terminer
 
-    const response = await fetchWithTimeout('https://api.brightdata.com/request', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${env.BRIGHTDATA_API_KEY}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-    }, 20000);
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            const body = {
+                zone: 'web_unlocker1',
+                url: url,
+                format: 'raw',
+                country: 'ch',
+            };
 
-    if (!response.ok) return null;
+            const response = await fetchWithTimeout('https://api.brightdata.com/request', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${env.BRIGHTDATA_API_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+            }, TIMEOUT);
 
-    const text = await response.text();
-    return text || null;
+            // Succes
+            if (response.ok) {
+                const text = await response.text();
+                return text || null;
+            }
+
+            // Lire les headers d'erreur Bright Data pour diagnostic
+            const brdError = response.headers.get('x-brd-error-code') || response.headers.get('x-luminati-error-code') || '';
+            const brdMsg = response.headers.get('x-brd-error') || response.headers.get('x-luminati-error') || '';
+            const status = response.status;
+
+            // 503/530 : retryable (browser check en cours / protection)
+            if ((status === 503 || status === 530) && attempt < MAX_RETRIES - 1) {
+                const delay = (attempt + 1) * 2000; // 2s, 4s
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+
+            // 429 : rate limit, attendre plus longtemps
+            if (status === 429 && attempt < MAX_RETRIES - 1) {
+                await new Promise(r => setTimeout(r, 5000));
+                continue;
+            }
+
+            // Erreur non-retryable
+            return null;
+
+        } catch (e) {
+            // Timeout ou erreur reseau : retenter
+            if (attempt < MAX_RETRIES - 1) {
+                await new Promise(r => setTimeout(r, (attempt + 1) * 1000));
+                continue;
+            }
+            return null;
+        }
+    }
+    return null;
 }
 
 function findNextPageUrl(html, currentUrl, baseDomain) {

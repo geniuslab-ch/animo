@@ -820,18 +820,17 @@ async function handleScrapeAgency(request, env) {
         // ── Phase 1 : Fetch initial + extraction ────────────────────────────
         let html = '';
         let fetchStatus = 0;
-        let fetchTimedOut = false;
+        let fetchFailed = false;
         try {
             const result = await fetchPage(currentUrl, baseDomain);
             html = result.html;
             fetchStatus = result.status;
         } catch (e) {
-            fetchTimedOut = e.name === 'AbortError';
+            fetchFailed = true;
         }
 
-        // ── Phase 1b : Si erreur (503/502/429/timeout), retenter via SmartProxy headless ──
-        const needsRetry = !html && (fetchTimedOut || fetchStatus === 503 || fetchStatus === 502 || fetchStatus === 429);
-        if (needsRetry && env.SMARTPROXY_AUTH) {
+        // ── Phase 1b : Si AUCUN HTML (erreur, timeout, 403, 503…), retenter via SmartProxy ──
+        if (!html && env.SMARTPROXY_AUTH) {
             try {
                 html = await fetchViaSmartProxy(currentUrl, env, { headless: true });
                 if (html) method = 'smartproxy';
@@ -914,11 +913,12 @@ async function handleScrapeAgency(request, env) {
         }
 
         const status = allAnnonces.length > 0 ? 'ok'
-            : needsRetry ? 'error'
+            : (fetchFailed || (fetchStatus && !html)) ? 'error'
             : (html && detectSPAShell(html)) ? 'spa_empty' : 'empty';
         const urlChanged = resolvedUrl !== pageUrl;
         const message = allAnnonces.length === 0
-            ? (needsRetry && !html ? (fetchTimedOut ? 'Timeout (site trop lent)' : `Erreur ${fetchStatus} (site indisponible)`)
+            ? (fetchFailed && !html ? 'Timeout / connexion echouee'
+                : fetchStatus && !html ? `Erreur HTTP ${fetchStatus}`
                 : status === 'spa_empty' ? 'Site SPA (necessite JS)'
                 : urlChanged ? `Page decouverte (${resolvedUrl}) mais aucune annonce` : 'Aucune annonce trouvee')
             : (urlChanged ? `Via ${resolvedUrl} (${method})` : `(${method})`);

@@ -4377,7 +4377,9 @@ async function censusLancerScan() {
   const entries = [];
   for (const [key, agency] of Object.entries(AGENCIES)) {
     const canton = getAgencyCanton(key, agency);
-    if (canton === censusCurrentCanton && hasListingPath(agency.listingsUrl)) {
+    if (canton === censusCurrentCanton) {
+      // Pour VD uniquement, filtrer les agences sans vrai lien de listing
+      if (canton === "vaud" && !hasListingPath(agency.listingsUrl)) continue;
       entries.push({ key, agency });
     }
   }

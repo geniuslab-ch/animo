@@ -839,6 +839,13 @@ async function handleScrapeAgency(request, env) {
             const result = await fetchPage(currentUrl, baseDomain);
             html = result.html;
             fetchStatus = result.status;
+            // Retry une fois pour les erreurs 503 (service temporairement indisponible)
+            if (!html && fetchStatus === 503) {
+                await new Promise(r => setTimeout(r, 2000));
+                const retry = await fetchPage(currentUrl, baseDomain);
+                html = retry.html;
+                fetchStatus = retry.status;
+            }
         } catch (e) {
             fetchFailed = true;
         }
@@ -944,9 +951,14 @@ async function handleScrapeAgency(request, env) {
             : (fetchFailed || (fetchStatus && !html)) ? 'error'
             : (html && detectSPAShell(html)) ? 'spa_empty' : 'empty';
         const urlChanged = resolvedUrl !== pageUrl;
+        const httpMsg = fetchStatus === 503 ? 'Service indisponible (503)'
+            : fetchStatus === 410 ? 'Page supprimee (410)'
+            : fetchStatus === 403 ? 'Acces refuse (403)'
+            : fetchStatus === 429 ? 'Trop de requetes (429)'
+            : `Erreur HTTP ${fetchStatus}`;
         const message = allAnnonces.length === 0
             ? (fetchFailed && !html ? 'Timeout / connexion echouee'
-                : fetchStatus && !html ? `Erreur HTTP ${fetchStatus}`
+                : fetchStatus && !html ? httpMsg
                 : status === 'spa_empty' ? 'Site SPA (necessite JS)'
                 : urlChanged ? `Page decouverte (${resolvedUrl}) mais aucune annonce` : 'Aucune annonce trouvee')
             : (urlChanged ? `Via ${resolvedUrl} (${method})` : `(${method})`);
@@ -1430,6 +1442,9 @@ function extractAgencyListings(html, baseDomain, agencyName) {
     const surfacePattern = /(\d+)\s*m[²2]/gi;
     const npaPattern = /\b(\d{4})\s+([A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/g;
 
+    // Pattern pour detecter les URLs qui sont clairement des fiches immobilieres
+    const propertyUrlPattern = /\/(vente|bien|property|objet|annonce|offre|immobilier|achat|kaufen|objekt|ref|detail|fiche)[s]?\//i;
+
     // Trouver les liens internes qui menent a des fiches
     const linkPattern = /href=["']((?:https?:\/\/[^"']*|\/[^"']*))["'][^>]*>([\s\S]*?)<\/a>/gi;
     const seenUrls = new Set();
@@ -1439,8 +1454,9 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         let href = linkMatch[1];
         const linkContent = linkMatch[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-        // Ignorer les liens courts (navigation, etc.)
-        if (linkContent.length < 10) continue;
+        // Ignorer les liens courts (navigation, etc.) sauf si URL de fiche
+        const isPropertyUrl = propertyUrlPattern.test(href);
+        if (linkContent.length < 10 && !isPropertyUrl) continue;
         // Ignorer les liens externes
         if (href.startsWith("http") && !href.includes(baseDomain.replace("https://", "").replace("http://", ""))) continue;
         // Ignorer les liens generiques
@@ -1451,18 +1467,24 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         if (seenUrls.has(href)) continue;
         seenUrls.add(href);
 
-        // Chercher les infos autour du lien (500 chars avant et apres dans le HTML)
+        // Chercher les infos autour du lien (contexte elargi)
         const linkPos = linkMatch.index;
-        const context = textOnly.substring(Math.max(0, linkPos - 300), Math.min(textOnly.length, linkPos + linkMatch[0].length + 300));
+        const context = textOnly.substring(Math.max(0, linkPos - 500), Math.min(textOnly.length, linkPos + linkMatch[0].length + 500));
         const contextText = context.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
-        // Extraire le prix
+        // Chercher aussi dans le HTML brut (pour data-price, etc.)
+        const rawContext = html.substring(Math.max(0, linkPos - 800), Math.min(html.length, linkPos + linkMatch[0].length + 800));
+
+        // Extraire le prix (texte visible + attributs data-*)
         let prix = null;
         const prixM = contextText.match(/(?:CHF|Fr\.?|SFr\.?)\s*([\d''\u2019.,]+)/i);
         if (prixM) {
             prix = parseInt(prixM[1].replace(/[''\u2019.,\s]/g, ''), 10) || null;
-            // Ignorer les prix trop petits (probablement loyer mensuel) ou aberrants
             if (prix && prix < 5000) prix = null;
+        }
+        if (!prix) {
+            const dataPrix = rawContext.match(/data-(?:price|prix|cost)=["'](\d+)/i);
+            if (dataPrix) prix = parseInt(dataPrix[1], 10) || null;
         }
 
         // Extraire les pieces
@@ -1480,8 +1502,8 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         const locM = contextText.match(/\b(\d{4}\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+(?:\s+[A-ZÀ-Ÿ][a-zà-ÿ\-]+)?)\b/);
         if (locM) localisation = locM[1].trim();
 
-        // Ne garder que si au moins un champ utile (prix, pieces, surface ou localisation)
-        if (!prix && !pieces && !surface_m2 && !localisation) continue;
+        // Garder si au moins un champ utile OU si l'URL est clairement une fiche immobiliere
+        if (!prix && !pieces && !surface_m2 && !localisation && !isPropertyUrl) continue;
 
         // Extraire l'image la plus proche (chercher dans le meme contexte nettoyé)
         let image_url = null;

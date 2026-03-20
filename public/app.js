@@ -4462,8 +4462,8 @@ function afficherCensusAgencyStatuses(statuses) {
   const container = document.getElementById('censusAgencyStatuses');
   if (!container) return;
   container.innerHTML = statuses.map(s => {
-    const icon = s.status === 'ok' ? '\u2705' : s.status === 'empty' ? '\u26AB' : '\u274C';
-    const label = s.status === 'ok' ? `${s.count} bien(s)` : s.status === 'empty' ? 'Aucun' : 'Erreur';
+    const icon = s.status === 'ok' ? '\u2705' : s.status === 'empty' ? '\u26AB' : s.status === 'spa_empty' ? '\u26A0\uFE0F' : '\u274C';
+    const label = s.status === 'ok' ? `${s.count} bien(s)` : s.status === 'empty' ? 'Aucun' : s.status === 'spa_empty' ? 'SPA' : 'Erreur';
     const tooltip = s.message ? ` title="${escapeHTML(s.message)}"` : '';
     return `<span class="agency-status-item agency-status-${s.status}"${tooltip}>${icon} ${escapeHTML(s.name)}: ${label}</span>`;
   }).join('');

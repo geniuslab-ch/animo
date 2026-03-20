@@ -883,35 +883,35 @@ const AGENCIES = {
   },
   homewell: {
     name: "Homewell",
-    listingsUrl: "https://www.homewell.ch/",
+    listingsUrl: "https://homewell.ch/immobilier/search-results/?status[]=&keyword=&type[]=&location[]=&max-price=any",
   },
   bcImmo: {
     name: "BC Immo",
-    listingsUrl: "https://www.bcimmo.ch/",
+    listingsUrl: "https://www.bcimmo.ch/fr/acheter",
   },
   proximmo: {
     name: "Proximmo",
-    listingsUrl: "https://www.proximmo.ch/",
+    listingsUrl: "https://proximmo.ch/fr/acheter?name=&code=&search=&code=&id=&search=&surfaceMin=&surfaceMax=&reference=",
   },
   atticaImmobilier: {
     name: "Attica Immobilier",
-    listingsUrl: "https://www.atticaimmobilier.ch/",
+    listingsUrl: "https://atticaimmobilier.ch/a-vendre/#essentiel",
   },
   courvoisier: {
     name: "Courvoisier Immo",
-    listingsUrl: "https://www.courvoisier.immo/",
+    listingsUrl: "https://www.courvoisier.immo/acheter/",
   },
   omnia: {
     name: "Omnia",
-    listingsUrl: "https://www.omnia.ch/",
+    listingsUrl: "https://omnia.ch/acheter/",
   },
   ethicImmobilier: {
     name: "Ethic Immobilier",
-    listingsUrl: "https://ethic-immobilier.ch/",
+    listingsUrl: "https://ethic-immobilier.ch/locations-et-ventes/",
   },
   regieDuboux: {
     name: "Regie Du Boux",
-    listingsUrl: "https://www.regieduboux.ch/",
+    listingsUrl: "https://regieduboux.ch/acheter/",
   },
   regimoLausanne: {
     name: "Regimo Lausanne",
@@ -919,15 +919,15 @@ const AGENCIES = {
   },
   golayImmobilier: {
     name: "Golay Immobilier",
-    listingsUrl: "https://www.golay-immobilier.ch/",
+    listingsUrl: "https://www.golay-immobilier.ch/a-vendre/",
   },
   dezage: {
     name: "Dezage",
-    listingsUrl: "https://www.dezage.ch/",
+    listingsUrl: "https://dezage.ch/immobilien/?availabilities[]=active&availabilities[]=reserved&availabilities[]=taken&salestype[]=buy",
   },
   pbbg: {
     name: "PBBG",
-    listingsUrl: "https://www.pbbg.ch/",
+    listingsUrl: "https://pbbg.ch/ventes/",
   },
   johnTaylor: {
     name: "John Taylor",
@@ -935,35 +935,35 @@ const AGENCIES = {
   },
   esteHomes: {
     name: "Este Homes",
-    listingsUrl: "https://www.este-homes.ch/fr/",
+    listingsUrl: "https://este-homes.ch/acheter-montreux/",
   },
   transaxia: {
     name: "Transaxia",
-    listingsUrl: "https://www.transaxia.ch/",
+    listingsUrl: "https://www.transaxia.ch/vente+immobilier.html",
   },
   cgsImmobilier: {
     name: "CGS Immobilier",
-    listingsUrl: "https://cgs-immobilier.ch/",
+    listingsUrl: "https://cgs-immobilier.ch/acheter/",
   },
   julienVolet: {
     name: "Julien Volet",
-    listingsUrl: "https://www.julienvolet.ch/",
+    listingsUrl: "https://www.habeg.ch/biens",
   },
   cofimo: {
     name: "Cofimo",
-    listingsUrl: "https://www.cofimo.ch/",
+    listingsUrl: "https://www.cofimo.ch/fr",
   },
   gendreEmonet: {
     name: "Gendre & Emonet",
-    listingsUrl: "https://www.gendre-emonet.ch/",
+    listingsUrl: "https://www.gendre-emonet.ch/fr/acheter?hm=1",
   },
   rivieraProperties: {
     name: "Riviera Properties",
-    listingsUrl: "https://www.rivieraproperties.ch/",
+    listingsUrl: "https://www.rivieraproperties.ch/fr/ol/9247",
   },
   sothebys: {
     name: "Sotheby's Realty",
-    listingsUrl: "https://www.switzerland-sothebysrealty.ch/",
+    listingsUrl: "https://www.switzerland-sothebysrealty.ch/acheter",
   },
   blueImmobilier: {
     name: "Blue Immobilier",
@@ -971,7 +971,7 @@ const AGENCIES = {
   },
   verbel: {
     name: "Verbel",
-    listingsUrl: "https://www.verbel.ch/",
+    listingsUrl: "https://www.verbel.ch/acheter/?_localisation=&_prix[]=0&prix[]=11500000&_min_max_m2[]=0&min_max_m2[]=1326&_radius=15&__prix=0&_prix=0,11500000&__min_max_m2=0&_min_max_m2=0,1326",
   },
   suisseRiviera: {
     name: "Suisse Riviera Immobilier",
@@ -983,27 +983,27 @@ const AGENCIES = {
   },
   lcImmobilier: {
     name: "LC Immobilier",
-    listingsUrl: "https://www.lc-immobilier.ch/",
+    listingsUrl: "https://www.lc-immobilier.ch/filter/type/sell",
   },
   lagenceImmobiliere: {
     name: "L'Agence Immobiliere",
-    listingsUrl: "https://lagence-immobiliere.ch/",
+    listingsUrl: "https://lagence-immobiliere.ch/immobilien/?availabilities[]=active&availabilities[]=taken&availabilities[]=reserved&salestypes[]=buy",
   },
   lcrImmo: {
     name: "LCR Immo",
-    listingsUrl: "https://www.lcr-immo.ch/",
+    listingsUrl: "https://lcr-immo.ch/recherche?transaction=buy&propertyType=all&location=&room=1&radius=10",
   },
   swixim: {
     name: "Swixim",
-    listingsUrl: "https://www.swixim.ch/",
+    listingsUrl: "https://www.swixim.com/fr/acheter/",
   },
   profilId: {
     name: "Profil ID",
-    listingsUrl: "https://profil-id.ch/",
+    listingsUrl: "https://profil-id.ch/immobilien/?availabilities[]=active&availabilities[]=taken&availabilities[]=reserved&salestypes[]=buy",
   },
   wRe: {
     name: "W Real Estate",
-    listingsUrl: "https://www.w-re.ch/",
+    listingsUrl: "https://wlre.ch/bien-category/",
   },
   rilsa: {
     name: "Rilsa",
@@ -1011,11 +1011,11 @@ const AGENCIES = {
   },
   helvetImmo: {
     name: "Helvet Immo",
-    listingsUrl: "https://www.helvet-immo.ch/",
+    listingsUrl: "https://www.helvet-immo.ch/fr/recherche",
   },
   regicote: {
     name: "Regicote",
-    listingsUrl: "https://www.regicote.ch/",
+    listingsUrl: "https://regicote.ch/sale-listings/",
   },
   swissdomImmo: {
     name: "Swissdom Immo",
@@ -1023,15 +1023,15 @@ const AGENCIES = {
   },
   morgesImmo: {
     name: "Morges Immo",
-    listingsUrl: "https://www.morgesimmo.ch/",
+    listingsUrl: "https://morgesimmo.ch/immobilien/",
   },
   gaiaImmobilier: {
     name: "Gaia Immobilier",
-    listingsUrl: "https://www.gaia-immobilier.ch/",
+    listingsUrl: "https://gaia-immobilier.ch/achat/",
   },
   reyImmobilier: {
     name: "Rey Immobilier",
-    listingsUrl: "https://reyimmobilier.ch/",
+    listingsUrl: "https://reyimmobilier.ch/achat/",
   },
   sherlockHomes: {
     name: "Sherlock Homes",
@@ -1039,7 +1039,7 @@ const AGENCIES = {
   },
   deLuze: {
     name: "De Luze",
-    listingsUrl: "https://deluze.ch/",
+    listingsUrl: "https://deluze.ch/sale-listings/",
   },
   lugrinImmobilier: {
     name: "Lugrin Immobilier",
@@ -1047,11 +1047,11 @@ const AGENCIES = {
   },
   laSuiteImmo: {
     name: "La Suite Immo",
-    listingsUrl: "https://www.lasuiteimmo.ch/",
+    listingsUrl: "https://lasuiteimmo.ch/acheter/",
   },
   ril: {
     name: "RIL",
-    listingsUrl: "https://ril.ch/",
+    listingsUrl: "https://ril.ch/acheter/",
   },
   geranceJotterand: {
     name: "Gerance Jotterand",
@@ -1067,31 +1067,31 @@ const AGENCIES = {
   },
   curtetImmobilier: {
     name: "Curtet Immobilier",
-    listingsUrl: "https://www.curtet-immobilier.ch/",
+    listingsUrl: "https://curtet-immobilier.ch/properties-grid-view-3-cols/",
   },
   amma: {
     name: "Amma Immo",
-    listingsUrl: "https://amma.immo/",
+    listingsUrl: "https://amma.immo/acheter/",
   },
   bobstImmobilier: {
     name: "Bobst Immobilier",
-    listingsUrl: "https://www.bobst-immobilier.ch/",
+    listingsUrl: "https://bobst-immobilier.ch/immobilien/?availabilities[]=active&availabilities[]=reserved&availabilities[]=taken&salestype[]=buy",
   },
   castellaImmobilier: {
     name: "Castella Immobilier",
-    listingsUrl: "https://www.castella-immobilier.ch/",
+    listingsUrl: "https://castella-immobilier.ch/proprietes-a-vendre/",
   },
   capitalFirst: {
     name: "Capital First",
-    listingsUrl: "https://www.capitalfirst.ch/",
+    listingsUrl: "https://capitalfirst.ch/fonds-de-commerce-entreprises-vendre/",
   },
   regieDecker: {
     name: "Regie Decker",
-    listingsUrl: "https://www.regiedecker.ch/",
+    listingsUrl: "https://www.regiedecker.ch/vente-de-villas-maisons-fermes-fr73.html",
   },
   rockwell: {
     name: "Rockwell",
-    listingsUrl: "https://www.rockwell.ch/",
+    listingsUrl: "https://rockwell.ch/proprietes/",
   },
   christeImmo: {
     name: "Christe Immo",
@@ -1099,11 +1099,11 @@ const AGENCIES = {
   },
   krealImmo: {
     name: "Kreal Immo",
-    listingsUrl: "https://krealimmo.ch/",
+    listingsUrl: "https://krealimmo.ch/sale-listings/",
   },
   myHomeImmobilier: {
     name: "My Home Immobilier",
-    listingsUrl: "https://www.myhomeimmobilier.ch/",
+    listingsUrl: "https://myhomeimmobilier.ch/immobilien/?availabilities[]=active&availabilities[]=taken&availabilities[]=reserved&salestypes[]=buy",
   },
   privera: {
     name: "Privera",
@@ -1115,7 +1115,7 @@ const AGENCIES = {
   },
   votreCourtier: {
     name: "Votre Courtier",
-    listingsUrl: "https://www.votrecourtier.ch/",
+    listingsUrl: "https://votrecourtier.ch/tous-nos-biens/",
   },
   realtaImmo: {
     name: "Realta Immo",
@@ -1127,15 +1127,15 @@ const AGENCIES = {
   },
   monnierImmo: {
     name: "Monnier Immo",
-    listingsUrl: "https://monnier-immo.ch/",
+    listingsUrl: "https://monnier-immo.ch/acheter/?country_id=&category_id=&price=&rooms=&bathrooms=&living_area=&land_area=",
   },
   regiePrivee: {
     name: "Regie Privee",
-    listingsUrl: "https://www.regieprivee.ch/",
+    listingsUrl: "https://regieprivee.ch/biens-immobiliers/vente/",
   },
   immoConsulting: {
     name: "Immo Consulting",
-    listingsUrl: "https://www.immo-consulting.ch/",
+    listingsUrl: "https://immo-consulting.ch/immobilien/?availabilities[]=active&availabilities[]=reserved&availabilities[]=taken&salestype[]=buy&location[]=country_ch",
   },
   acheterLouer: {
     name: "Acheter Louer",
@@ -1143,7 +1143,7 @@ const AGENCIES = {
   },
   impulseProperties: {
     name: "Impulse Properties",
-    listingsUrl: "https://www.impulseproperties.ch/",
+    listingsUrl: "https://www.impulseproperties.ch/acheter",
   },
   scImmo: {
     name: "SC Immo",
@@ -1155,19 +1155,19 @@ const AGENCIES = {
   },
   intergerance: {
     name: "Intergerance",
-    listingsUrl: "https://www.intergerance.ch/",
+    listingsUrl: "https://www.intergerance.ch/fr/vente/",
   },
   selectImmo: {
     name: "Select Immo",
-    listingsUrl: "https://www.selectimmo.ch/",
+    listingsUrl: "https://www.selectimmo.ch/biens-immobiliers?type=acheter",
   },
   ceriseImmobilier: {
     name: "Cerise Immobilier",
-    listingsUrl: "https://www.cerise-immobilier.ch/",
+    listingsUrl: "https://www.cerise-immobilier.ch/a-vendre",
   },
   valImmobilier: {
     name: "Val Immobilier",
-    listingsUrl: "https://valimmobilier.ch/",
+    listingsUrl: "https://www.valimmobilier.ch/acheter",
   },
   alturaCollection: {
     name: "Altura Collection",
@@ -1175,7 +1175,7 @@ const AGENCIES = {
   },
   drapelImmobilier: {
     name: "Drapel Immobilier",
-    listingsUrl: "https://drapelimmobilier.ch/",
+    listingsUrl: "https://drapelimmobilier.ch/acheter/",
   },
   bertrandMorisod: {
     name: "Bertrand Morisod",
@@ -1183,27 +1183,27 @@ const AGENCIES = {
   },
   schenkImmobilier: {
     name: "Schenk Immobilier",
-    listingsUrl: "https://schenk-immobilier.ch/",
+    listingsUrl: "https://schenk-immobilier.ch/acheter/",
   },
   gemImmo: {
     name: "Gem Immo",
-    listingsUrl: "https://www.gem-immo.ch/",
+    listingsUrl: "https://www.gem-immo.ch/vente",
   },
   natimmo: {
     name: "Natimmo",
-    listingsUrl: "https://www.natimmo.ch/",
+    listingsUrl: "https://www.natimmo.ch/acheter/",
   },
   faraoneImmobilier: {
     name: "Faraone Immobilier",
-    listingsUrl: "https://www.faraone-immobilier.ch/",
+    listingsUrl: "https://www.faraone-immobilier.ch/à-vendre",
   },
   gilliandImmobilier: {
     name: "Gilliand Immobilier",
-    listingsUrl: "https://www.gilliand-immobilier.ch/",
+    listingsUrl: "https://www.gilliand-immobilier.ch/a-vendre",
   },
   immobilierBroye: {
     name: "Immobilier Broye",
-    listingsUrl: "https://www.immobilier-broye.ch/",
+    listingsUrl: "https://www.immobilier-broye.ch/a-vendre",
   },
   regieChatelard: {
     name: "Regie Chatelard",
@@ -1211,7 +1211,7 @@ const AGENCIES = {
   },
   nicolierImmobilier: {
     name: "Nicolier Immobilier",
-    listingsUrl: "https://nicolier-immobilier.ch/",
+    listingsUrl: "https://nicolier-immobilier.ch/a-vendre/",
   },
   regieBroye: {
     name: "Regie Broye",
@@ -1219,19 +1219,19 @@ const AGENCIES = {
   },
   lcpImmobilier: {
     name: "LCP Immobilier",
-    listingsUrl: "https://www.lcp-immobilier.ch/",
+    listingsUrl: "https://www.lcp-immobilier.ch/page-catégories-à-louer/à vendre",
   },
   symbioseImmobilier: {
     name: "Symbiose Immobilier",
-    listingsUrl: "https://www.symbiose-immobilier.ch/",
+    listingsUrl: "https://www.symbiose-immobilier.ch/advance-search/?status=a-vendre",
   },
   groupeRichard: {
     name: "Groupe Richard",
-    listingsUrl: "https://www.grouperichard.ch/",
+    listingsUrl: "https://www.grouperichard.ch/avendre.php",
   },
   caImmobilier: {
     name: "CA Immobilier",
-    listingsUrl: "https://www.ca-immobilier.ch/",
+    listingsUrl: "https://www.ca-immobilier.ch/acheter/",
   },
   gestival: {
     name: "Gestival",
@@ -1239,7 +1239,7 @@ const AGENCIES = {
   },
   concretise: {
     name: "Concretise",
-    listingsUrl: "https://www.concretise.ch/",
+    listingsUrl: "https://concretise.ch/biens-immobilier/?filters[place][value]=&filters[place][lat]=&filters[place][lng]=&filters[place][type]=google_map&filters[building_type][type]=select&filters[building_type][type]=select&filters[building_type][type]=select&filters[building_type][type]=select&filters[building_type][type]=select&filters[building_type][type]=select&filters[rooms_count][value]=&filters[rooms_count][type]=number&filters[rooms_count][append]=pièces&filters[price][value]=&filters[price][type]=number&filters[price][append]=CHF",
   },
   nideal: {
     name: "Nideal",
@@ -1251,17 +1251,17 @@ const AGENCIES = {
   },
   homequest: {
     name: "Homequest",
-    listingsUrl: "https://homequest.ch/",
+    listingsUrl: "https://homequest.ch/immobilien/?availabilities[]=active&availabilities[]=reserved&availabilities[]=taken&salestype[]=buy",
     canton: "vaud",
   },
   // ── Agences VD supplementaires ────────────────────────────────────────
   denaliImmo: {
     name: "Denali Immobilier",
-    listingsUrl: "https://www.denali-sa.ch/",
+    listingsUrl: "https://denali-sa.ch/acheter/",
   },
   tissotImmo: {
     name: "TissoT Immobilier",
-    listingsUrl: "https://www.tissot-immobilier.ch/",
+    listingsUrl: "https://www.tissot-immobilier.ch/Ventes-Suisse-Cantons.php",
   },
   swissPatrimoine: {
     name: "Swiss Patrimoine Immobilier",
@@ -1273,11 +1273,11 @@ const AGENCIES = {
   },
   vaudburo: {
     name: "Vaudburo",
-    listingsUrl: "https://www.vaudburo.ch/",
+    listingsUrl: "https://www.vaudburo.ch/nos-offres-de-locaux",
   },
   cardisSothebys: {
     name: "Cardis Sotheby's",
-    listingsUrl: "https://www.cardis.ch/",
+    listingsUrl: "https://cardis.ch/#acheter",
   },
   // ── Agences Vaud supplémentaires (import CSV) ──────────────────
   abImmobilierRelocation: { name: "AB immobilier & Relocation", listingsUrl: "https://www.abimmobilier.ch/fr/a-vendre" },
@@ -1327,8 +1327,8 @@ const AGENCIES = {
   bldImmobilier: { name: "BLD Immobilier SA", listingsUrl: "https://bldimmobilier.ch/fr/acheter" },
   baloccoImmobilier: { name: "Balocco Immobilier", listingsUrl: "https://www.balocco-immobilier.ch/nos-proprietes/" },
   barguetonImmobilier: { name: "Bargueton immobilier", listingsUrl: "https://bargueton.ch/" },
-  batilogis: { name: "Batilogis SA", listingsUrl: "https://www.batilogis.ch/" },
-  batimoV: { name: "Batimo\'V Sàrl", listingsUrl: "https://www.batimov.ch/" },
+  batilogis: { name: "Batilogis SA", listingsUrl: "https://www.batilogis.ch/blank-3" },
+  batimoV: { name: "Batimo\'V Sàrl", listingsUrl: "https://www.batimov.ch/site/list?d=sale" },
   beauSoleilConseils: { name: "Beau-Soleil Conseils", listingsUrl: "https://beausoleilconseils.ch/immobilien/?availabilities%5B%5D=active&availabilities%5B%5D=taken&availabilities%5B%5D=reserved&salestypes%5B%5D=buy" },
   bellerivePropertiesLausanne: { name: "Bellerive Properties - Lausanne", listingsUrl: "https://bellerive-properties.ch/en/exceptional-properties" },
   bernardNicodLausanneBenjaminConstantGerance: { name: "Bernard Nicod Lausanne - Benjamin Constant - Gérance", listingsUrl: "https://www.bernard-nicod.ch/acheter?action=acheter&transaction=buy" },
@@ -1337,25 +1337,25 @@ const AGENCIES = {
   brumont: { name: "Brumont SA", listingsUrl: "https://brumont.ch/" },
   brymmo: { name: "Brymmo", listingsUrl: "https://www.brymmo.ch/vente/" },
   bugnonImmobilier: { name: "Bugnon Immobilier Sàrl", listingsUrl: "https://www.immobilier-broye.ch/a-vendre" },
-  bureauImmobilierRomand: { name: "Bureau Immobilier Romand SA", listingsUrl: "https://www.bir.immo/" },
-  bosigerImmobilier: { name: "Bösiger Immobilier", listingsUrl: "https://www.bosigerimmobilier.ch/" },
+  bureauImmobilierRomand: { name: "Bureau Immobilier Romand SA", listingsUrl: "https://bir.immo/fr/acheter" },
+  bosigerImmobilier: { name: "Bösiger Immobilier", listingsUrl: "http://syn.publimmo.ch/fr/580887/result.jsp?t=1&type_1=&type_2=&type_3=&type_4=&type_5=&commune=&communeName=Commune,+localité+ou+code+postal&dist=&prixMin=&prixMax=&surfaceMin=&surfaceMax=&pieceMin=&pieceMax=&Submit=Recherche" },
   calbCourtageALBourquin: { name: "CALB Courtage A-L Bourquin", listingsUrl: "https://calb-immo.ch/villas-a-vendre.html" },
   caractere: { name: "CARACTERE", listingsUrl: "https://www.caractere-immobilier.ch/acheter/&new_research=1" },
   cardisImmobilier: { name: "CARDIS Immobilier", listingsUrl: "https://cardis.ch/biens-immobiliers/" },
   casanImmobilier: { name: "CASAN immobilier Sàrl", listingsUrl: "https://www.casan-immobilier.ch/a-vendre" },
   cbTransimmo: { name: "CB Transimmo Sàrl", listingsUrl: "https://www.cbtransimmo.ch/" },
-  cdfImmobilier: { name: "CDF immobilier SA", listingsUrl: "https://cdf-immobilier.ch/" },
+  cdfImmobilier: { name: "CDF immobilier SA", listingsUrl: "https://cdf-immobilier.ch/categorie/vente/" },
   ceDi: { name: "CE & DI Sàrl", listingsUrl: "https://ce-di.ch/" },
-  cfImmobilierCompagnieFonciereChateauDOex: { name: "CF Immobilier Compagnie Foncière SA - Château-d\'Oex", listingsUrl: "https://cfimmobilier.ch/" },
+  cfImmobilierCompagnieFonciereChateauDOex: { name: "CF Immobilier Compagnie Foncière SA - Château-d\'Oex", listingsUrl: "https://cfimmobilier.ch/fr/vendre" },
   cfpImmoConseils: { name: "CFP Immo + Conseils", listingsUrl: "https://www.cfp-immo.ch/maison-appartement-a-vendre/" },
   cggiChristianGanderGestionImmobiliere: { name: "CGGI Sarl - Christian Gander Gestion Immobilière", listingsUrl: "https://cggi.ch/fr/acheter" },
   clImmobilier: { name: "CL immobilier", listingsUrl: "https://cl-immo.ch/acheter/" },
   cmvImmobilier: { name: "CMV Immobilier", listingsUrl: "https://www.cmv-immo.ch/achat/" },
   codimmo: { name: "CODIMMO SA", listingsUrl: "https://codimmo.ch/acheter/" },
   cygneImmobilierCourtage: { name: "CYGNE Immobilier & Courtage", listingsUrl: "https://cygne.immo/achat-vente" },
-  canobat: { name: "Canobat SA", listingsUrl: "https://canobat.ch/" },
+  canobat: { name: "Canobat SA", listingsUrl: "https://www.canobat.ch/à-vendre" },
   casAme: { name: "Cas\'Âme Sàrl", listingsUrl: "https://casame-immobilier.ch/" },
-  cassiopeeImmobilier: { name: "Cassiopee Immobilier SA", listingsUrl: "https://cassiopee.immo/" },
+  cassiopeeImmobilier: { name: "Cassiopee Immobilier SA", listingsUrl: "https://cassiopee.immo/a-vendre.html" },
   cedream: { name: "Cedream SA", listingsUrl: "https://cedream.ch/" },
   cercleImmoSuisse: { name: "Cercle Immo Suisse Sàrl", listingsUrl: "https://cercle-immo-suisse.ch/fr/vente" },
   cervero: { name: "Cerveró Sàrl", listingsUrl: "https://cervero.ch/" },
@@ -1366,7 +1366,7 @@ const AGENCIES = {
   clemo: { name: "Clémo Sàrl", listingsUrl: "https://clemo.immo/proprietes-en-vente/" },
   cofideco: { name: "Cofideco SA", listingsUrl: "https://cofideco.ch/" },
   cofingestImmobilier: { name: "Cofingest Immobilier SA", listingsUrl: "https://www.cofingest.ch/a-vendre" },
-  coldwellBankerSwissRiviera: { name: "Coldwell Banker Swiss Riviera", listingsUrl: "https://www.transaxia.ch/en/" },
+  coldwellBankerSwissRiviera: { name: "Coldwell Banker Swiss Riviera", listingsUrl: "https://www.transaxia.ch/en/sale+real-estate.html" },
   comptacart: { name: "Comptacart Sàrl", listingsUrl: "https://regie-immobiliere-comparatif.ch/d/regies-immobilieres/comptacart-sarl-d:YrhPSYKgX" },
   confidenceImmobilier: { name: "Confidence Immobilier Sàrl", listingsUrl: "https://confidence-immobilier.ch/" },
   cooperativeHelvetiqueFonciere: { name: "Coopérative Helvétique Foncière", listingsUrl: "https://www.chf.immo/" },
@@ -1382,7 +1382,7 @@ const AGENCIES = {
   danieleEggenbergerImmobilier: { name: "DANIELE EGGENBERGER IMMOBILIER", listingsUrl: "https://daniele-eggenberger.ch/sale-listings/?country_id=&category_id=&price=&rooms=&bathrooms=&living_area=&land_area=" },
   dfImmo: { name: "DF Immo", listingsUrl: "https://df.immo/" },
   dhrImmobilier: { name: "DHR Immobilier SA", listingsUrl: "https://www.dhr.ch/nos-biens-immobiliers/" },
-  dmcImmobilier: { name: "DMC Immobilier", listingsUrl: "https://dmc-ls.ch/" },
+  dmcImmobilier: { name: "DMC Immobilier", listingsUrl: "https://dmc-ls.ch/?section=objets" },
   demaceImmobilier: { name: "Demace Immobilier", listingsUrl: "https://demace-immobilier.ch/resultats-de-recherche/?status%5B%5D=vente&bedrooms=&min-price=&max-price=" },
   destimmo: { name: "Destimmo SA", listingsUrl: "https://www.destimmo.ch/acheter/" },
   domusImmo: { name: "Domus Immo Sàrl", listingsUrl: "https://www.domusimmo.ch/" },
@@ -1436,7 +1436,7 @@ const AGENCIES = {
   hermesis: { name: "Hermesis Sàrl", listingsUrl: "https://hermesis.ch/acheter/" },
   hestiaImmobilier: { name: "Hestia Immobilier Sàrl", listingsUrl: "https://hestia-immobilier.ch/type_de_bien/acheter/" },
   homePlusLaCote: { name: "Home Plus La Côte Sàrl", listingsUrl: "https://homeplus.ch/acheter-un-bien/" },
-  homePlus: { name: "Home Plus Sàrl", listingsUrl: "https://www.homeplus.ch/" },
+  homePlus: { name: "Home Plus Sàrl", listingsUrl: "https://homeplus.ch/acheter-un-bien/" },
   homeSmart: { name: "Home-Smart", listingsUrl: "https://home-smart.ch/vente/" },
   homisRealEstate: { name: "Homis Real Estate Sàrl", listingsUrl: "https://homis.ch/nos-annonces/" },
   horizonPromotionRegie: { name: "Horizon Promotion & Régie", listingsUrl: "https://www.horizon-immob.ch/properties" },
@@ -1474,7 +1474,7 @@ const AGENCIES = {
   kasameaImmobilier: { name: "KasaMea Immobilier", listingsUrl: "https://kasamea.ch/acheter/" },
   kempterImmobilier: { name: "Kempter Immobilier Sàrl", listingsUrl: "https://kempter-immobilier.ch/sale-listings/?country_id=&category_id=&price=&rooms=&bathrooms=&living_area=&land_area=" },
   keyRelocation: { name: "Key Relocation Sàrl", listingsUrl: "https://www.key-relocation.ch/" },
-  key4uProperty: { name: "Key4U Property", listingsUrl: "https://www.key4u-property.ch/" },
+  key4uProperty: { name: "Key4U Property", listingsUrl: "https://www.key4u-property.ch/sale-listings?lang=fr" },
   killiasImmobilier: { name: "Killias Immobilier Sàrl", listingsUrl: "https://www.killias-immobilier.ch/acheter" },
   l3PropertiesInternationalRealty: { name: "L3 Properties | International Realty", listingsUrl: "https://www.l3-properties.ch/recherche-de-bien/" },
   l3mPartners: { name: "L3M Partners SA", listingsUrl: "https://l3m-partners.ch/" },
@@ -1485,9 +1485,9 @@ const AGENCIES = {
   lismoreRelocation: { name: "LISMORE RELOCATION Sàrl", listingsUrl: "https://www.lismore-relocation.ch/properties-for-sale/" },
   lmlImmobilier: { name: "LML immobilier", listingsUrl: "https://www.lml-immo.ch/properties-1" },
   locatellimmo: { name: "LOCATELLIMMO", listingsUrl: "https://www.locatellimmo.ch/a-vendre-actuellement" },
-  lscourtage: { name: "LSCourtage", listingsUrl: "https://lscourtage.ch/" },
+  lscourtage: { name: "LSCourtage", listingsUrl: "https://lscourtage.ch/resultats-de-recherche/?status[]=vente&bedrooms=&min-price=&max-price=" },
   lsgImmo: { name: "LSG Immo Sàrl", listingsUrl: "https://lsg-immo.ch/nos-biens-immobiliers-a-vendre/" },
-  lvtic: { name: "LVTiC", listingsUrl: "https://www.lvtic.ch/" },
+  lvtic: { name: "LVTiC", listingsUrl: "https://www.lvtic.ch/offres-locaux-commerciaux-et-industriels/?vente" },
   lyImmoMedSwiss: { name: "LY IMMO MED Swiss", listingsUrl: "https://www.ly-immomed.ch/property-search/?status=a-vendre" },
   leFirstImmo: { name: "Le First Immo SA", listingsUrl: "https://first-immo.ch/objets.html" },
   lecoultreImmobilier: { name: "Lecoultre Immobilier", listingsUrl: "https://www.lecoultre-immobilier.ch/objets/a-vendre" },
@@ -1501,16 +1501,16 @@ const AGENCIES = {
   mHomeImmobilier: { name: "M Home - Immobilier", listingsUrl: "https://mhome.immo/?layout=grid-2&es=1&post_type=properties&page_num=1&paged-1=1" },
   mBGeranceImmobiliere: { name: "M&B Gérance Immobilière SA", listingsUrl: "https://www.mbsa.ch/" },
   marmaxImmobilier: { name: "MARMAX immobilier SA", listingsUrl: "https://www.marmax.ch/projets" },
-  mediapixelImmobilier: { name: "MEDIAPIXEL IMMOBILIER SA", listingsUrl: "https://mediapixelimmo.ch/" },
+  mediapixelImmobilier: { name: "MEDIAPIXEL IMMOBILIER SA", listingsUrl: "https://mediapixelimmo.ch/envie-dacheter/" },
   mgmFiduciaire: { name: "MGM Fiduciaire SA", listingsUrl: "https://mgm.ch/" },
-  misaImmobilier: { name: "MISA Immobilier SA", listingsUrl: "https://www.misa-gerance.ch/" },
+  misaImmobilier: { name: "MISA Immobilier SA", listingsUrl: "https://www.misa-gerance.ch/rental-listings/?category_id=&type=2&price=&bedrooms=&bathrooms=&living_area=&land_area=" },
   mmsHolding: { name: "MMS Holding SA", listingsUrl: "https://militarymegastore.ch/" },
   mmsPro: { name: "MMS Pro SA", listingsUrl: "https://mmspro.ch/#acheter-logement" },
   mnmImmobilier: { name: "MNM Immobilier Sàrl", listingsUrl: "https://www.mnm-immobilier.ch/" },
   moversCourtageImmobilierPersonnaliseAgatheGumy: { name: "MOVERS Courtage immobilier personnalisé - Agathe Gumy", listingsUrl: "https://www.movers-courtage.ch/acheter" },
   marilimmo: { name: "Marilimmo", listingsUrl: "https://marilimmo.ch/sale-listings/?country_id=&category_id=&price=&rooms=&bathrooms=&living_area=&land_area=" },
   martelliImmobilier: { name: "Martelli Immobilier", listingsUrl: "https://martelli-immobilier.ch/villas/" },
-  martinelliImmobilier: { name: "Martinelli – Immobilier", listingsUrl: "https://martinelli-immobilier.ch/" },
+  martinelliImmobilier: { name: "Martinelli – Immobilier", listingsUrl: "https://www.martinelli-immobilier.ch/a-vendre" },
   mavrix: { name: "Mavrix Sàrl", listingsUrl: "https://mavrix.ch/achat" },
   megImmo: { name: "Meg Immo Sàrl", listingsUrl: "https://www.meg-immo.ch/acheter" },
   metafin: { name: "Metafin SA", listingsUrl: "https://metafin.ch/" },
@@ -1518,10 +1518,10 @@ const AGENCIES = {
   midasProperties: { name: "Midas Properties SA", listingsUrl: "https://www.midas-properties.ch/en/properties/buy" },
   milestoneProperties: { name: "Milestone Properties", listingsUrl: "https://milestone.ch/vente/?listing_type=buy&listing_status=available" },
   miltonImmobilier: { name: "Milton Immobilier", listingsUrl: "https://www.miltonimmo.ch/acheter/" },
-  morelImmo: { name: "Morel Immo", listingsUrl: "https://morel-immo.ch/fr" },
+  morelImmo: { name: "Morel Immo", listingsUrl: "https://morel-immo.ch/fr/maisons-villas" },
   multimmob: { name: "Multimmob", listingsUrl: "https://multimmob.ch/sale-listings/" },
   novaco: { name: "NOVACO SA", listingsUrl: "https://novaco.ch/" },
-  naefCommercialKnightFrankVaud: { name: "Naef Commercial | Knight Frank - Vaud", listingsUrl: "https://www.naef-commercial.ch/en" },
+  naefCommercialKnightFrankVaud: { name: "Naef Commercial | Knight Frank - Vaud", listingsUrl: "https://www.naef-commercial.ch/en/buy?" },
   naefImmobilierLausanneBureauxAdministratifs: { name: "Naef Immobilier Lausanne - Bureaux administratifs", listingsUrl: "https://www.naef.ch/acheter/appartements-maisons/?sortingField=recent&zoom=8" },
   nathalieNicolierImmobilier: { name: "Nathalie Nicolier Immobilier", listingsUrl: "https://www.nnimmobilier.ch/lst_.html" },
   nathome: { name: "Nathome Sàrl", listingsUrl: "https://www.nathome.ch/ventes.html" },
@@ -1550,7 +1550,7 @@ const AGENCIES = {
   petignatAmorImmobilier: { name: "Petignat & Amor immobilier SA", listingsUrl: "https://www.petignat-amor.ch/a-vendre" },
   pfisterImmobilier: { name: "Pfister Immobilier SA", listingsUrl: "https://lacote-immobilier.ch/resultats-de-recherche/?es=1&address=&min_price=&max_price=&from_bedrooms=&from_bathrooms=&from_half_baths=&min_area=&max_area=&min_lot_size=&max_lot_size=&min_floors=&max_floors=" },
   platinumPromotion: { name: "Platinum Promotion SA", listingsUrl: "https://www.platinum-promotion.ch/en/new-projects/" },
-  pointDAncrageImmobilier: { name: "Point d\'Ancrage immobilier", listingsUrl: "https://www.pointdancrage.ch/" },
+  pointDAncrageImmobilier: { name: "Point d\'Ancrage immobilier", listingsUrl: "https://www.pointdancrage.ch" },
   poliRealEstate: { name: "Poli Real Estate SA", listingsUrl: "https://poli-real-estate.ch/biens-immobiliers-a-vendre/" },
   posteImmobilierMS: { name: "Poste Immobilier M&S SA", listingsUrl: "https://immobilien.post.ch/fr" },
   poulyRenovationsEtServices: { name: "Pouly Rénovations et Services Sàrl", listingsUrl: "https://www.immoprs.ch/villas.html" },
@@ -1579,7 +1579,7 @@ const AGENCIES = {
   ressourcesImmobilieres: { name: "Ressources Immobilières", listingsUrl: "https://www.ressourcesimmobilieres.ch/vente-maison-appartement.html" },
   rheaImmobilier: { name: "Rhéa Immobilier Sàrl", listingsUrl: "https://rhea-immobilier.ch/a-acheter.html" },
   rissimGeneveVaudFribourg: { name: "Rissim Genève-Vaud-Fribourg", listingsUrl: "https://rissim.ch/fr/acheter-1?search=&code=" },
-  rockwellProperties: { name: "Rockwell Properties SA", listingsUrl: "https://rockwell.ch/en/" },
+  rockwellProperties: { name: "Rockwell Properties SA", listingsUrl: "https://rockwell.ch/en/properties/" },
   rolandSavaryImmobilierYverdon: { name: "Roland Savary Immobilier Yverdon SA", listingsUrl: "https://rsiy.ch/biens-en-vente/" },
   rolandSavaryImmobilier: { name: "Roland Savary immobilier SA", listingsUrl: "https://savaryimmobilier.ch/vente/" },
   rossetLausanne: { name: "Rosset SA - Lausanne", listingsUrl: "https://www.rosset.ch/en/sale/housing/all/geneve/?LSort=pieces_asc&page_no=1&place_lat=46.2043907&place_lng=6.143157699999961&localite_npa=Canton%20Gen%C3%A8ve&radius=13&zoom=12" },
@@ -1593,7 +1593,7 @@ const AGENCIES = {
   regieLuginbuhl: { name: "Régie Luginbühl", listingsUrl: "https://ril.ch/acheter/" },
   regieMarmillod: { name: "Régie Marmillod SA", listingsUrl: "https://regiemarmillod.ch/" },
   regieRomande: { name: "Régie Romande SA", listingsUrl: "https://www.regieromande.ch/" },
-  regieTurrian: { name: "Régie Turrian SA", listingsUrl: "https://turrian.ch/" },
+  regieTurrian: { name: "Régie Turrian SA", listingsUrl: "https://www.turrian.ch/vente?typeobjet=&priceMin=0&priceMax=5000000&sortby=2" },
   regieDeLaCouronne: { name: "Régie de la Couronne SA", listingsUrl: "https://gerofinance-dunand.ch/" },
   regieDuCroset: { name: "Régie du Croset SA", listingsUrl: "https://regieducroset.ch/" },
   regieDuRhoneLausanne: { name: "Régie du Rhône SA - Lausanne", listingsUrl: "https://regierhone.ch/" },
@@ -1601,7 +1601,7 @@ const AGENCIES = {
   scSotornikClerboutImmobilier: { name: "SC Sotornik & Clerbout Immobilier SA", listingsUrl: "https://www.scimmo.ch/" },
   siAlphaSwissInvest: { name: "SI ALPHA SWISS INVEST SA", listingsUrl: "https://alphaswissinvest.ch/immobilien/?availabilities%5B%5D=active&availabilities%5B%5D=reserved&availabilities%5B%5D=taken" },
   sihSwissImmoHolding: { name: "SIH - Swiss Immo Holding", listingsUrl: "https://www.swissimmoholding.ch/a-vendre/" },
-  slImmobilier: { name: "SL Immobilier Sàrl", listingsUrl: "https://slimmobilier.ch/" },
+  slImmobilier: { name: "SL Immobilier Sàrl", listingsUrl: "https://slimmobilier.ch/realisations/" },
   spgLausanne: { name: "SPG - Lausanne", listingsUrl: "https://www.spg.ch/en/sale/" },
   srImmob: { name: "SR-Immob SA", listingsUrl: "https://sr-immob.ch/a-vendre/" },
   stImmobilier: { name: "ST Immobilier SA", listingsUrl: "https://stimmobilier.ch/" },
@@ -1627,8 +1627,8 @@ const AGENCIES = {
   swissOptimum: { name: "Swiss Optimum", listingsUrl: "https://www.optimum.swiss/en" },
   swissImmoDream: { name: "Swiss-Immo-Dream", listingsUrl: "https://swiss-immo-dream.ch/annonces/biens-a-vendre/" },
   swissgradeConsulting: { name: "SwissGrade Consulting Sàrl", listingsUrl: "https://swissgrade.ch/" },
-  swissnestImmobilier: { name: "Swissnest Immobilier SA", listingsUrl: "https://www.swissnest.ch/fr" },
-  switzerlandSothebysEchallens: { name: "Switzerland Sothebys - Echallens", listingsUrl: "https://www.switzerland-sothebysrealty.ch/en" },
+  swissnestImmobilier: { name: "Swissnest Immobilier SA", listingsUrl: "https://www.swissnest.ch/fr/ol/8330" },
+  switzerlandSothebysEchallens: { name: "Switzerland Sothebys - Echallens", listingsUrl: "https://www.switzerland-sothebysrealty.ch/en/acheter" },
   immersia: { name: "Sàrl IMMERSIA", listingsUrl: "https://immersia.ch/locations-ventes/" },
   tendAg: { name: "Tend AG", listingsUrl: "https://www.tend.ch/fr/projets-de-commercialisation/acheter" },
   terraFoncier: { name: "Terra Foncier SA", listingsUrl: "https://terrafoncier.ch/immobilien/" },
@@ -1645,19 +1645,19 @@ const AGENCIES = {
   vezGroupe: { name: "Vez Groupe", listingsUrl: "https://vez-groupe.ch/" },
   villarsChalets: { name: "Villars-Chalets SA", listingsUrl: "https://villars-chalets.ch/acheter/" },
   villvert: { name: "Villvert SA", listingsUrl: "https://villvert.ch/nos-objets-en-vente/" },
-  vimovaEchallens: { name: "Vimova - Echallens", listingsUrl: "https://vimova.ch/" },
+  vimovaEchallens: { name: "Vimova - Echallens", listingsUrl: "https://vimova.ch/fr/acheter/" },
   viwaImmo: { name: "Viwa.Immo SA", listingsUrl: "https://viwaimmo.ch/" },
   vueSurLac: { name: "Vue sur Lac", listingsUrl: "https://vuesurlac-immo.ch/en/search" },
   walzi: { name: "WALZI SA", listingsUrl: "https://www.walzisa.ch/properties-1" },
   weckAebyCieLausanne: { name: "Weck Aeby & Cie SA - Lausanne", listingsUrl: "https://www.weck-aeby.ch/en/buy/?searchid=240155" },
   wilsonImmobilier: { name: "Wilson Immobilier SA", listingsUrl: "https://www.wilsonsa.ch/" },
   yourSwissHome: { name: "Your Swiss Home", listingsUrl: "https://www.yourswisshome.ch/en/sale" },
-  zimmermannImmobilierLausanne: { name: "Zimmermann Immobilier - Lausanne", listingsUrl: "https://www.regiez.ch/" },
+  zimmermannImmobilierLausanne: { name: "Zimmermann Immobilier - Lausanne", listingsUrl: "https://zimmo.ch/sale.html?search-sale-state-ge=on" },
   zimmermannImmobilier: { name: "Zimmermann Immobilier SA", listingsUrl: "https://regiez.ch/sale.html?search-sale-app=on&search-sale-house=on&search-sale-building=on&search-sale-commercial=on&search-sale-office=on&search-sale-local=on&search-sale-park=on&search-sale-land=on" },
   zivagGerances: { name: "Zivag Gérances SA", listingsUrl: "https://regie-immobiliere-comparatif.ch/d/regies-immobilieres/zivag-gerances-sa-d:7ehxS70gP" },
   a2immoCh: { name: "a2immo.ch SA", listingsUrl: "https://a2immo.ch/" },
   deRham: { name: "de Rham SA", listingsUrl: "https://derham.ch/" },
-  deRhamGerance: { name: "de Rham SA - Gérance", listingsUrl: "https://www.derham.ch/fr" },
+  deRhamGerance: { name: "de Rham SA - Gérance", listingsUrl: "https://www.derham.ch/fr/acheter" },
   iGestion: { name: "i-gestion SA", listingsUrl: "https://i-gestion.ch/a-vendre" },
   integraleImmobilierConseils: { name: "integrale immobilier conseils", listingsUrl: "https://iiconseils.ch/" },
   lachatImmobilierDl: { name: "lachat IMMOBILIER DL Sàrl", listingsUrl: "https://lachat-immobilier.ch/vente/" },

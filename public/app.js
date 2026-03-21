@@ -4381,13 +4381,15 @@ async function censusLancerScan() {
         const data = await response.json();
         const count = data.annonces?.length || 0;
         const annonces = count > 0 ? data.annonces.map(a => ({ ...a, source: agency.name })) : [];
-        return { name: agency.name, status: data.status || (count > 0 ? 'ok' : 'empty'), count, message: data.message || null, annonces };
+        if (data._debug) console.log(`[census] ${agency.name}:`, data._debug);
+        const debugMsg = data._debug ? ` | ${data._debug.steps?.map(s => `${s.m}:${s.ok ? s.len + 'b' : s.err || s.skip || '?'}`).join(', ')}` : '';
+        return { name: agency.name, status: data.status || (count > 0 ? 'ok' : 'empty'), count, message: (data.message || '') + debugMsg, annonces };
       } else {
         return { name: agency.name, status: 'error', count: 0, message: `HTTP ${response.status}`, annonces: [] };
       }
     } catch (e) {
       clearTimeout(timer);
-      const msg = e.name === 'AbortError' ? 'Timeout (25s)' : e.message;
+      const msg = e.name === 'AbortError' ? 'Timeout (60s)' : e.message;
       return { name: agency.name, status: 'error', count: 0, message: msg, annonces: [] };
     }
   }

@@ -575,7 +575,7 @@ async function discoverListingsUrl(baseDomain, candidatePaths, env, agencyName) 
 }
 
 // ── Fetch avec timeout ───────────────────────────────────────────────────────
-function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     return fetch(url, { ...options, signal: controller.signal })
@@ -833,6 +833,8 @@ async function handleScrapeAgency(request, env) {
         }
 
         const maxPages = 15;
+        const WALL_LIMIT = 25000; // 25s max par agence — eviter crash Worker
+        const startTime = Date.now();
         let allAnnonces = [];
         let currentUrl = resolvedUrl;
         let emptyPages = 0;
@@ -842,35 +844,57 @@ async function handleScrapeAgency(request, env) {
         let html = '';
         let fetchStatus = 0;
         let fetchFailed = false;
+        const _debug = { steps: [], url: currentUrl, resolvedUrl, t0: startTime };
 
         // ── Phase 1 : Fetch via Bright Data en priorite (meilleure fiabilite) ──
         if (env.BRIGHTDATA_API_KEY) {
+            const t = Date.now();
             try {
                 html = await fetchViaBrightData(currentUrl, env);
                 if (html) method = 'brightdata';
-            } catch (e) { /* Bright Data echoue */ }
+                _debug.steps.push({ m: 'brightdata', ok: !!html, len: html ? html.length : 0, ms: Date.now() - t });
+            } catch (e) {
+                _debug.steps.push({ m: 'brightdata', err: e.message, ms: Date.now() - t });
+            }
+        } else {
+            _debug.steps.push({ m: 'brightdata', skip: 'no API key' });
         }
         // Fallback SmartProxy
         if (!html && env.SMARTPROXY_AUTH) {
+            const t = Date.now();
             try {
                 html = await fetchViaSmartProxy(currentUrl, env, { headless: true });
                 if (html) method = 'smartproxy';
-            } catch (e) { /* SmartProxy echoue */ }
+                _debug.steps.push({ m: 'smartproxy', ok: !!html, len: html ? html.length : 0, ms: Date.now() - t });
+            } catch (e) {
+                _debug.steps.push({ m: 'smartproxy', err: e.message, ms: Date.now() - t });
+            }
+        } else if (!html) {
+            _debug.steps.push({ m: 'smartproxy', skip: 'no auth' });
         }
         // Dernier recours : fetch direct
         if (!html) {
+            const t = Date.now();
             try {
                 const result = await fetchPage(currentUrl, baseDomain);
                 html = result.html;
                 fetchStatus = result.status;
+                _debug.steps.push({ m: 'direct', ok: !!html, status: fetchStatus, len: html ? html.length : 0, ms: Date.now() - t });
             } catch (e) {
                 fetchFailed = true;
+                _debug.steps.push({ m: 'direct', err: e.message, ms: Date.now() - t });
             }
         }
 
         if (html) {
+            _debug.htmlLen = html.length;
+            _debug.hasSPA = detectSPAShell(html);
+            _debug.hasNextData = html.includes('__NEXT_DATA__');
+            _debug.hasNuxt = html.includes('__NUXT__');
+
             // Essayer d'abord l'extraction classique (JSON-LD, SSR, HTML patterns)
             let annonces = extractAgencyListings(html, baseDomain, agencyName || "Agence");
+            _debug.extractCount = annonces.length;
 
             if (annonces.length > 0) {
                 allAnnonces.push(...annonces);
@@ -882,6 +906,7 @@ async function handleScrapeAgency(request, env) {
             // ── Phase 2 : Si SPA ou pas de résultats, chercher des API endpoints ──
             if (annonces.length === 0) {
                 const apiAnnonces = await tryApiEndpointDiscovery(html, baseDomain, agencyName || "Agence");
+                _debug.apiCount = apiAnnonces.length;
                 if (apiAnnonces.length > 0) {
                     allAnnonces.push(...apiAnnonces);
                     method = 'api';
@@ -889,22 +914,27 @@ async function handleScrapeAgency(request, env) {
             }
 
             // ── Phase 2b : SPA detecte → retenter avec waitForText CHF ──
-            if (allAnnonces.length === 0 && detectSPAShell(html)) {
+            const elapsedMs = Date.now() - startTime;
+            if (allAnnonces.length === 0 && detectSPAShell(html) && elapsedMs < WALL_LIMIT - 12000) {
                 let spaHtml = null;
 
-                // Un seul retry Bright Data avec attente de prix visible
+                // Un seul retry Bright Data avec attente de prix visible (timeout réduit)
                 if (env.BRIGHTDATA_API_KEY) {
+                    const t = Date.now();
                     try {
                         spaHtml = await fetchViaBrightData(currentUrl, env, { waitForText: 'CHF' });
                     } catch (e) { /* echoue */ }
+                    _debug.steps.push({ m: 'bd_spa', ok: !!spaHtml, ms: Date.now() - t });
                     if (spaHtml && detectSPAShell(spaHtml)) spaHtml = null;
                 }
 
-                // Fallback SmartProxy headless
-                if (!spaHtml && env.SMARTPROXY_AUTH) {
+                // Fallback SmartProxy headless (seulement si temps restant)
+                if (!spaHtml && env.SMARTPROXY_AUTH && (Date.now() - startTime) < WALL_LIMIT - 10000) {
+                    const t = Date.now();
                     try {
                         spaHtml = await fetchViaSmartProxy(currentUrl, env, { headless: true });
                     } catch (e) { /* SmartProxy SPA echoue */ }
+                    _debug.steps.push({ m: 'sp_spa', ok: !!spaHtml, ms: Date.now() - t });
                 }
 
                 if (spaHtml) {
@@ -936,6 +966,7 @@ async function handleScrapeAgency(request, env) {
             // ── Phase 3 : Pagination (suivre les pages suivantes) ────────────
             if (allAnnonces.length > 0 && method !== 'api') {
                 for (let page = 2; page <= maxPages; page++) {
+                    if (Date.now() - startTime > WALL_LIMIT - 5000) break; // garde temps
                     const nextUrl = findNextPageUrl(html, currentUrl, baseDomain);
                     if (!nextUrl) break;
                     currentUrl = nextUrl;
@@ -980,12 +1011,16 @@ async function handleScrapeAgency(request, env) {
                 : urlChanged ? `Page decouverte (${resolvedUrl}) mais aucune annonce` : 'Aucune annonce trouvee')
             : (urlChanged ? `Via ${resolvedUrl} (${method})` : `(${method})`);
 
-        return new Response(JSON.stringify({ annonces: allAnnonces, total: allAnnonces.length, status, message }), {
+        _debug.totalMs = Date.now() - _debug.t0;
+        _debug.finalCount = allAnnonces.length;
+        delete _debug.t0;
+
+        return new Response(JSON.stringify({ annonces: allAnnonces, total: allAnnonces.length, status, message, _debug }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
 
     } catch (err) {
-        return new Response(JSON.stringify({ annonces: [], error: err.message }), {
+        return new Response(JSON.stringify({ annonces: [], error: err.message, _debug: { crash: err.message, stack: err.stack?.substring(0, 300) } }), {
             status: 200, headers: { "Content-Type": "application/json", ...corsHeaders },
         });
     }
@@ -1251,7 +1286,7 @@ async function fetchViaSmartProxy(url, env, options = {}) {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-    }, 15000);
+    }, 10000);
 
     if (!response.ok) return null;
 
@@ -1270,8 +1305,8 @@ async function fetchViaSmartProxy(url, env, options = {}) {
 async function fetchViaBrightData(url, env, options = {}) {
     if (!env.BRIGHTDATA_API_KEY) return null;
 
-    const MAX_RETRIES = 2;
-    const TIMEOUT = 25000; // 25s — compatible avec les limites Cloudflare Workers
+    const MAX_RETRIES = 1;
+    const TIMEOUT = 12000; // 12s — garde du budget temps pour fallbacks
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {

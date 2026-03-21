@@ -3356,7 +3356,7 @@ async function scannerAgences() {
   }
 
   const CONCURRENCY = 3;  // Limiter pour eviter les blocks Bright Data
-  const CLIENT_TIMEOUT = 90000; // 90s : Bright Data 60s + retries
+  const CLIENT_TIMEOUT = 60000; // 60s max par agence
   const agencyEntries = selectedAgencies
     .map(key => ({ key, agency: AGENCIES[key] }))
     .filter(e => e.agency);
@@ -4361,8 +4361,8 @@ async function censusLancerScan() {
     }
   }
 
-  const CONCURRENCY = 3;  // Limiter pour eviter les blocks Bright Data
-  const CLIENT_TIMEOUT = 90000; // 90s : Bright Data 60s + retries
+  const CONCURRENCY = 3;
+  const CLIENT_TIMEOUT = 60000; // 60s max par agence
   let scannedCount = 0;
   const total = entries.length;
 

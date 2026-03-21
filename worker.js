@@ -888,25 +888,16 @@ async function handleScrapeAgency(request, env) {
                 }
             }
 
-            // ── Phase 2b : SPA detecte → retenter avec Bright Data + waitForSelector ──
+            // ── Phase 2b : SPA detecte → retenter avec waitForText CHF ──
             if (allAnnonces.length === 0 && detectSPAShell(html)) {
                 let spaHtml = null;
 
-                // Tenter Bright Data avec x-unblock-expect (attendre rendu JS des listings)
+                // Un seul retry Bright Data avec attente de prix visible
                 if (env.BRIGHTDATA_API_KEY) {
-                    // 1. Essayer avec un selecteur generique (CHF = prix visible)
                     try {
                         spaHtml = await fetchViaBrightData(currentUrl, env, { waitForText: 'CHF' });
                     } catch (e) { /* echoue */ }
                     if (spaHtml && detectSPAShell(spaHtml)) spaHtml = null;
-
-                    // 2. Si echec, essayer avec un selecteur CSS courant
-                    if (!spaHtml) {
-                        try {
-                            spaHtml = await fetchViaBrightData(currentUrl, env, { waitForSelector: 'a[href]' });
-                        } catch (e) { /* echoue */ }
-                        if (spaHtml && detectSPAShell(spaHtml)) spaHtml = null;
-                    }
                 }
 
                 // Fallback SmartProxy headless
@@ -1279,8 +1270,8 @@ async function fetchViaSmartProxy(url, env, options = {}) {
 async function fetchViaBrightData(url, env, options = {}) {
     if (!env.BRIGHTDATA_API_KEY) return null;
 
-    const MAX_RETRIES = 3;
-    const TIMEOUT = 60000; // 60s pour laisser le browser check se terminer
+    const MAX_RETRIES = 2;
+    const TIMEOUT = 25000; // 25s — compatible avec les limites Cloudflare Workers
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
@@ -1320,31 +1311,25 @@ async function fetchViaBrightData(url, env, options = {}) {
                 return text || null;
             }
 
-            // Lire les headers d'erreur Bright Data pour diagnostic
-            const brdError = response.headers.get('x-brd-error-code') || response.headers.get('x-luminati-error-code') || '';
-            const brdMsg = response.headers.get('x-brd-error') || response.headers.get('x-luminati-error') || '';
             const status = response.status;
 
-            // 503/530 : retryable (browser check en cours / protection)
+            // 503/530 : retry une fois avec court delai
             if ((status === 503 || status === 530) && attempt < MAX_RETRIES - 1) {
-                const delay = (attempt + 1) * 2000; // 2s, 4s
-                await new Promise(r => setTimeout(r, delay));
+                await new Promise(r => setTimeout(r, 1500));
                 continue;
             }
 
-            // 429 : rate limit, attendre plus longtemps
+            // 429 : rate limit
             if (status === 429 && attempt < MAX_RETRIES - 1) {
-                await new Promise(r => setTimeout(r, 5000));
+                await new Promise(r => setTimeout(r, 2000));
                 continue;
             }
 
-            // Erreur non-retryable
             return null;
 
         } catch (e) {
-            // Timeout ou erreur reseau : retenter
             if (attempt < MAX_RETRIES - 1) {
-                await new Promise(r => setTimeout(r, (attempt + 1) * 1000));
+                await new Promise(r => setTimeout(r, 1000));
                 continue;
             }
             return null;

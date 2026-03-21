@@ -53,7 +53,7 @@ function npaProximityScore(npa1, npa2) {
 }
 
 function extractPropertyType(annonce) {
-  const text = ((annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.localisation || '')).toLowerCase();
+  const text = ((annonce.url || '') + ' ' + (annonce.titre || '') + ' ' + (annonce.description || '') + ' ' + (annonce.fullText || '') + ' ' + (annonce.localisation || '')).toLowerCase();
   if (/chalet/.test(text)) return 'chalet';
   if (/maison|villa/.test(text)) return 'house';
   if (/appartement|appart\b|apt\.?/.test(text)) return 'apartment';
@@ -4539,7 +4539,13 @@ function censusApplyFilters() {
       if (mode === 'restreinte') {
         if (!a.type || a.type !== typeVal) return false;
       } else {
-        if (a.type && a.type !== 'unknown' && a.type !== typeVal) return false;
+        // Elargi : types apparentés acceptés + unknown passe toujours
+        if (a.type && a.type !== 'unknown' && a.type !== typeVal) {
+          // chalet ↔ house sont apparentés
+          const related = (typeVal === 'chalet' && a.type === 'house')
+            || (typeVal === 'house' && a.type === 'chalet');
+          if (!related) return false;
+        }
       }
     }
 

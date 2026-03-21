@@ -4494,8 +4494,10 @@ function censusApplyFilters() {
   const priceMaxVal = parseInt(document.getElementById('censusFilterPriceMax')?.value) || 0;
 
   // Parser la liste de villes/NPA séparées par virgule
+  // Normaliser : retirer les tirets pour matcher "Haute-Nendaz" == "Haute Nendaz"
+  const normalizeLoc = s => s.toLowerCase().replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
   const locationTerms = locationRaw
-    ? locationRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+    ? locationRaw.split(',').map(s => normalizeLoc(s)).filter(Boolean)
     : [];
 
   // Deduplication systematique (progressive + finale)
@@ -4504,7 +4506,15 @@ function censusApplyFilters() {
   // Debug: distribution des types
   const typeDist = {};
   dedupedListings.forEach(a => { typeDist[a.type || 'NULL'] = (typeDist[a.type || 'NULL'] || 0) + 1; });
+  // Debug: distribution des localisations
+  const locDist = { empty: 0, withLoc: 0 };
+  const locSamples = [];
+  dedupedListings.forEach(a => {
+    if (!a.localisation) locDist.empty++;
+    else { locDist.withLoc++; if (locSamples.length < 10) locSamples.push(a.localisation); }
+  });
   console.log('[census-filter] types:', typeDist, '| filter:', typeVal, '| mode:', mode, '| total:', dedupedListings.length);
+  console.log('[census-filter] locations:', locDist, '| location filter:', locationTerms, '| samples:', locSamples);
 
   censusFiltered = dedupedListings.filter(a => {
     const npa = extractNPA(a.localisation);
@@ -4513,14 +4523,24 @@ function censusApplyFilters() {
 
     // ── Filtre lieu (multi-villes, séparées par virgule) ──
     if (locationTerms.length > 0) {
+      // Normaliser la localisation (tirets → espaces)
+      const locNorm = normalizeLoc(a.localisation || '');
       if (mode === 'restreinte') {
         // Au moins un terme doit correspondre
-        const match = locationTerms.some(term => loc.includes(term));
+        const match = locationTerms.some(term => locNorm.includes(term));
         if (!match) return false;
       } else {
-        // Élargie : accepter aussi les NPA voisins
+        // Élargie : chercher aussi dans titre, description, URL + NPA voisins
+        const fullText = normalizeLoc(
+          (a.localisation || '') + ' ' + (a.titre || '') + ' ' + (a.description || '') + ' ' + (a.url || '')
+        );
         const match = locationTerms.some(term => {
-          if (loc.includes(term)) return true;
+          // Match direct dans le texte complet
+          if (fullText.includes(term)) return true;
+          // Match partiel : chaque mot du terme doit apparaitre
+          const words = term.split(' ').filter(w => w.length > 2);
+          if (words.length > 1 && words.every(w => fullText.includes(w))) return true;
+          // Match NPA voisin
           const termNPA = term.match(/^\d{4}$/)?.[0];
           if (termNPA && npa) return npaProximityScore(termNPA, npa) > 0;
           return false;

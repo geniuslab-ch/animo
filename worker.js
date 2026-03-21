@@ -575,7 +575,7 @@ async function discoverListingsUrl(baseDomain, candidatePaths, env, agencyName) 
 }
 
 // ── Fetch avec timeout ───────────────────────────────────────────────────────
-function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     return fetch(url, { ...options, signal: controller.signal })
@@ -833,6 +833,8 @@ async function handleScrapeAgency(request, env) {
         }
 
         const maxPages = 15;
+        const WALL_LIMIT = 25000; // 25s max par agence — eviter crash Worker
+        const startTime = Date.now();
         let allAnnonces = [];
         let currentUrl = resolvedUrl;
         let emptyPages = 0;
@@ -842,7 +844,7 @@ async function handleScrapeAgency(request, env) {
         let html = '';
         let fetchStatus = 0;
         let fetchFailed = false;
-        const _debug = { steps: [], url: currentUrl, resolvedUrl, t0: Date.now() };
+        const _debug = { steps: [], url: currentUrl, resolvedUrl, t0: startTime };
 
         // ── Phase 1 : Fetch via Bright Data en priorite (meilleure fiabilite) ──
         if (env.BRIGHTDATA_API_KEY) {
@@ -912,8 +914,8 @@ async function handleScrapeAgency(request, env) {
             }
 
             // ── Phase 2b : SPA detecte → retenter avec waitForText CHF ──
-            const elapsedMs = Date.now() - _debug.t0;
-            if (allAnnonces.length === 0 && detectSPAShell(html) && elapsedMs < 15000) {
+            const elapsedMs = Date.now() - startTime;
+            if (allAnnonces.length === 0 && detectSPAShell(html) && elapsedMs < WALL_LIMIT - 12000) {
                 let spaHtml = null;
 
                 // Un seul retry Bright Data avec attente de prix visible (timeout réduit)
@@ -927,7 +929,7 @@ async function handleScrapeAgency(request, env) {
                 }
 
                 // Fallback SmartProxy headless (seulement si temps restant)
-                if (!spaHtml && env.SMARTPROXY_AUTH && (Date.now() - _debug.t0) < 20000) {
+                if (!spaHtml && env.SMARTPROXY_AUTH && (Date.now() - startTime) < WALL_LIMIT - 10000) {
                     const t = Date.now();
                     try {
                         spaHtml = await fetchViaSmartProxy(currentUrl, env, { headless: true });
@@ -964,6 +966,7 @@ async function handleScrapeAgency(request, env) {
             // ── Phase 3 : Pagination (suivre les pages suivantes) ────────────
             if (allAnnonces.length > 0 && method !== 'api') {
                 for (let page = 2; page <= maxPages; page++) {
+                    if (Date.now() - startTime > WALL_LIMIT - 5000) break; // garde temps
                     const nextUrl = findNextPageUrl(html, currentUrl, baseDomain);
                     if (!nextUrl) break;
                     currentUrl = nextUrl;
@@ -1283,7 +1286,7 @@ async function fetchViaSmartProxy(url, env, options = {}) {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-    }, 15000);
+    }, 10000);
 
     if (!response.ok) return null;
 
@@ -1303,7 +1306,7 @@ async function fetchViaBrightData(url, env, options = {}) {
     if (!env.BRIGHTDATA_API_KEY) return null;
 
     const MAX_RETRIES = 1;
-    const TIMEOUT = 20000; // 20s — compatible avec les limites Cloudflare Workers
+    const TIMEOUT = 12000; // 12s — garde du budget temps pour fallbacks
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {

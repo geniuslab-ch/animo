@@ -1621,6 +1621,7 @@ function extractAgencyListings(html, baseDomain, agencyName) {
         else if (/commercial|bureau|local\b/i.test(typeText)) type = 'commercial';
         else if (/parking|garage|box/i.test(typeText)) type = 'parking';
         else if (/immeuble|rendement|rapport\s+immobilier|locatif|placement\s+immobilier|investissement\s+immobilier/i.test(typeText)) type = 'building';
+        else if (/ferme|fermette|corps\s+de\s+ferme|rural|agricole|domaine\s+agricole/i.test(typeText)) type = 'farm';
 
         annonces.push({
             url: href,
@@ -1834,6 +1835,7 @@ function extractListingFromObject(item, baseDomain) {
     else if (/terrain|land|parcelle/i.test(typeStr)) type = 'land';
     else if (/commercial|bureau|office/i.test(typeStr)) type = 'commercial';
     else if (/immeuble|rendement|rapport\s+immobilier|locatif|placement\s+immobilier|investissement\s+immobilier|building/i.test(typeStr)) type = 'building';
+    else if (/ferme|fermette|corps\s+de\s+ferme|rural|agricole|domaine\s+agricole|farm/i.test(typeStr)) type = 'farm';
 
     const desc = (item.description || item.desc || item.summary || '').toString();
 
@@ -1895,6 +1897,7 @@ function extractFromJsonLd(item, baseDomain, agencyName) {
     else if (/parking|garage|box/i.test(nameText)) type = 'parking';
     else if (/commercial|bureau|local\b/i.test(nameText)) type = 'commercial';
     else if (/immeuble|rendement|rapport\s+immobilier|locatif|placement\s+immobilier|investissement\s+immobilier/i.test(nameText)) type = 'building';
+    else if (/ferme|fermette|corps\s+de\s+ferme|rural|agricole|domaine\s+agricole/i.test(nameText)) type = 'farm';
 
     const desc = item.description || '';
     return {

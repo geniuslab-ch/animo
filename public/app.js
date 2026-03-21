@@ -2413,7 +2413,7 @@ vs100Maison: { name: "100% Maison", listingsUrl: "https://100maison.com/achetez"
   frMurith: { name: "Murith Immobilier", listingsUrl: "https://www.murith-immobilier.ch/", canton: "fribourg" },
   frRegieBulle: { name: "Régie Bulle", listingsUrl: "https://www.regiebulle.ch/", canton: "fribourg" },
   frMorier: { name: "Morier Immobilier", listingsUrl: "https://www.morier-immobilier.ch/", canton: "fribourg" },
-  frBarnes: { name: "Barnes Bulle", listingsUrl: "https://www.barnes-suisse.ch/", canton: "fribourg" },
+  frBarnes: { name: "Barnes Bulle", listingsUrl: "https://www.barnes-suisse.ch/p2777-acheter.html", canton: "fribourg" },
   frConceptImmo: { name: "Concept Immo", listingsUrl: "https://conceptimmo.ch/properties-search/?status=a-vendre", canton: "fribourg" },
   frCfImmobilier: { name: "CF Immobilier", listingsUrl: "https://www.cfimmobilier.ch/", canton: "fribourg" },
   frProginGrangier: { name: "Progin-Grangier", listingsUrl: "https://www.progin-grangier.ch/nos-biens-en-vente", canton: "fribourg" },

@@ -60,7 +60,7 @@ function extractPropertyType(annonce) {
   if (/terrain|parcelle/.test(text)) return 'land';
   if (/commercial|bureau|local\b|dépôt|depot|entrepôt|entrepot|hangar|atelier/.test(text)) return 'commercial';
   if (/parking|garage|box/.test(text)) return 'parking';
-  if (/immeuble/.test(text)) return 'building';
+  if (/immeuble|rendement|rapport immobilier|locatif|placement immobilier|investissement immobilier/.test(text)) return 'building';
   return 'unknown';
 }
 
@@ -4583,7 +4583,7 @@ function censusApplyFilters() {
               land: /terrain|parcelle/,
               commercial: /commercial|bureau/,
               parking: /parking|garage/,
-              building: /immeuble/,
+              building: /immeuble|rendement|rapport immobilier|locatif|placement immobilier|investissement immobilier/,
             };
             const kw = typeKeywords[typeVal];
             if (!kw || !kw.test(searchText)) return false;
@@ -4646,7 +4646,7 @@ function censusApplyFilters() {
 
 const TYPE_LABELS = {
   apartment: 'Appartement', house: 'Maison/Villa', chalet: 'Chalet', land: 'Terrain',
-  commercial: 'Commercial', parking: 'Parking', building: 'Immeuble', unknown: '',
+  commercial: 'Commercial', parking: 'Parking', building: 'Immeuble de rendement', unknown: '',
 };
 
 function censusShowMore() {

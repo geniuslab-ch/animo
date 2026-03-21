@@ -1591,8 +1591,8 @@ function extractAgencyListings(html, baseDomain, agencyName) {
             image_url = imgM[1];
         }
 
-        // Extraire le type de bien
-        const typeText = (linkContent + ' ' + contextText).toLowerCase();
+        // Extraire le type de bien (inclure l'URL pour detecter /chalet/, /terrain/, etc.)
+        const typeText = (href + ' ' + linkContent + ' ' + contextText).toLowerCase();
         let type = 'unknown';
         if (/chalet/i.test(typeText)) type = 'chalet';
         else if (/maison|villa/i.test(typeText)) type = 'house';

@@ -4501,6 +4501,11 @@ function censusApplyFilters() {
   // Deduplication systematique (progressive + finale)
   const dedupedListings = deduplicateBiens(censusAllListings);
 
+  // Debug: distribution des types
+  const typeDist = {};
+  dedupedListings.forEach(a => { typeDist[a.type || 'NULL'] = (typeDist[a.type || 'NULL'] || 0) + 1; });
+  console.log('[census-filter] types:', typeDist, '| filter:', typeVal, '| mode:', mode, '| total:', dedupedListings.length);
+
   censusFiltered = dedupedListings.filter(a => {
     const npa = extractNPA(a.localisation);
     const region = npa ? getNPARegion(npa) : null;
@@ -4541,12 +4546,28 @@ function censusApplyFilters() {
       if (mode === 'restreinte') {
         if (!a.type || a.type !== typeVal) return false;
       } else {
-        // Elargi : types apparentés acceptés + unknown passe toujours
+        // Elargi : types apparentés + unknown passe + recherche textuelle en fallback
         if (a.type && a.type !== 'unknown' && a.type !== typeVal) {
           // chalet ↔ house sont apparentés
           const related = (typeVal === 'chalet' && a.type === 'house')
-            || (typeVal === 'house' && a.type === 'chalet');
-          if (!related) return false;
+            || (typeVal === 'house' && a.type === 'chalet')
+            || (typeVal === 'land' && a.type === 'house')
+            || (typeVal === 'house' && a.type === 'land');
+          if (!related) {
+            // Fallback textuel : chercher le mot-cle dans le titre/description/URL
+            const searchText = ((a.titre || '') + ' ' + (a.description || '') + ' ' + (a.url || '')).toLowerCase();
+            const typeKeywords = {
+              chalet: /chalet/,
+              house: /maison|villa|chalet/,
+              apartment: /appartement|appart\b/,
+              land: /terrain|parcelle/,
+              commercial: /commercial|bureau/,
+              parking: /parking|garage/,
+              building: /immeuble/,
+            };
+            const kw = typeKeywords[typeVal];
+            if (!kw || !kw.test(searchText)) return false;
+          }
         }
       }
     }

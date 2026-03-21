@@ -61,6 +61,7 @@ function extractPropertyType(annonce) {
   if (/commercial|bureau|local\b|dépôt|depot|entrepôt|entrepot|hangar|atelier/.test(text)) return 'commercial';
   if (/parking|garage|box/.test(text)) return 'parking';
   if (/immeuble|rendement|rapport immobilier|locatif|placement immobilier|investissement immobilier/.test(text)) return 'building';
+  if (/ferme|fermette|corps de ferme|rural|agricole|domaine agricole/.test(text)) return 'farm';
   return 'unknown';
 }
 
@@ -4572,7 +4573,9 @@ function censusApplyFilters() {
           const related = (typeVal === 'chalet' && a.type === 'house')
             || (typeVal === 'house' && a.type === 'chalet')
             || (typeVal === 'land' && a.type === 'house')
-            || (typeVal === 'house' && a.type === 'land');
+            || (typeVal === 'house' && a.type === 'land')
+            || (typeVal === 'farm' && (a.type === 'house' || a.type === 'chalet' || a.type === 'land'))
+            || ((typeVal === 'house' || typeVal === 'chalet') && a.type === 'farm');
           if (!related) {
             // Fallback textuel : chercher le mot-cle dans le titre/description/URL
             const searchText = ((a.titre || '') + ' ' + (a.description || '') + ' ' + (a.url || '')).toLowerCase();
@@ -4584,6 +4587,7 @@ function censusApplyFilters() {
               commercial: /commercial|bureau/,
               parking: /parking|garage/,
               building: /immeuble|rendement|rapport immobilier|locatif|placement immobilier|investissement immobilier/,
+              farm: /ferme|fermette|corps de ferme|rural|agricole|domaine agricole/,
             };
             const kw = typeKeywords[typeVal];
             if (!kw || !kw.test(searchText)) return false;
@@ -4646,7 +4650,7 @@ function censusApplyFilters() {
 
 const TYPE_LABELS = {
   apartment: 'Appartement', house: 'Maison/Villa', chalet: 'Chalet', land: 'Terrain',
-  commercial: 'Commercial', parking: 'Parking', building: 'Immeuble de rendement', unknown: '',
+  commercial: 'Commercial', parking: 'Parking', building: 'Immeuble de rendement', farm: 'Ferme', unknown: '',
 };
 
 function censusShowMore() {

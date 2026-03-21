@@ -2388,7 +2388,7 @@ vs100Maison: { name: "100% Maison", listingsUrl: "https://100maison.com/achetez"
   neTheSwatchGroupImmeubles: { name: "The Swatch Group Immeubles SA", listingsUrl: "https://swatchimmo.ch/", canton: "neuchatel" },
   neVernetsParcSwissSelectImmo: { name: "Vernets Parc – Swiss Select Immo SA", listingsUrl: "https://www.vernets-parc.ch/", canton: "neuchatel" },
   neVimova: { name: "Vimova", listingsUrl: "https://vimova.ch/fr/acheter/", canton: "neuchatel" },
-  nePIMM: { name: "PIMM", listingsUrl: "https://www.pimm.ch/fr/acheter", canton: "neuchatel" },
+  nePIMM: { name: "PIMM", listingsUrl: "https://www.pimm.ch/fr/objects/sale", canton: "neuchatel" },
   neFiduciaire: { name: "Fiduciaire-Gérance Raynaud Sàrl", listingsUrl: "https://www.fiduraynaud.ch/vente/", canton: "neuchatel" },
   neGimmobi: { name: "Gimmobi", listingsUrl: "https://gimmobi.ch/biens-a-vendre/", canton: "neuchatel" },
   neAgenceImmobiliereNeho: { name: "Agence immobilière Neho", listingsUrl: "https://neho.ch/fr/immobilier", canton: "neuchatel" },
@@ -2401,6 +2401,7 @@ vs100Maison: { name: "100% Maison", listingsUrl: "https://100maison.com/achetez"
   neAtticaImmobilier: { name: "ATTICA Immobilier", listingsUrl: "https://atticaimmobilier.ch/a-vendre-attica-essentiel/", canton: "neuchatel" },
   neAchatsImmobiliers: { name: "Achats immobiliers", listingsUrl: "https://achats-immobiliers.ch/fr/biens", canton: "neuchatel" },
   neVotreCourtier: { name: "Votre Courtier NE", listingsUrl: "https://votrecourtier.ch/tous-nos-biens/", canton: "neuchatel" },
+  neNaefPrestige: { name: "Naef Prestige | Knight Frank", listingsUrl: "https://www.naef-prestige.ch/vente-immobilier-luxe/all/all/?price_min=0&price_max=100000000&max_rooms=100&buttonid=1&offset=0&min_rooms=0", canton: "neuchatel" },
   // ── Fribourg ──────────────────────────────────────────────────────────────
   frNaef: { name: "Naef FR", listingsUrl: "https://www.naef.ch/", canton: "fribourg" },
   frVotreCourtier: { name: "Votre Courtier FR", listingsUrl: "https://votrecourtier.ch/tous-nos-biens/", canton: "fribourg" },
